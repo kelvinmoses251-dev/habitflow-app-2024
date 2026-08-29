@@ -217,8 +217,9 @@ function hideLoading() {
 // ── Onboarding ────────────────────────────────────────────
 function initOnboarding() {
   if (localStorage.getItem('habitly_seen')) return;
-  const ob    = document.getElementById('onboarding');
+  const ob     = document.getElementById('onboarding');
   ob.classList.remove('hidden');
+  ob.style.opacity = '1';
   const slides = [...ob.querySelectorAll('.slide')];
   const dots   = [...ob.querySelectorAll('.dot')];
   const next   = document.getElementById('onboarding-next');
@@ -232,6 +233,8 @@ function initOnboarding() {
     slides[cur].classList.add('active');
     dots[cur].classList.add('active');
     next.textContent = cur === slides.length - 1 ? 'Get Started 🚀' : 'Next →';
+    // Haptic pulse on slide change
+    if (navigator.vibrate) navigator.vibrate(30);
   }
 
   dots.forEach(d => d.addEventListener('click', () => go(+d.dataset.dot)));
@@ -245,6 +248,44 @@ function initOnboarding() {
     setTimeout(() => ob.classList.add('hidden'), 380);
   }
 }
+
+// ── All-Done Celebration ──────────────────────────────────
+function checkAllDone() {
+  const today = todayStr();
+  const todayHabits = allHabits.filter(h => {
+    if (!h.frequency || h.frequency === 'daily') return true;
+    return false; // only check daily habits for now
+  });
+  if (todayHabits.length === 0) return;
+  const allDone = todayHabits.every(h => (h.completedDates || []).includes(today));
+  if (!allDone) return;
+  // Only show once per day
+  const lastShown = localStorage.getItem('allDoneShown');
+  if (lastShown === today) return;
+  localStorage.setItem('allDoneShown', today);
+  setTimeout(() => {
+    const overlay = document.getElementById('all-done-overlay');
+    overlay.classList.remove('hidden');
+    // Mega confetti blast!
+    if (window.confetti) {
+      const end = Date.now() + 2500;
+      const colors = ['#7c3aed','#a78bfa','#f59e0b','#10b981','#3b82f6','#ec4899'];
+      (function frame() {
+        window.confetti({ particleCount: 6, angle: 60,  spread: 55, origin: { x: 0 }, colors });
+        window.confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      }());
+    }
+    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+  }, 600);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('all-done-close');
+  if (closeBtn) closeBtn.addEventListener('click', () => {
+    document.getElementById('all-done-overlay').classList.add('hidden');
+  });
+});
 
 // ── Router ────────────────────────────────────────────────
 function initRouter() {
@@ -386,7 +427,13 @@ function showAuth() {
   initOnboarding();
 }
 
-async function updateAvatars(user) {
+let userProfileUnsubscribe = null;
+
+function updateAvatars(user) {
+  if (userProfileUnsubscribe) {
+    userProfileUnsubscribe();
+  }
+
   const navAva  = document.getElementById('nav-avatar');
   const navInit = document.getElementById('nav-initials');
   const profAva = document.getElementById('profile-avatar');
@@ -396,26 +443,25 @@ async function updateAvatars(user) {
   const parts = name.trim().split(' ');
   const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || '');
 
-  let photoURL = user.photoURL;
-  try {
-    const docSnap = await getDoc(doc(db, 'users', user.uid));
+  userProfileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+    let photoURL = user.photoURL;
     if (docSnap.exists() && docSnap.data().avatar) {
       photoURL = docSnap.data().avatar;
     }
-  } catch (e) {
-    console.warn("Could not fetch custom avatar from Firestore", e);
-  }
-
-  if (photoURL) {
-    [navAva, profAva].forEach(el => { el.src = photoURL; el.classList.remove('hidden'); });
-    [navInit, profInit].forEach(el => el.classList.add('hidden'));
-  } else {
-    [navAva, profAva].forEach(el => el.classList.add('hidden'));
-    [navInit, profInit].forEach(el => {
-      el.textContent = initials.toUpperCase() || '?';
-      el.classList.remove('hidden');
-    });
-  }
+    
+    if (photoURL) {
+      [navAva, profAva].forEach(el => { el.src = photoURL; el.classList.remove('hidden'); });
+      [navInit, profInit].forEach(el => el.classList.add('hidden'));
+    } else {
+      [navAva, profAva].forEach(el => el.classList.add('hidden'));
+      [navInit, profInit].forEach(el => {
+        el.textContent = initials.toUpperCase() || '?';
+        el.classList.remove('hidden');
+      });
+    }
+  }, (err) => {
+    console.warn("Could not fetch custom avatar from Firestore", err);
+  });
 }
 
 // ── Profile Picture Cropper ───────────────────────────────
@@ -466,7 +512,7 @@ document.getElementById('crop-save').addEventListener('click', async () => {
   try {
     // Scale down drastically to keep the base64 string tiny
     const canvas = cropper.getCroppedCanvas({ width: 120, height: 120 });
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
     
     // Bypass Firebase Storage and Auth Limits and save directly to Firestore
     const userRef = doc(db, 'users', currentUser.uid);
@@ -763,12 +809,16 @@ document.getElementById('habits').addEventListener('click', async e => {
     const dateToRm= cb.dataset.date;
     const isDone  = cb.checked; // new state after click
     
+    // Haptic feedback on tick
+    if (navigator.vibrate) navigator.vibrate(isDone ? [40, 20, 40] : 40);
     // Slight delay to let the bouncy animation play
     setTimeout(async () => {
-      await toggleHabit(id, !isDone, dateToRm); // pass old state and the date to remove
+      await toggleHabit(id, !isDone, dateToRm);
       if (isDone) {
         toast('Great job! Habit completed 🎉', 'success');
         fireConfetti();
+        // Check if all habits for today are done
+        checkAllDone();
       }
     }, 350);
   }
@@ -1147,10 +1197,12 @@ async function syncUserStats() {
   let badgesCount = 0;
   
   allHabits.forEach(h => {
-    totalStreak += calcHabitStreak(h);
-    const completed = h.completedDates ? h.completedDates.length : 0;
-    const { level } = getBadge(completed);
-    badgesCount += level;
+    const habitStreak = calcHabitStreak(h);
+    totalStreak += habitStreak;
+    const badge = getUserBadge(habitStreak);
+    // Map badge name to a numeric level for storage
+    const badgeLevels = { 'Seedling': 1, 'Sprout': 2, 'Bronze': 3, 'Silver': 4, 'Gold': 5, 'Master': 6, 'Diamond': 7, 'Mystic': 8, 'Ascended': 9, 'Legend': 10 };
+    badgesCount += badgeLevels[badge.name] || 1;
   });
   
   try {

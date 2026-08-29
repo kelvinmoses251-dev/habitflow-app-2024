@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Habitly — Track your daily habits, build streaks, and grow every day." />
+  <title>Habitly — Build Better Habits</title>
+
+  <!-- Favicon (inline SVG) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237C3AED'/><path d='M28 52l16 16 28-32' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#7C3AED" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Cropper.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
+  <link rel="stylesheet" href="style.css?v=3" />
+</head>
+<body>
+
+<!-- ══ LOADING SCREEN ══════════════════════════════════════ -->
+<div id="loading-screen" class="loading-screen">
+  <svg class="loading-logo" width="60" height="60" viewBox="0 0 100 100" fill="none">
+    <rect width="100" height="100" rx="22" fill="url(#lg1)"/>
+    <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <defs>
+      <linearGradient id="lg1" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#9333EA"/><stop offset="1" stop-color="#6366F1"/></linearGradient>
+    </defs>
+  </svg>
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- ══ ONBOARDING ══════════════════════════════════════════ -->
+<div id="onboarding" class="onboarding hidden">
+  <div class="onboarding-inner">
+    <div class="onboarding-slides-wrap">
+
+      <div class="slide active" data-slide="0">
+        <div class="slide-illo">
+          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="110" cy="90" r="70" fill="#EDE9FF"/>
+            <rect x="62" y="58" width="96" height="14" rx="7" fill="#A78BFA"/>
+            <rect x="62" y="82" width="72" height="14" rx="7" fill="#C4B5FD"/>
+            <rect x="62" y="106" width="84" height="14" rx="7" fill="#DDD6FE"/>
+            <circle cx="48" cy="65" r="10" fill="#7C3AED"/>
+            <path d="M43 65l4 4 7-7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="48" cy="89" r="10" fill="#7C3AED"/>
+            <path d="M43 89l4 4 7-7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="48" cy="113" r="10" fill="#E5E7EB"/>
+          </svg>
+        </div>
+        <h2>Build Better Habits</h2>
+        <p>Track your daily habits across 10 life categories. Stay consistent and unlock your potential — one day at a time.</p>
+      </div>
+
+      <div class="slide" data-slide="1">
+        <div class="slide-illo">
+          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="20" y="120" width="28" height="60" rx="5" fill="#DDD6FE"/>
+            <rect x="60" y="90" width="28" height="90" rx="5" fill="#A78BFA"/>
+            <rect x="100" y="65" width="28" height="115" rx="5" fill="#7C3AED"/>
+            <rect x="140" y="100" width="28" height="80" rx="5" fill="#A78BFA"/>
+            <rect x="180" y="75" width="28" height="105" rx="5" fill="#7C3AED"/>
+            <path d="M34 55 Q90 20 114 38 Q158 10 194 28" stroke="#7C3AED" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <circle cx="194" cy="28" r="6" fill="#7C3AED"/>
+          </svg>
+        </div>
+        <h2>Track Your Streaks</h2>
+        <p>See your progress at a glance. Weekly charts, streaks, and category breakdowns keep you accountable and motivated.</p>
+      </div>
+
+      <div class="slide" data-slide="2">
+        <div class="slide-illo">
+          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="60" y="30" width="100" height="130" rx="18" fill="#EDE9FF"/>
+            <rect x="75" y="52" width="70" height="10" rx="5" fill="#A78BFA"/>
+            <rect x="75" y="70" width="50" height="7" rx="3.5" fill="#DDD6FE"/>
+            <rect x="75" y="100" width="70" height="36" rx="9" fill="#7C3AED"/>
+            <text x="110" y="123" text-anchor="middle" fill="white" font-size="12" font-family="Inter" font-weight="600">Allow</text>
+            <path d="M110 22 C110 22 124 24 126 36 L128 52 H92 L94 36 C96 24 110 22 110 22Z" fill="#7C3AED"/>
+            <rect x="105" y="52" width="10" height="5" rx="2.5" fill="#5B21B6"/>
+            <circle cx="110" cy="20" r="4" fill="#7C3AED"/>
+          </svg>
+        </div>
+        <h2>Get Daily Reminders</h2>
+        <p>Never miss a day. Enable push notifications and get a friendly nudge every morning to check your habits.</p>
+      </div>
+
+    </div>
+
+    <div class="onboarding-dots">
+      <span class="dot active" data-dot="0"></span>
+      <span class="dot" data-dot="1"></span>
+      <span class="dot" data-dot="2"></span>
+    </div>
+
+    <div class="onboarding-controls">
+      <button id="onboarding-skip" class="btn-ghost">Skip</button>
+      <button id="onboarding-next" class="btn-primary">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AUTH SCREEN ═════════════════════════════════════════ -->
+<div id="auth-screen" class="auth-screen hidden">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg width="48" height="48" viewBox="0 0 100 100" fill="none">
+        <rect width="100" height="100" rx="22" fill="url(#lg2)"/>
+        <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="lg2" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#9333EA"/><stop offset="1" stop-color="#6366F1"/></linearGradient></defs>
+      </svg>
+      <span class="brand-name">Habitly</span>
+    </div>
+    <h1>Welcome back</h1>
+    <p class="auth-sub">Sign in to start building better habits today</p>
+    <button id="login-btn" class="btn-google">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-divider"><span>or</span></div>
+    <form id="email-auth-form" class="email-auth-form">
+      <input type="email" id="auth-email" placeholder="Email address" required />
+      <input type="password" id="auth-password" placeholder="Password (min. 6 chars)" minlength="6" required />
+      <div class="auth-buttons">
+        <button type="button" id="email-signup-btn" class="btn-ghost">Sign Up</button>
+        <button type="submit" id="email-signin-btn" class="btn-primary">Sign In</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ════════════════════════════════════════════ -->
+<div id="app" class="app hidden">
+
+  <!-- Top Nav -->
+  <header class="topnav">
+    <div class="topnav-brand">
+      <svg width="30" height="30" viewBox="0 0 100 100" fill="none">
+        <rect width="100" height="100" rx="22" fill="url(#lg3)"/>
+        <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs><linearGradient id="lg3" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#9333EA"/><stop offset="1" stop-color="#6366F1"/></linearGradient></defs>
+      </svg>
+      <span class="brand-name">Habitly</span>
+    </div>
+    <nav class="topnav-links">
+      <a href="#home"    class="nav-link active" data-page="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Home</a>
+      <a href="#stats"   class="nav-link"        data-page="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 17v-4"/><path d="M12 17v-8"/><path d="M17 17V7"/></svg> Stats</a>
+      <a href="#profile" class="nav-link"        data-page="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+    </nav>
+    <div class="topnav-right">
+      <div class="avatar-wrap">
+        <img id="nav-avatar" class="avatar hidden" src="" alt="You" />
+        <span id="nav-initials" class="avatar-initials hidden"></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Pages -->
+  <main class="page-container">
+
+    <!-- ── HOME ───────────────────────────────────── -->
+    <section id="page-home" class="page active">
+      <div class="page-content">
+
+        <!-- Greeting -->
+        <div class="greeting-card">
+          <div>
+            <p class="greeting-time" id="greeting-time">Good morning</p>
+            <div style="display:flex; align-items:center; gap:var(--sp-2);">
+              <h1 class="greeting-name" id="greeting-name">Loading…</h1>
+              <span id="header-badge" class="badge-icon" style="font-size: 1.5rem;" title="Current Badge"></span>
+            </div>
+          </div>
+          <div class="streak-badge">
+            <span class="streak-fire">🔥</span>
+            <span id="greeting-streak" class="streak-num">0</span>
+            <span class="streak-lbl">day streak</span>
+          </div>
+        </div>
+
+        <!-- Add Habit -->
+        <div class="card">
+          <h2 class="card-title">Add a Habit</h2>
+          <form id="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-2);">
+            <input type="text" id="habit-input" placeholder="e.g. Drink 8 glasses of water" required autocomplete="off" />
+            <div style="display: flex; gap: var(--sp-2);">
+              <select id="habit-category" style="flex: 1;" required>
+                <option value="" disabled selected>Category</option>
+                <option value="health">Health</option>
+                <option value="mind">Mind</option>
+                <option value="social">Social</option>
+                <option value="growth">Growth</option>
+                <option value="productive">Productive</option>
+                <option value="nutrition">Nutrition</option>
+                <option value="fitness">Fitness</option>
+                <option value="reading">Reading</option>
+                <option value="saving">Saving</option>
+                <option value="relaxation">Relaxation</option>
+                <option value="project">Project</option>
+              </select>
+              <select id="habit-frequency" style="flex: 1;" required>
+                <option value="" disabled selected>Frequency</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary btn-full">+ Add Habit</button>
+          </form>
+        </div>
+
+        <!-- Habit List -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Today's Habits</h2>
+            <span id="today-date" class="today-date"></span>
+          </div>
+          <div class="progress-row">
+            <div class="progress-track"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
+            <span id="progress-label" class="progress-label">0 / 0</span>
+          </div>
+          <ul id="habits" class="habits-list"></ul>
+          <div id="empty-state" class="empty-state hidden">
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+              <circle cx="36" cy="36" r="34" fill="#EDE9FF"/>
+              <path d="M22 36h28M36 22v28" stroke="#A78BFA" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <p>No habits yet</p>
+            <span>Add your first habit above to get started 🌱</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── STATS ───────────────────────────────────── -->
+    <section id="page-stats" class="page">
+      <div class="page-content">
+        <h1 class="page-title">Statistics</h1>
+
+        <div class="stats-grid">
+          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span><span class="stat-val" id="stat-today">0/0</span><span class="stat-lbl">Today</span></div>
+          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span><span class="stat-val" id="stat-streak">0</span><span class="stat-lbl">Streak</span></div>
+          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span><span class="stat-val" id="stat-total">0</span><span class="stat-lbl">Total Done</span></div>
+          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span><span class="stat-val" id="stat-rate">0%</span><span class="stat-lbl">This Week</span></div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Weekly Completions</h2>
+          <div class="chart-wrap"><canvas id="weekly-chart"></canvas></div>
+        </div>
+        
+        <div class="card">
+          <h2 class="card-title">Consistency Heatmap (90 Days)</h2>
+          <div id="heatmap" class="heatmap-container"></div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">By Category</h2>
+          <div class="chart-wrap" style="height: 250px;"><canvas id="pie-chart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PROFILE ─────────────────────────────────── -->
+    <section id="page-profile" class="page">
+      <div class="page-content">
+        <h1 class="page-title">Profile</h1>
+
+        <div class="card profile-hero">
+          <div class="profile-ava-wrap" id="ava-upload-trigger">
+            <img id="profile-avatar" class="profile-ava hidden" src="" alt="Profile" />
+            <span id="profile-initials" class="profile-ava-initials hidden"></span>
+            <div class="ava-overlay"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+          </div>
+          <input type="file" id="ava-upload-input" accept="image/*" class="hidden" />
+          <div style="display:flex; align-items:center; justify-content:center; gap:var(--sp-2);">
+            <h2 id="profile-name" style="margin:0;">Loading…</h2>
+            <span id="profile-badge-icon" class="badge-icon" style="font-size: 1.5rem;" title="Current Badge"></span>
+          </div>
+          <p id="profile-badge-name" style="color: var(--primary); font-weight: bold; margin-bottom: 4px; margin-top: 0;"></p>
+          <p id="profile-email" class="profile-email">…</p>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Settings</h2>
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span><span class="setting-label">Daily reminders</span></div>
+              <label class="toggle"><input type="checkbox" id="notif-toggle"><span class="toggle-track"></span></label>
+            </div>
+            
+            <div class="setting-row" style="display: none;">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></span><span class="setting-label">Smart Sort (Done at bottom)</span></div>
+              <label class="toggle"><input type="checkbox" id="smart-sort-toggle" checked><span class="toggle-track"></span></label>
+            </div>
+            
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></span><span class="setting-label">Dark Mode</span></div>
+              <label class="toggle"><input type="checkbox" id="dark-mode-toggle"><span class="toggle-track"></span></label>
+            </div>
+            
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></span><span class="setting-label">Recently Deleted</span></div>
+              <button id="open-recovery-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem;">View</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></span><span class="setting-label">Export Data</span></div>
+              <button id="export-data-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem;">Download JSON</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg></span><span class="setting-label">Habits created</span></div>
+              <span id="s-habit-count" class="setting-val">0</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></span><span class="setting-label">Member since</span></div>
+              <span id="s-member-since" class="setting-val">…</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon" style="color:var(--danger)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></span><span class="setting-label text-danger" style="color:var(--danger)">Delete account</span></div>
+              <button id="delete-account-btn" class="btn-icon text-danger" style="color:var(--danger)" title="Delete account">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button id="logout-btn" class="btn-danger">Sign Out</button>
+        <p class="app-ver">Habitly v1.0.0 · Made with 💜</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Nav (mobile) -->
+  <nav class="bottomnav">
+    <a href="#home"    class="bn-item active" data-page="home">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="#stats"   class="bn-item" data-page="stats">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 17v-4"/><path d="M12 17v-8"/><path d="M17 17V7"/></svg>
+      <span>Stats</span>
+    </a>
+    <a href="#profile" class="bn-item" data-page="profile">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Profile</span>
+    </a>
+  </nav>
+
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- Crop Modal -->
+<div id="crop-modal" class="onboarding hidden" style="z-index:9999;">
+  <div class="card" style="width: 100%; max-width: 400px;">
+    <h2 class="card-title" style="margin-bottom: var(--sp-4);">Crop your picture</h2>
+    <div style="width: 100%; height: 300px; background: #eee; margin-bottom: var(--sp-4);">
+      <img id="crop-image" src="" style="display:block; max-width: 100%;" />
+    </div>
+    <div style="display: flex; gap: var(--sp-3);">
+      <button id="crop-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
+      <button id="crop-save" class="btn-primary" style="flex: 1;">Save Picture</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Habit Modal -->
+<div id="edit-modal" class="onboarding hidden" style="z-index:9999;">
+  <div class="card" style="width: 100%; max-width: 400px;">
+    <h2 class="card-title" style="margin-bottom: var(--sp-4);">Edit Habit</h2>
+    <form id="edit-habit-form" class="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-4);">
+      <input type="hidden" id="edit-habit-id" />
+      <input type="text" id="edit-habit-name" class="input" placeholder="e.g. Read 10 pages" required />
+      <div style="display: flex; gap: var(--sp-2);">
+        <select id="edit-habit-category" style="flex: 1;" required>
+          <option value="" disabled selected>Category</option>
+          <option value="health">Health</option>
+          <option value="mind">Mind</option>
+          <option value="social">Social</option>
+          <option value="growth">Growth</option>
+          <option value="productive">Productive</option>
+          <option value="nutrition">Nutrition</option>
+          <option value="fitness">Fitness</option>
+          <option value="reading">Reading</option>
+          <option value="saving">Saving</option>
+          <option value="relaxation">Relaxation</option>
+          <option value="project">Project</option>
+        </select>
+        <select id="edit-habit-frequency" style="flex: 1;" required>
+          <option value="" disabled selected>Frequency</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: var(--sp-3); margin-top: var(--sp-2);">
+        <button type="button" id="edit-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
+        <button type="submit" id="edit-save" class="btn-primary" style="flex: 1;">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Recovery Modal -->
+<div id="recovery-modal" class="onboarding hidden" style="z-index:9999;">
+  <div class="card" style="width: 100%; max-width: 400px; max-height: 80vh; display: flex; flex-direction: column;">
+    <h2 class="card-title" style="margin-bottom: var(--sp-2);">Recently Deleted</h2>
+    <p class="text-secondary" style="margin-bottom: var(--sp-4); font-size: 0.9rem;">Habits are permanently deleted after 1 hour.</p>
+    
+    <div id="deleted-habits-list" style="overflow-y: auto; flex-grow: 1; margin-bottom: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2);">
+      <!-- Rendered dynamically -->
+    </div>
+    
+    <button id="recovery-close" class="btn-ghost w-full">Close</button>
+  </div>
+</div>
+
+<!-- Timer Modal -->
+<div id="timer-modal" class="onboarding hidden" style="z-index:9999;">
+  <div class="card" style="width: 100%; max-width: 320px; display: flex; flex-direction: column; text-align: center; gap: var(--sp-4);">
+    <h2 class="card-title" style="margin: 0;">Focus Timer</h2>
+    <p id="timer-habit-name" class="text-secondary" style="margin: 0;">Habit Name</p>
+    
+    <div id="timer-display" style="font-size: 4rem; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums;">
+      25:00
+    </div>
+    
+    <div style="display: flex; gap: var(--sp-2); align-items: center; justify-content: center; margin-top: calc(var(--sp-2) * -1);">
+      <label for="timer-input" class="text-secondary" style="font-size: 0.9rem;">Duration (min):</label>
+      <input type="number" id="timer-input" value="25" min="1" max="120" style="width: 70px; text-align: center; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text); padding: var(--sp-1);"> 
+    </div>
+    
+    <div style="display: flex; gap: var(--sp-2);">
+      <button id="timer-close" class="btn-ghost" style="flex: 1;">Cancel</button>
+      <button id="timer-start" class="btn-primary" style="flex: 1;">Start</button>
+      <button id="timer-pause" class="btn-primary hidden" style="flex: 1;">Pause</button>
+    </div>
+  </div>
+</div>
+
+<!-- Habit Details Modal -->
+<div id="details-modal" class="onboarding hidden" style="z-index:9999;">
+  <div class="card" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: var(--sp-3);">
+    <h2 id="details-habit-name" class="card-title" style="margin: 0; font-size: 1.25rem;">Habit Name</h2>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface-2); padding: var(--sp-3); border-radius: var(--r-md);">
+      <div style="text-align: center;">
+        <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">Current Streak</p>
+        <h3 id="details-current-streak" style="margin: 0; color: var(--primary);">0</h3>
+      </div>
+      <div style="text-align: center;">
+        <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">Longest Streak</p>
+        <h3 id="details-longest-streak" style="margin: 0;">0</h3>
+      </div>
+      <div style="text-align: center;">
+        <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">Total Days</p>
+        <h3 id="details-total-days" style="margin: 0;">0</h3>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="font-size: 1rem; margin-bottom: var(--sp-2);">Daily Journal</h3>
+      <textarea id="details-journal-input" placeholder="Add a note for today..." style="width: 100%; height: 80px; padding: var(--sp-2); border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); resize: none; margin-bottom: var(--sp-2);"></textarea>
+      <button id="details-save-journal" class="btn-primary" style="width: 100%; padding: var(--sp-2);">Save Note</button>
+    </div>
+
+    <div style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-2);" id="details-journal-list">
+      <!-- Notes go here -->
+    </div>
+    
+    <button id="details-close" class="btn-ghost" style="width: 100%; margin-top: var(--sp-2);">Close</button>
+  </div>
+</div>
+
+
+
+<!-- Confetti Animation Library -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<script type="module" src="app.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "habit-tracker-scripts",
+  "version": "1.0.0",
+  "description": "Backend scripts for GitHub Actions automation",
+  "main": "send-reminders.js",
+  "dependencies": {
+    "firebase-admin": "^12.1.0"
+  },
+  "type": "commonjs"
+}

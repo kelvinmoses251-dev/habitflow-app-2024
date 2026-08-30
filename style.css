@@ -181,15 +181,18 @@ button { cursor: pointer; font-family: var(--font); }
 .all-done-card {
   background: var(--surface);
   border-radius: var(--r-xl);
-  padding: var(--sp-10) var(--sp-8);
+  padding: var(--sp-8) var(--sp-6) var(--sp-8);
   text-align: center;
-  max-width: 320px; width: 90%;
+  max-width: 340px; width: 90%;
   box-shadow: 0 24px 60px rgba(124,58,237,.35);
   animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .all-done-emoji {
-  font-size: 4rem;
-  margin-bottom: var(--sp-4);
+  font-size: 3.5rem;
+  margin-bottom: var(--sp-2);
   animation: spin 0.6s ease-out;
   display: block;
 }
@@ -197,9 +200,23 @@ button { cursor: pointer; font-family: var(--font); }
   font-size: 1.75rem; font-weight: 800;
   background: linear-gradient(135deg, #7c3aed, #a78bfa);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  margin-bottom: var(--sp-3);
+  margin-bottom: var(--sp-1);
 }
-.all-done-card p { color: var(--text-2); line-height: 1.6; margin-bottom: var(--sp-6); }
+.all-done-card p {
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: var(--sp-5);
+  font-size: 0.95rem;
+}
+.all-done-card #all-done-close {
+  width: 100%;
+  max-width: 200px;
+  padding: var(--sp-3) var(--sp-6);
+  border-radius: var(--r-full);
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.35);
+}
 @keyframes popIn {
   from { opacity: 0; transform: scale(0.7); }
   to   { opacity: 1; transform: scale(1); }

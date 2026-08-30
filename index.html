@@ -606,6 +606,28 @@
   </div>
 </div>
 
+<!-- Habit Check Confirmation Modal -->
+<div id="confirm-check-modal" class="onboarding hidden" style="z-index:9999;">
+  <div class="card" style="width: 100%; max-width: 380px; text-align: center; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-6);">
+    <div style="width: 56px; height: 56px; border-radius: var(--r-full); background: rgba(124, 58, 237, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.75rem;">
+      ✅
+    </div>
+    <div>
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 var(--sp-2);">Mark Habit Complete?</h2>
+      <p style="font-size: 0.95rem; color: var(--text-2); line-height: 1.5; margin: 0;">
+        Did you complete <strong id="confirm-habit-name" style="color: var(--text);">this habit</strong>?
+      </p>
+      <p style="font-size: 0.8rem; color: var(--text-3); margin-top: var(--sp-2);">
+        ⏳ <em>You'll have 1 hour to undo if needed.</em>
+      </p>
+    </div>
+    <div style="display: flex; gap: var(--sp-3); width: 100%;">
+      <button id="confirm-check-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
+      <button id="confirm-check-yes" class="btn-primary" style="flex: 1;">Yes, Done! 🎉</button>
+    </div>
+  </div>
+</div>
+
 
 
 <!-- Confetti Animation Library -->
@@ -614,6 +636,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=14"></script>
+<script type="module" src="app.js?v=15"></script>
 </body>
 </html>

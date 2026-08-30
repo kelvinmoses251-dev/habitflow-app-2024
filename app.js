@@ -959,49 +959,98 @@ document.getElementById('habits').addEventListener('click', async e => {
     openDetailsModal(h);
     return;
   }
-  // Toggle checkbox
-  const cb = e.target.closest('.habit-check');
-  if (cb) {
-    const id       = cb.dataset.id;
-    const dateToRm = cb.dataset.date;
-    const isDone   = cb.checked; // new state after click
+});
+// ── Habit Check Confirmation Modal Flow ────────────────────
+let pendingHabitCheck = null;
 
-    // If user is trying to uncheck a habit, check if it is locked (> 1 hour)
-    if (!isDone) {
-      const h = allHabits.find(x => x.id === id);
-      const completionTime = h?.completedTimestamps?.[dateToRm];
-      const nowMs = Date.now();
-      const isLocked = completionTime ? (nowMs - completionTime > 3600000) : (dateToRm !== todayStr());
+function openConfirmCheckModal(habit, dateToRm, checkboxEl) {
+  pendingHabitCheck = { id: habit.id, dateToRm, checkboxEl };
+  const nameEl = document.getElementById('confirm-habit-name');
+  if (nameEl) nameEl.textContent = `"${habit.name}"`;
+  const modal = document.getElementById('confirm-check-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.style.opacity = '1';
+  }
+}
 
-      if (isLocked) {
-        cb.checked = true; // Re-check the checkbox immediately
-        if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
-        toast('🔒 Habit is locked! Completed habits cannot be unchecked after 1 hour.', 'warning');
-        return;
-      }
-    }
+function closeConfirmCheckModal() {
+  if (pendingHabitCheck && pendingHabitCheck.checkboxEl) {
+    pendingHabitCheck.checkboxEl.checked = false;
+  }
+  pendingHabitCheck = null;
+  const modal = document.getElementById('confirm-check-modal');
+  if (modal) modal.classList.add('hidden');
+}
 
-    // Play sound immediately on user tap
-    if (isDone) {
+const confirmModal = document.getElementById('confirm-check-modal');
+if (confirmModal) {
+  const cancelBtn = document.getElementById('confirm-check-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeConfirmCheckModal);
+  confirmModal.addEventListener('click', (e) => {
+    if (e.target === confirmModal) closeConfirmCheckModal();
+  });
+
+  const yesBtn = document.getElementById('confirm-check-yes');
+  if (yesBtn) {
+    yesBtn.addEventListener('click', async () => {
+      if (!pendingHabitCheck) return;
+      const { id, dateToRm, checkboxEl } = pendingHabitCheck;
+      pendingHabitCheck = null;
+      confirmModal.classList.add('hidden');
+
+      if (checkboxEl) checkboxEl.checked = true;
       playPop();
-    } else {
-      playUncheck();
-    }
+      if (navigator.vibrate) navigator.vibrate([40, 20, 40]);
 
-    // Haptic feedback on tick
-    if (navigator.vibrate) navigator.vibrate(isDone ? [40, 20, 40] : 30);
-
-    // Slight delay to let the bouncy animation play
-    setTimeout(async () => {
-      await toggleHabit(id, !isDone, dateToRm);
-      if (isDone) {
+      setTimeout(async () => {
+        await toggleHabit(id, false, dateToRm);
         toast('Great job! Habit completed 🎉', 'success');
         fireConfetti();
-        // Check if all habits for today are completed
         checkAllDone(id);
-      }
-    }, 350);
+      }, 300);
+    });
   }
+}
+
+// ── Checkbox Click Handler with Confirmation ──────────────
+document.getElementById('habits').addEventListener('change', async e => {
+  const cb = e.target.closest('.habit-check');
+  if (!cb) return;
+
+  const id       = cb.dataset.id;
+  const dateToRm = cb.dataset.date;
+  const isDone   = cb.checked; // new state after user click
+
+  const h = allHabits.find(x => x.id === id);
+  if (!h) return;
+
+  if (isDone) {
+    // Always ask for confirmation before checking
+    cb.checked = false; // Revert until user confirms in modal
+    openConfirmCheckModal(h, dateToRm, cb);
+    return;
+  }
+
+  // If user is trying to uncheck a habit, check if it is locked (> 1 hour)
+  const completionTime = h?.completedTimestamps?.[dateToRm];
+  const nowMs = Date.now();
+  const isLocked = completionTime ? (nowMs - completionTime > 3600000) : (dateToRm !== todayStr());
+
+  if (isLocked) {
+    cb.checked = true; // Re-check the checkbox immediately
+    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+    toast('🔒 Habit is locked! Completed habits cannot be unchecked after 1 hour.', 'warning');
+    return;
+  }
+
+  // Unchecking within 1 hour allowed
+  playUncheck();
+  if (navigator.vibrate) navigator.vibrate(30);
+
+  setTimeout(async () => {
+    await toggleHabit(id, true, dateToRm);
+  }, 200);
 });
 
 // ── Double-click to Open Details ────────────────────────

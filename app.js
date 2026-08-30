@@ -27,42 +27,101 @@ if (localStorage.getItem('theme') === 'dark') {
   document.body.setAttribute('data-theme', 'dark');
 }
 
-// ── Audio Init ───────────────────────────────────────────
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-let audioCtx;
+// ── Audio Synthesizers ─────────────────────────────────────
+const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
 
-function playPop() {
-  if (!audioCtx) audioCtx = new AudioContext();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-  gain.gain.setValueAtTime(1, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-  osc.start(audioCtx.currentTime);
-  osc.stop(audioCtx.currentTime + 0.1);
+function getAudioContext() {
+  if (!audioCtx && AudioCtxClass) {
+    audioCtx = new AudioCtxClass();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+  return audioCtx;
 }
 
-function playChime() {
-  if (!audioCtx) audioCtx = new AudioContext();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { // C E G C
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+// Bouncy, satisfying checkbox check sound
+function playPop() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
-    gain.gain.setValueAtTime(0, audioCtx.currentTime + i * 0.1);
-    gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + i * 0.1 + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.5);
-    osc.start(audioCtx.currentTime + i * 0.1);
-    osc.stop(audioCtx.currentTime + i * 0.1 + 0.6);
-  });
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.exponentialRampToValueAtTime(920, now + 0.09);
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.13);
+  } catch (e) {
+    console.warn('playPop error:', e);
+  }
+}
+
+// Soft untick sound
+function playUncheck() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(580, now);
+    osc.frequency.exponentialRampToValueAtTime(300, now + 0.08);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.1);
+  } catch (e) {
+    console.warn('playUncheck error:', e);
+  }
+}
+
+// Full Celebration Chime (Joyful Major Arpeggio C5 -> E5 -> G5 -> C6 -> E6)
+function playChime() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+    const startNow = ctx.currentTime;
+
+    notes.forEach((freq, i) => {
+      const noteTime = startNow + i * 0.09;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, noteTime);
+
+      gain.gain.setValueAtTime(0.001, noteTime);
+      gain.gain.linearRampToValueAtTime(0.3, noteTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.65);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(noteTime);
+      osc.stop(noteTime + 0.7);
+    });
+  } catch (e) {
+    console.warn('playChime error:', e);
+  }
 }
 
 const db          = getFirestore(firebaseApp);
@@ -265,42 +324,60 @@ function initOnboarding(force = false) {
 }
 
 // ── All-Done Celebration ──────────────────────────────────
-function checkAllDone() {
+let isCelebrating = false;
+
+function checkAllDone(justCompletedId = null) {
   const today = todayStr();
-  const todayHabits = allHabits.filter(h => {
-    if (!h.frequency || h.frequency === 'daily') return true;
-    return false; // only check daily habits for now
+  const dailyHabits = allHabits.filter(h => !h.frequency || h.frequency === 'daily');
+  if (dailyHabits.length === 0) return;
+
+  const allDone = dailyHabits.every(h => {
+    const dates = h.completedDates || [];
+    if (dates.includes(today)) return true;
+    if (justCompletedId && h.id === justCompletedId) return true;
+    return false;
   });
-  if (todayHabits.length === 0) return;
-  const allDone = todayHabits.every(h => (h.completedDates || []).includes(today));
-  if (!allDone) return;
-  // Only show once per day
-  const lastShown = localStorage.getItem('allDoneShown');
-  if (lastShown === today) return;
-  localStorage.setItem('allDoneShown', today);
+
+  if (!allDone) {
+    sessionStorage.removeItem('allDoneCelebrated');
+    return;
+  }
+
+  // Prevent multiple overlapping triggers in the same moment
+  if (isCelebrating) return;
+  isCelebrating = true;
+  sessionStorage.setItem('allDoneCelebrated', today);
+
   setTimeout(() => {
+    playChime();
     const overlay = document.getElementById('all-done-overlay');
-    overlay.classList.remove('hidden');
+    if (overlay) overlay.classList.remove('hidden');
+
     // Mega confetti blast!
     if (window.confetti) {
       const end = Date.now() + 2500;
-      const colors = ['#7c3aed','#a78bfa','#f59e0b','#10b981','#3b82f6','#ec4899'];
+      const colors = ['#7c3aed', '#a78bfa', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
       (function frame() {
-        window.confetti({ particleCount: 6, angle: 60,  spread: 55, origin: { x: 0 }, colors });
+        window.confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors });
         window.confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors });
         if (Date.now() < end) requestAnimationFrame(frame);
       }());
     }
     if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
-  }, 600);
+    setTimeout(() => { isCelebrating = false; }, 3000);
+  }, 400);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const closeBtn = document.getElementById('all-done-close');
-  if (closeBtn) closeBtn.addEventListener('click', () => {
-    document.getElementById('all-done-overlay').classList.add('hidden');
+// Overlay dismiss listeners
+const allDoneOverlay = document.getElementById('all-done-overlay');
+if (allDoneOverlay) {
+  allDoneOverlay.addEventListener('click', (e) => {
+    const closeBtn = document.getElementById('all-done-close');
+    if (e.target === allDoneOverlay || e.target === closeBtn || (closeBtn && closeBtn.contains(e.target))) {
+      allDoneOverlay.classList.add('hidden');
+    }
   });
-});
+}
 
 // ── Router ────────────────────────────────────────────────
 function initRouter() {
@@ -843,20 +920,28 @@ document.getElementById('habits').addEventListener('click', async e => {
   // Toggle checkbox
   const cb = e.target.closest('.habit-check');
   if (cb) {
-    const id      = cb.dataset.id;
-    const dateToRm= cb.dataset.date;
-    const isDone  = cb.checked; // new state after click
-    
+    const id       = cb.dataset.id;
+    const dateToRm = cb.dataset.date;
+    const isDone   = cb.checked; // new state after click
+
+    // Play sound immediately on user tap
+    if (isDone) {
+      playPop();
+    } else {
+      playUncheck();
+    }
+
     // Haptic feedback on tick
-    if (navigator.vibrate) navigator.vibrate(isDone ? [40, 20, 40] : 40);
+    if (navigator.vibrate) navigator.vibrate(isDone ? [40, 20, 40] : 30);
+
     // Slight delay to let the bouncy animation play
     setTimeout(async () => {
       await toggleHabit(id, !isDone, dateToRm);
       if (isDone) {
         toast('Great job! Habit completed 🎉', 'success');
         fireConfetti();
-        // Check if all habits for today are done
-        checkAllDone();
+        // Check if all habits for today are completed
+        checkAllDone(id);
       }
     }, 350);
   }

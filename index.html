@@ -6,12 +6,14 @@
   <meta name="description" content="Habitly — Track your daily habits, build streaks, and grow every day." />
   <title>Habitly — Build Better Habits</title>
 
-  <!-- Favicon (inline SVG) -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237C3AED'/><path d='M28 52l16 16 28-32' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>" />
+  <!-- Favicon & Touch Icon -->
+  <link rel="icon" type="image/png" href="favicon.png?v=3" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=3" />
 
   <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7C3AED" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
 
   <!-- Google Fonts -->
@@ -26,17 +28,17 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=8" />
 </head>
 <body>
 
 <!-- ══ LOADING SCREEN ══════════════════════════════════════ -->
 <div id="loading-screen" class="loading-screen">
   <svg class="loading-logo" width="60" height="60" viewBox="0 0 100 100" fill="none">
-    <rect width="100" height="100" rx="22" fill="url(#lg1)"/>
+    <rect width="100" height="100" rx="24" fill="url(#lg1)"/>
     <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
     <defs>
-      <linearGradient id="lg1" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#9333EA"/><stop offset="1" stop-color="#6366F1"/></linearGradient>
+      <linearGradient id="lg1" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#8B5CF6"/><stop offset="1" stop-color="#6D28D9"/></linearGradient>
     </defs>
   </svg>
   <div class="loading-spinner"></div>

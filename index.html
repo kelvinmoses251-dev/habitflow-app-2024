@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=16" />
+  <link rel="stylesheet" href="style.css?v=17" />
 </head>
 <body>
 
@@ -786,81 +786,18 @@
 <!-- 📤 Share Progress Card Modal -->
 <div id="share-card-modal" class="onboarding hidden" style="z-index:10000;">
   <div class="card share-modal-container">
+    <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:330px;">
+      <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text);">Share Progress Story</h3>
+      <span style="font-size:0.8rem; font-weight:700; color:var(--primary); background:rgba(124,58,237,0.12); padding:2px 8px; border-radius:var(--r-full);">9:16 HD Story</span>
+    </div>
     
-    <!-- Renderable 9:16 Story Card for WhatsApp & Social Media -->
-    <div id="share-card-canvas-wrap" class="share-card-canvas">
-      
-      <!-- TOP SAFE ZONE: Brand & Verified Pill -->
-      <div class="share-story-top">
-        <div class="share-brand-pill">
-          <svg width="18" height="18" viewBox="0 0 100 100" fill="none">
-            <rect width="100" height="100" rx="26" fill="#8B5CF6"/>
-            <path d="M28 52l16 16 28-32" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span class="share-brand-name">HABITLY</span>
-        </div>
-        <span class="share-card-date" id="share-card-date">Aug 30, 2026</span>
-      </div>
-
-      <!-- USER PROFILE SPOTLIGHT -->
-      <div class="share-user-spotlight">
-        <div class="share-avatar-circle" id="share-card-avatar-wrap">
-          <span id="share-card-avatar-text">P</span>
-        </div>
-        <h3 class="share-user-name" id="share-card-name">Paul Tran</h3>
-        <div class="share-level-pill" id="share-card-level">Lv. 2 · Apprentice ⚡</div>
-      </div>
-
-      <!-- CENTER HERO: Massive 3D Vector Flame & Giant Streak -->
-      <div class="share-streak-hero-card">
-        <div class="share-fire-hero-wrap">
-          <svg class="share-fire-svg" width="90" height="90" viewBox="0 0 100 100" fill="none">
-            <path d="M50 5C50 5 62 25 62 40C62 43 61 47 59 50C65 44 70 36 70 36C70 36 82 52 82 68C82 85.67 67.67 100 50 100C32.33 100 18 85.67 18 68C18 48 34 26 50 5Z" fill="url(#fireGrad1)"/>
-            <path d="M50 35C50 35 58 48 58 58C58 60 57 63 55 65C60 61 64 55 64 55C64 55 72 66 72 76C72 88 62 96 50 96C38 96 28 88 28 76C28 62 40 48 50 35Z" fill="url(#fireGrad2)"/>
-            <path d="M50 60C50 60 55 68 55 75C55 80 50 86 50 86C50 86 45 80 45 75C45 68 50 60 50 60Z" fill="#FFFBEB"/>
-            <defs>
-              <linearGradient id="fireGrad1" x1="50" y1="5" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#FF4500"/>
-                <stop offset="0.5" stop-color="#FF9800"/>
-                <stop offset="1" stop-color="#FFC107"/>
-              </linearGradient>
-              <linearGradient id="fireGrad2" x1="50" y1="35" x2="50" y2="96" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#FFEE58"/>
-                <stop offset="1" stop-color="#FF9800"/>
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-        <div class="share-streak-number" id="share-card-streak-num">2</div>
-        <div class="share-streak-title">DAY STREAK CRUSHED 🔥</div>
-      </div>
-
-      <!-- CONSISTENCY STATS ROW -->
-      <div class="share-stats-pill-row">
-        <div class="share-stat-pill">
-          <span class="share-stat-val" id="share-card-habits-count">4</span>
-          <span class="share-stat-tag">Habits</span>
-        </div>
-        <div class="share-stat-pill">
-          <span class="share-stat-val" id="share-card-total-done">4</span>
-          <span class="share-stat-tag">Check-ins</span>
-        </div>
-        <div class="share-stat-pill">
-          <span class="share-stat-val" id="share-card-shields">1</span>
-          <span class="share-stat-tag">Shield 🛡️</span>
-        </div>
-      </div>
-
-      <!-- BOTTOM SAFE ZONE: Motivation & App Link -->
-      <div class="share-story-bottom">
-        <p class="share-quote">"Small daily habits compound into massive victories" 🚀</p>
-        <div class="share-footer-badge">✨ Habitly Tracker</div>
-      </div>
-
+    <!-- Direct High-Res Canvas (1080x1920) -->
+    <div class="share-canvas-container">
+      <canvas id="share-story-canvas" width="1080" height="1920"></canvas>
     </div>
 
     <!-- Action Buttons -->
-    <div style="display: flex; gap: var(--sp-2); width: 100%; max-width: 340px;">
+    <div style="display: flex; gap: var(--sp-2); width: 100%; max-width: 330px;">
       <button id="share-card-close" class="btn-ghost" style="flex: 1;">Close</button>
       <button id="share-card-download" class="btn-ghost" style="flex: 1; border: 1px solid var(--border);">Save 📥</button>
       <button id="share-card-share" class="btn-primary" style="flex: 1.2;">Share 📱</button>
@@ -876,6 +813,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=21"></script>
+<script type="module" src="app.js?v=22"></script>
 </body>
 </html>

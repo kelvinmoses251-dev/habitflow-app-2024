@@ -502,54 +502,314 @@ async function checkAndApplyStreakShield() {
   }
 }
 
-// ── Shareable Progress Cards ──────────────────────────────
-function openShareCardModal() {
-  if (!currentUser) return;
-  
-  const maxStreak = calcStreak(allHabits);
+// ── Shareable 9:16 Story Progress Canvas ─────────────────
+function drawRoundRect(ctx, x, y, width, height, radius, fillStyle = null, strokeStyle = null, lineWidth = 1) {
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, width, height, radius);
+  } else {
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+  if (fillStyle) {
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+  }
+  if (strokeStyle) {
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+  }
+}
+
+async function renderStoryCanvas() {
+  const canvas = document.getElementById('share-story-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 1080;
+  const H = 1920;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // 1. Background Base Gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#0a0520');
+  bgGrad.addColorStop(0.35, '#170b42');
+  bgGrad.addColorStop(0.7, '#1b0d4e');
+  bgGrad.addColorStop(1, '#08031a');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Ambient Radial Lighting Orbs
+  // Center purple glow
+  const purpleGlow = ctx.createRadialGradient(W / 2, 880, 50, W / 2, 880, 600);
+  purpleGlow.addColorStop(0, 'rgba(139, 92, 246, 0.45)');
+  purpleGlow.addColorStop(1, 'rgba(139, 92, 246, 0)');
+  ctx.fillStyle = purpleGlow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Top-right pink aura
+  const pinkGlow = ctx.createRadialGradient(880, 320, 20, 880, 320, 480);
+  pinkGlow.addColorStop(0, 'rgba(236, 72, 153, 0.28)');
+  pinkGlow.addColorStop(1, 'rgba(236, 72, 153, 0)');
+  ctx.fillStyle = pinkGlow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Center flame warm aura
+  const flameGlow = ctx.createRadialGradient(W / 2, 800, 30, W / 2, 800, 380);
+  flameGlow.addColorStop(0, 'rgba(255, 107, 0, 0.45)');
+  flameGlow.addColorStop(1, 'rgba(255, 107, 0, 0)');
+  ctx.fillStyle = flameGlow;
+  ctx.fillRect(0, 0, W, H);
+
+  // Bottom cyan aura
+  const cyanGlow = ctx.createRadialGradient(200, 1650, 20, 200, 1650, 450);
+  cyanGlow.addColorStop(0, 'rgba(14, 165, 233, 0.25)');
+  cyanGlow.addColorStop(1, 'rgba(14, 165, 233, 0)');
+  ctx.fillStyle = cyanGlow;
+  ctx.fillRect(0, 0, W, H);
+
+  // 3. TOP BAR: [✓] HABITLY (x: 100, y: 150) & DATE (x: 980, y: 180)
+  // Brand pill
+  drawRoundRect(ctx, 100, 140, 260, 68, 34, 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.2)', 2);
+  // Brand Icon square
+  drawRoundRect(ctx, 114, 150, 48, 48, 14, '#8B5CF6');
+  // Checkmark inside brand icon
+  ctx.beginPath();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.moveTo(126, 174);
+  ctx.lineTo(135, 184);
+  ctx.lineTo(151, 164);
+  ctx.stroke();
+
+  // Brand Name
+  ctx.font = '900 28px Inter, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'left';
+  ctx.fillText('HABITLY', 176, 184);
+
+  // Date
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+  ctx.font = '700 26px Inter, sans-serif';
+  ctx.fillStyle = '#CBD5E1';
+  ctx.textAlign = 'right';
+  ctx.fillText(dateStr, 980, 184);
+
+  // 4. USER PROFILE SPOTLIGHT
+  const name = (currentUser?.displayName || 'Habit Master').trim();
   const levelInfo = getLevelInfo(currentUserXP);
+  const maxStreak = calcStreak(allHabits);
   const totalDone = calcTotalDone(allHabits);
   const shieldCount = typeof userStreakShields === 'number' ? userStreakShields : 1;
 
-  const nameEl = document.getElementById('share-card-name');
-  if (nameEl) nameEl.textContent = currentUser.displayName || 'Habit Master';
+  // Avatar Circle at (540, 360, r: 75)
+  ctx.save();
+  ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
+  ctx.shadowBlur = 28;
+  ctx.beginPath();
+  ctx.arc(W / 2, 360, 75, 0, Math.PI * 2);
+  ctx.fillStyle = '#7C3AED';
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#C084FC';
+  ctx.stroke();
+  ctx.restore();
 
-  const levelEl = document.getElementById('share-card-level');
-  if (levelEl) levelEl.textContent = `Lv. ${levelInfo.level} · ${levelInfo.title} ${levelInfo.icon}`;
-
-  const streakNumEl = document.getElementById('share-card-streak-num');
-  if (streakNumEl) streakNumEl.textContent = maxStreak;
-
-  const habitsCountEl = document.getElementById('share-card-habits-count');
-  if (habitsCountEl) habitsCountEl.textContent = allHabits.length;
-
-  const totalDoneEl = document.getElementById('share-card-total-done');
-  if (totalDoneEl) totalDoneEl.textContent = totalDone;
-
-  const shieldsEl = document.getElementById('share-card-shields');
-  if (shieldsEl) shieldsEl.textContent = shieldCount;
-
-  const dateEl = document.getElementById('share-card-date');
-  if (dateEl) {
-    dateEl.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Avatar Image / Initial
+  let imgLoaded = false;
+  if (currentUser?.photoURL) {
+    try {
+      const userImg = new Image();
+      userImg.crossOrigin = 'anonymous';
+      userImg.src = currentUser.photoURL;
+      await new Promise((resolve) => {
+        userImg.onload = () => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(W / 2, 360, 72, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(userImg, W / 2 - 72, 360 - 72, 144, 144);
+          ctx.restore();
+          imgLoaded = true;
+          resolve();
+        };
+        userImg.onerror = () => resolve();
+        setTimeout(resolve, 800);
+      });
+    } catch(e) {}
   }
 
-  // Avatar inside card
-  const avatarWrap = document.getElementById('share-card-avatar-wrap');
-  if (avatarWrap) {
-    if (currentUser.photoURL) {
-      avatarWrap.innerHTML = `<img src="${currentUser.photoURL}" alt="User Avatar" crossorigin="anonymous" />`;
-    } else {
-      const initials = (currentUser.displayName || '?')[0].toUpperCase();
-      avatarWrap.innerHTML = `<span style="font-weight:800; font-size:1.4rem; color:#fff;">${initials}</span>`;
-    }
+  if (!imgLoaded) {
+    const initials = name[0]?.toUpperCase() || '?';
+    ctx.font = '900 68px Inter, sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(initials, W / 2, 360);
+    ctx.textBaseline = 'alphabetic';
   }
 
+  // User Name
+  ctx.font = '900 52px Inter, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.fillText(name, W / 2, 500);
+
+  // Level Pill
+  const levelText = `Lv. ${levelInfo.level} · ${levelInfo.title} ${levelInfo.icon}`;
+  ctx.font = '700 28px Inter, sans-serif';
+  const levelWidth = ctx.measureText(levelText).width + 60;
+  drawRoundRect(ctx, W / 2 - levelWidth / 2, 530, levelWidth, 58, 29, 'rgba(168, 85, 247, 0.3)', 'rgba(192, 132, 252, 0.5)', 2);
+  ctx.fillStyle = '#F3E8FF';
+  ctx.fillText(levelText, W / 2, 570);
+
+  // 5. CENTER HERO CARD: (x: 100, y: 640, w: 880, h: 580, r: 40)
+  drawRoundRect(ctx, 100, 640, 880, 580, 40, 'rgba(255, 255, 255, 0.07)', 'rgba(255, 255, 255, 0.18)', 2.5);
+
+  // Draw Glowing Flame at (x: 540, y: 680 to 860)
+  ctx.save();
+  ctx.translate(W / 2, 680);
+  ctx.scale(1.8, 1.8);
+  ctx.translate(-50, 0);
+
+  // Flame outer
+  const fGrad1 = ctx.createLinearGradient(50, 0, 50, 100);
+  fGrad1.addColorStop(0, '#FF4500');
+  fGrad1.addColorStop(0.5, '#FF9800');
+  fGrad1.addColorStop(1, '#FFC107');
+
+  ctx.beginPath();
+  ctx.moveTo(50, 5);
+  ctx.bezierCurveTo(50, 5, 62, 25, 62, 40);
+  ctx.bezierCurveTo(62, 43, 61, 47, 59, 50);
+  ctx.bezierCurveTo(65, 44, 70, 36, 70, 36);
+  ctx.bezierCurveTo(70, 36, 82, 52, 82, 68);
+  ctx.bezierCurveTo(82, 85.67, 67.67, 100, 50, 100);
+  ctx.bezierCurveTo(32.33, 100, 18, 85.67, 18, 68);
+  ctx.bezierCurveTo(18, 48, 34, 26, 50, 5);
+  ctx.closePath();
+  ctx.fillStyle = fGrad1;
+  ctx.shadowColor = 'rgba(255, 100, 0, 0.8)';
+  ctx.shadowBlur = 30;
+  ctx.fill();
+
+  // Flame inner yellow
+  const fGrad2 = ctx.createLinearGradient(50, 35, 50, 96);
+  fGrad2.addColorStop(0, '#FFEE58');
+  fGrad2.addColorStop(1, '#FF9800');
+  ctx.beginPath();
+  ctx.moveTo(50, 35);
+  ctx.bezierCurveTo(50, 35, 58, 48, 58, 58);
+  ctx.bezierCurveTo(58, 60, 57, 63, 55, 65);
+  ctx.bezierCurveTo(60, 61, 64, 55, 64, 55);
+  ctx.bezierCurveTo(64, 55, 72, 66, 72, 76);
+  ctx.bezierCurveTo(72, 88, 62, 96, 50, 96);
+  ctx.bezierCurveTo(38, 96, 28, 88, 28, 76);
+  ctx.bezierCurveTo(28, 62, 40, 48, 50, 35);
+  ctx.closePath();
+  ctx.fillStyle = fGrad2;
+  ctx.shadowBlur = 0;
+  ctx.fill();
+
+  // Flame center white hot
+  ctx.beginPath();
+  ctx.moveTo(50, 60);
+  ctx.bezierCurveTo(50, 60, 55, 68, 55, 75);
+  ctx.bezierCurveTo(55, 80, 50, 86, 50, 86);
+  ctx.bezierCurveTo(50, 86, 45, 80, 45, 75);
+  ctx.bezierCurveTo(45, 68, 50, 60, 50, 60);
+  ctx.closePath();
+  ctx.fillStyle = '#FFFBEB';
+  ctx.fill();
+
+  ctx.restore();
+
+  // Giant Streak Number (Y: 1040)
+  ctx.font = '900 150px Inter, system-ui, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = 'rgba(255, 150, 0, 0.7)';
+  ctx.shadowBlur = 35;
+  ctx.fillText(String(maxStreak), W / 2, 1050);
+  ctx.shadowBlur = 0;
+
+  // Streak Subtitle (Y: 1140)
+  ctx.font = '900 36px Inter, sans-serif';
+  ctx.fillStyle = '#FBBF24';
+  ctx.fillText('DAY STREAK CRUSHED 🔥', W / 2, 1135);
+
+  // 6. THREE CONSISTENCY STAT PILLS (Y: 1270, H: 200)
+  const statCardW = 270;
+  const statCardH = 200;
+  const statCardY = 1270;
+  const col1X = 100;
+  const col2X = 405;
+  const col3X = 710;
+
+  // Col 1: Habits
+  drawRoundRect(ctx, col1X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
+  ctx.font = '900 58px Inter, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.fillText(String(allHabits.length), col1X + statCardW / 2, statCardY + 95);
+  ctx.font = '700 26px Inter, sans-serif';
+  ctx.fillStyle = '#CBD5E1';
+  ctx.fillText('🎯 Habits', col1X + statCardW / 2, statCardY + 155);
+
+  // Col 2: Check-ins
+  drawRoundRect(ctx, col2X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
+  ctx.font = '900 58px Inter, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(String(totalDone), col2X + statCardW / 2, statCardY + 95);
+  ctx.font = '700 26px Inter, sans-serif';
+  ctx.fillStyle = '#CBD5E1';
+  ctx.fillText('✅ Check-ins', col2X + statCardW / 2, statCardY + 155);
+
+  // Col 3: Shields
+  drawRoundRect(ctx, col3X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
+  ctx.font = '900 58px Inter, sans-serif';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(String(shieldCount), col3X + statCardW / 2, statCardY + 95);
+  ctx.font = '700 26px Inter, sans-serif';
+  ctx.fillStyle = '#CBD5E1';
+  ctx.fillText('🛡️ Shields', col3X + statCardW / 2, statCardY + 155);
+
+  // 7. BOTTOM SAFE ZONE (Y: 1570 to 1750)
+  // Quote
+  ctx.font = 'italic 600 32px Inter, sans-serif';
+  ctx.fillStyle = '#F1F5F9';
+  ctx.textAlign = 'center';
+  ctx.fillText('"Small daily habits compound into massive victories" 🚀', W / 2, 1600);
+
+  // Footer Branding Pill
+  drawRoundRect(ctx, W / 2 - 200, 1660, 400, 68, 34, 'rgba(124, 58, 237, 0.3)', 'rgba(168, 85, 247, 0.5)', 2);
+  ctx.font = '800 28px Inter, sans-serif';
+  ctx.fillStyle = '#E9D5FF';
+  ctx.fillText('✨ Habitly Tracker App', W / 2, 1704);
+}
+
+async function openShareCardModal() {
+  if (!currentUser) return;
+  
   const modal = document.getElementById('share-card-modal');
   if (modal) {
     modal.classList.remove('hidden');
     modal.style.opacity = '1';
   }
+
+  // Render high-definition story canvas
+  await renderStoryCanvas();
 }
 
 function closeShareCardModal() {
@@ -572,36 +832,33 @@ if (shareModalEl) {
   });
 }
 
-// Download Card as PNG
-document.getElementById('share-card-download')?.addEventListener('click', async () => {
-  const cardEl = document.getElementById('share-card-canvas-wrap');
-  if (!cardEl || !window.html2canvas) return;
+// Download Card as PNG directly from Canvas
+document.getElementById('share-card-download')?.addEventListener('click', () => {
+  const canvas = document.getElementById('share-story-canvas');
+  if (!canvas) return;
 
   try {
-    toast('Preparing image...', 'info');
-    const canvas = await window.html2canvas(cardEl, { scale: 3, backgroundColor: '#1e1b4b', useCORS: true, logging: false });
     const link = document.createElement('a');
-    link.download = `habitly-streak-${new Date().toISOString().slice(0, 10)}.png`;
+    link.download = `habitly-streak-story-${new Date().toISOString().slice(0, 10)}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    toast('Streak card saved! 📥', 'success');
+    toast('Streak story saved in Full HD! 📥', 'success');
   } catch (err) {
-    console.error('Download card error:', err);
+    console.error('Download canvas error:', err);
     toast('Could not save image: ' + err.message, 'error');
   }
 });
 
-// Share Card via Web Share API
-document.getElementById('share-card-share')?.addEventListener('click', async () => {
-  const cardEl = document.getElementById('share-card-canvas-wrap');
-  if (!cardEl || !window.html2canvas) return;
+// Share Card via Web Share API directly from Canvas
+document.getElementById('share-card-share')?.addEventListener('click', () => {
+  const canvas = document.getElementById('share-story-canvas');
+  if (!canvas) return;
 
   try {
     toast('Opening share...', 'info');
-    const canvas = await window.html2canvas(cardEl, { scale: 3, backgroundColor: '#1e1b4b', useCORS: true, logging: false });
     canvas.toBlob(async (blob) => {
       if (blob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'streak.png', { type: 'image/png' })] })) {
-        const file = new File([blob], 'habitly-streak.png', { type: 'image/png' });
+        const file = new File([blob], 'habitly-streak-story.png', { type: 'image/png' });
         await navigator.share({
           title: 'My Habitly Streak',
           text: `Check out my daily consistency on Habitly! 🔥`,
@@ -614,14 +871,14 @@ document.getElementById('share-card-share')?.addEventListener('click', async () 
         });
       } else {
         const link = document.createElement('a');
-        link.download = `habitly-streak-${new Date().toISOString().slice(0, 10)}.png`;
+        link.download = `habitly-streak-story-${new Date().toISOString().slice(0, 10)}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
         toast('Card saved to your device! 📸', 'success');
       }
-    });
+    }, 'image/png');
   } catch (err) {
-    console.error('Share card error:', err);
+    console.error('Share canvas error:', err);
   }
 });
 

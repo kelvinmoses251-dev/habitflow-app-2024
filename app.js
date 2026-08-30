@@ -203,7 +203,10 @@ function getFirstName(user) {
   return n.split(' ')[0].split('@')[0];
 }
 
-// ── Stats Helpers ─────────────────────────────────────────
+// ── Stats Helpers & Streak Shield ────────────────────────
+let userStreakShields = 1;
+let userFrozenDates = [];
+
 function calcStreak(habits) {
   // Global max streak across all individual habits
   if (!habits || !habits.length) return 0;
@@ -212,14 +215,19 @@ function calcStreak(habits) {
 
 function calcHabitStreak(habit) {
   const dates = new Set(habit.completedDates || []);
+  const frozen = new Set(userFrozenDates || []);
   let streak = 0;
   const d = new Date();
   
-  if (!dates.has(todayStr())) d.setDate(d.getDate() - 1);
+  if (!dates.has(todayStr()) && !frozen.has(todayStr())) d.setDate(d.getDate() - 1);
   while (true) {
     const ds = d.toISOString().split('T')[0];
-    if (dates.has(ds)) { streak++; d.setDate(d.getDate() - 1); }
-    else break;
+    if (dates.has(ds) || frozen.has(ds)) { 
+      streak++; 
+      d.setDate(d.getDate() - 1); 
+    } else {
+      break;
+    }
   }
   return streak;
 }
@@ -443,6 +451,177 @@ async function addXP(amount, targetEl = null) {
     }, 600);
   }
 }
+
+// ── Streak Shield Management ──────────────────────────────
+function updateStreakShieldUI() {
+  const shieldBadge = document.getElementById('greeting-shield-badge');
+  const shieldCount = document.getElementById('greeting-shield-count');
+  if (shieldCount) shieldCount.textContent = userStreakShields;
+  if (shieldBadge) {
+    if (userStreakShields > 0) {
+      shieldBadge.style.display = 'inline-flex';
+    } else {
+      shieldBadge.style.display = 'none';
+    }
+  }
+  const sShields = document.getElementById('s-streak-shields');
+  if (sShields) {
+    sShields.textContent = userStreakShields > 0 ? `${userStreakShields} Active 🛡️` : '0 Active (Recharges Weekly)';
+  }
+}
+
+async function checkAndApplyStreakShield() {
+  if (!currentUser || userStreakShields <= 0 || allHabits.length === 0) return;
+  
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const yesterdayStr = y.toISOString().split('T')[0];
+
+  if (userFrozenDates.includes(yesterdayStr)) return; // already protected
+
+  // Check if user completed ANY habit yesterday
+  const completedAnyYesterday = allHabits.some(h => (h.completedDates || []).includes(yesterdayStr));
+  
+  if (!completedAnyYesterday) {
+    // Yesterday was missed! Auto-consume 1 shield to protect streak!
+    userStreakShields--;
+    userFrozenDates.push(yesterdayStr);
+
+    try {
+      await setDoc(doc(db, 'users', currentUser.uid), {
+        streakShields: userStreakShields,
+        frozenDates: userFrozenDates
+      }, { merge: true });
+
+      toast('🛡️ Streak Freeze activated! Your daily streak was protected.', 'info', 5000);
+      updateStreakShieldUI();
+      renderHabits();
+    } catch (e) {
+      console.warn("Error updating streak shield:", e);
+    }
+  }
+}
+
+// ── Shareable Progress Cards ──────────────────────────────
+function openShareCardModal() {
+  if (!currentUser) return;
+  
+  const maxStreak = calcStreak(allHabits);
+  const levelInfo = getLevelInfo(currentUserXP);
+  const totalDone = calcTotalDone(allHabits);
+
+  const nameEl = document.getElementById('share-card-name');
+  if (nameEl) nameEl.textContent = currentUser.displayName || 'Habit Master';
+
+  const levelEl = document.getElementById('share-card-level');
+  if (levelEl) levelEl.textContent = `Lv. ${levelInfo.level} · ${levelInfo.title} ${levelInfo.icon}`;
+
+  const streakEl = document.getElementById('share-card-streak');
+  if (streakEl) streakEl.textContent = `${maxStreak} Day${maxStreak === 1 ? '' : 's'}`;
+
+  const habitsCountEl = document.getElementById('share-card-habits-count');
+  if (habitsCountEl) habitsCountEl.textContent = allHabits.length;
+
+  const totalDoneEl = document.getElementById('share-card-total-done');
+  if (totalDoneEl) totalDoneEl.textContent = totalDone;
+
+  const shieldsEl = document.getElementById('share-card-shields');
+  if (shieldsEl) shieldsEl.textContent = `🛡️ ${userStreakShields}`;
+
+  const dateEl = document.getElementById('share-card-date');
+  if (dateEl) {
+    dateEl.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // Avatar inside card
+  const avatarWrap = document.getElementById('share-card-avatar-wrap');
+  if (avatarWrap) {
+    if (currentUser.photoURL) {
+      avatarWrap.innerHTML = `<img src="${currentUser.photoURL}" alt="User Avatar" />`;
+    } else {
+      const initials = (currentUser.displayName || '?')[0].toUpperCase();
+      avatarWrap.innerHTML = `<span style="font-weight:800; font-size:1.4rem;">${initials}</span>`;
+    }
+  }
+
+  const modal = document.getElementById('share-card-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.style.opacity = '1';
+  }
+}
+
+function closeShareCardModal() {
+  const modal = document.getElementById('share-card-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+document.getElementById('open-share-trigger')?.addEventListener('click', openShareCardModal);
+document.getElementById('all-done-share')?.addEventListener('click', () => {
+  const overlay = document.getElementById('all-done-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  openShareCardModal();
+});
+document.getElementById('share-card-close')?.addEventListener('click', closeShareCardModal);
+
+const shareModalEl = document.getElementById('share-card-modal');
+if (shareModalEl) {
+  shareModalEl.addEventListener('click', (e) => {
+    if (e.target === shareModalEl) closeShareCardModal();
+  });
+}
+
+// Download Card as PNG
+document.getElementById('share-card-download')?.addEventListener('click', async () => {
+  const cardEl = document.getElementById('share-card-canvas-wrap');
+  if (!cardEl || !window.html2canvas) return;
+
+  try {
+    toast('Preparing image...', 'info');
+    const canvas = await window.html2canvas(cardEl, { scale: 2, backgroundColor: null, useCORS: true });
+    const link = document.createElement('a');
+    link.download = `habitly-streak-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    toast('Streak card saved! 📥', 'success');
+  } catch (err) {
+    console.error('Download card error:', err);
+    toast('Could not save image: ' + err.message, 'error');
+  }
+});
+
+// Share Card via Web Share API
+document.getElementById('share-card-share')?.addEventListener('click', async () => {
+  const cardEl = document.getElementById('share-card-canvas-wrap');
+  if (!cardEl || !window.html2canvas) return;
+
+  try {
+    const canvas = await window.html2canvas(cardEl, { scale: 2, backgroundColor: null, useCORS: true });
+    canvas.toBlob(async (blob) => {
+      if (blob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'streak.png', { type: 'image/png' })] })) {
+        const file = new File([blob], 'habitly-streak.png', { type: 'image/png' });
+        await navigator.share({
+          title: 'My Habitly Streak',
+          text: `Check out my daily consistency on Habitly! 🔥`,
+          files: [file]
+        });
+      } else if (navigator.share) {
+        await navigator.share({
+          title: 'My Habitly Streak',
+          text: `Check out my daily consistency on Habitly! 🔥 https://habit-tracker-demo-34c0a.web.app`
+        });
+      } else {
+        const link = document.createElement('a');
+        link.download = `habitly-streak-${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        toast('Card saved to your device! 📸', 'success');
+      }
+    });
+  } catch (err) {
+    console.error('Share card error:', err);
+  }
+});
 
 function calcTotalDone(habits) {
   return habits.reduce((s, h) => s + (h.completedDates?.length || 0), 0);
@@ -776,6 +955,13 @@ function updateAvatars(user) {
         currentUserXP = uData.xp;
         updateXPUI();
       }
+      if (typeof uData.streakShields === 'number') {
+        userStreakShields = uData.streakShields;
+      }
+      if (Array.isArray(uData.frozenDates)) {
+        userFrozenDates = uData.frozenDates;
+      }
+      updateStreakShieldUI();
     }
     
     if (photoURL) {
@@ -960,6 +1146,8 @@ function subscribeToHabits() {
       }
     }
     updateXPUI();
+    checkAndApplyStreakShield();
+    updateStreakShieldUI();
 
     if (location.hash === '#stats') renderStats();
     if (location.hash === '#profile') renderProfile();
@@ -1691,6 +1879,8 @@ function renderProfile() {
   document.getElementById('s-habit-count').textContent = allHabits.length;
   const since = new Date(currentUser.metadata.creationTime);
   document.getElementById('s-member-since').textContent = since.toLocaleDateString('en', { month: 'short', year: 'numeric' });
+  updateXPUI();
+  updateStreakShieldUI();
 }
 
 // Settings events

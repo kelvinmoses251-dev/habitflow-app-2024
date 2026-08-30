@@ -28,11 +28,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
+  <!-- html2canvas for Shareable Progress Cards -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <!-- Cropper.js -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
 
@@ -225,7 +228,10 @@
     </div>
     <h2>All Done!</h2>
     <p>You crushed every habit today.<br/>You're unstoppable! 💪</p>
-    <button id="all-done-close" class="btn-primary">Keep it up!</button>
+    <div style="display:flex; flex-direction:column; gap:var(--sp-2); width:100%; align-items:center;">
+      <button id="all-done-close" class="btn-primary" style="width:100%; max-width:220px;">Keep it up!</button>
+      <button id="all-done-share" class="btn-ghost" style="width:100%; max-width:220px; font-weight:700; color:var(--primary); font-size:0.9rem; padding:var(--sp-2);">Share Progress 📤</button>
+    </div>
   </div>
 </div>
 
@@ -300,10 +306,15 @@
               <span id="header-badge" class="badge-icon" style="font-size: 1.5rem;" title="Current Badge"></span>
             </div>
           </div>
-          <div class="streak-badge">
-            <span class="streak-fire">🔥</span>
-            <span id="greeting-streak" class="streak-num">0</span>
-            <span class="streak-lbl">day streak</span>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:var(--sp-2);">
+            <div class="streak-badge" id="open-share-trigger" style="cursor:pointer;" title="Tap to Share Your Streak Card 📤">
+              <span class="streak-fire">🔥</span>
+              <span id="greeting-streak" class="streak-num">0</span>
+              <span class="streak-lbl">day streak</span>
+            </div>
+            <div id="greeting-shield-badge" class="shield-badge-pill" title="Streak Freeze Shield active">
+              🛡️ <span id="greeting-shield-count">1</span> Shield
+            </div>
           </div>
         </div>
 
@@ -524,6 +535,11 @@
             <div class="setting-row">
               <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span><span class="setting-label">Export Data</span></div>
               <button id="export-data-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem; color: var(--primary);">Download PDF</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon">🛡️</span><span class="setting-label">Streak Freeze Shields</span></div>
+              <span id="s-streak-shields" class="setting-val" style="color:#0ea5e9; font-weight:700;">1 Active</span>
             </div>
 
             <div class="setting-row">
@@ -767,6 +783,70 @@
   </div>
 </div>
 
+<!-- 📤 Share Progress Card Modal -->
+<div id="share-card-modal" class="onboarding hidden" style="z-index:10000;">
+  <div class="card" style="width: 100%; max-width: 380px; text-align: center; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-5);">
+    
+    <!-- Renderable Card for Export & Sharing -->
+    <div id="share-card-canvas-wrap" class="share-card-canvas">
+      <div class="share-card-header">
+        <div class="share-card-brand">
+          <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+            <rect width="100" height="100" rx="24" fill="#8B5CF6"/>
+            <path d="M28 52l16 16 28-32" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="share-brand-name">Habitly</span>
+        </div>
+        <span class="share-card-date" id="share-card-date">Today</span>
+      </div>
+
+      <div class="share-card-body">
+        <div class="share-avatar-circle" id="share-card-avatar-wrap">
+          <span id="share-card-avatar-text">👤</span>
+        </div>
+        <h3 class="share-user-name" id="share-card-name">Kelvin</h3>
+        <p class="share-user-level" id="share-card-level">Lv. 4 · Consistent 🔥</p>
+
+        <!-- Big Streak Hero Box -->
+        <div class="share-streak-box">
+          <span class="share-streak-fire">🔥</span>
+          <div class="share-streak-details">
+            <h2 id="share-card-streak">14 Days</h2>
+            <p>Active Habit Streak</p>
+          </div>
+        </div>
+
+        <!-- Mini Stats Grid -->
+        <div class="share-stats-grid">
+          <div class="share-stat-col">
+            <span class="share-stat-num" id="share-card-habits-count">5</span>
+            <span class="share-stat-lbl">Habits</span>
+          </div>
+          <div class="share-stat-col">
+            <span class="share-stat-num" id="share-card-total-done">42</span>
+            <span class="share-stat-lbl">Check-ins</span>
+          </div>
+          <div class="share-stat-col">
+            <span class="share-stat-num" id="share-card-shields">🛡️ 1</span>
+            <span class="share-stat-lbl">Shields</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="share-card-footer">
+        <span class="share-quote">"Building consistency every single day" 🚀</span>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display: flex; gap: var(--sp-2); width: 100%;">
+      <button id="share-card-close" class="btn-ghost" style="flex: 1;">Close</button>
+      <button id="share-card-download" class="btn-ghost" style="flex: 1; border: 1px solid var(--border);">Save 📥</button>
+      <button id="share-card-share" class="btn-primary" style="flex: 1.2;">Share 📱</button>
+    </div>
+  </div>
+</div>
+
 
 
 <!-- Confetti Animation Library -->
@@ -775,6 +855,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=18"></script>
+<script type="module" src="app.js?v=19"></script>
 </body>
 </html>

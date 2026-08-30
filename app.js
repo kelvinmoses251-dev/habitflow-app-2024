@@ -1558,3 +1558,28 @@ document.getElementById('timer-close')?.addEventListener('click', () => {
   document.getElementById('timer-pause').classList.add('hidden');
   document.getElementById('timer-modal').classList.add('hidden');
 });
+
+// ── PWA Install Flow ──────────────────────────────────────
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent Chrome 67 and earlier from automatically showing the prompt
+  e.preventDefault();
+  // Stash the event so it can be triggered later.
+  deferredPrompt = e;
+  // Update UI to notify the user they can add to home screen
+  const installRow = document.getElementById('install-app-row');
+  if (installRow) installRow.style.display = 'flex';
+});
+
+document.getElementById('install-app-btn')?.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      const installRow = document.getElementById('install-app-row');
+      if (installRow) installRow.style.display = 'none';
+    }
+    deferredPrompt = null;
+  }
+});
+

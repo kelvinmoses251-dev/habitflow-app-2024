@@ -407,6 +407,11 @@
               <label class="toggle"><input type="checkbox" id="notif-toggle"><span class="toggle-track"></span></label>
             </div>
             
+            <div class="setting-row" id="install-app-row" style="display: none;">
+              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></span><span class="setting-label">Install App</span></div>
+              <button id="install-app-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem; color: var(--primary);">Install</button>
+            </div>
+            
             <div class="setting-row" style="display: none;">
               <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></span><span class="setting-label">Smart Sort (Done at bottom)</span></div>
               <label class="toggle"><input type="checkbox" id="smart-sort-toggle" checked><span class="toggle-track"></span></label>
@@ -602,6 +607,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>

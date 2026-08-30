@@ -29,3 +29,11 @@ messaging.onBackgroundMessage((payload) => {
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
+
+// Required for PWA installability (a fetch listener)
+self.addEventListener('fetch', (event) => {
+  // We can just fall back to network for now without aggressive caching
+  event.respondWith(fetch(event.request).catch(() => {
+    // Offline fallback if needed
+  }));
+});

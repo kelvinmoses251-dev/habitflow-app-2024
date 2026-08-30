@@ -4,21 +4,29 @@
   "description": "Track your daily habits, build streaks, and grow every day.",
   "start_url": "/index.html",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#F7F6FF",
   "theme_color": "#7C3AED",
   "id": "/index.html",
+  "categories": ["lifestyle", "productivity", "health"],
   "icons": [
     {
-      "src": "/icon-192.svg",
+      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.svg",
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

@@ -190,12 +190,82 @@ button { cursor: pointer; font-family: var(--font); }
   flex-direction: column;
   align-items: center;
 }
-.all-done-emoji {
-  font-size: 3.5rem;
-  margin-bottom: var(--sp-2);
-  animation: spin 0.6s ease-out;
-  display: block;
+/* ── 3D Floating & Spinning Gold Trophy ── */
+.trophy-3d-wrapper {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  margin: 0 auto var(--sp-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 900px;
 }
+
+.trophy-glow-aura {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.45) 0%, rgba(217, 119, 6, 0.15) 55%, transparent 75%);
+  filter: blur(12px);
+  animation: auraPulse 2.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.trophy-3d-model {
+  transform-style: preserve-3d;
+  animation: trophyFloatSpin 4.5s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 12px 20px rgba(217, 119, 6, 0.35));
+}
+
+.trophy-svg {
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 6px 12px rgba(180, 83, 9, 0.25));
+}
+
+.trophy-sparkle {
+  position: absolute;
+  font-size: 1.2rem;
+  pointer-events: none;
+  animation: sparkleTwinkle 2.2s ease-in-out infinite;
+}
+.trophy-sparkle.s1 { top: 2px; left: 10px; animation-delay: 0s; }
+.trophy-sparkle.s2 { top: 8px; right: 10px; font-size: 0.95rem; animation-delay: 0.6s; }
+.trophy-sparkle.s3 { bottom: 20px; left: 8px; font-size: 1rem; animation-delay: 1.2s; }
+.trophy-sparkle.s4 { bottom: 14px; right: 6px; font-size: 1.15rem; animation-delay: 1.8s; }
+
+@keyframes trophyFloatSpin {
+  0% {
+    transform: translateY(0px) rotateY(-20deg) rotateX(6deg) scale(1);
+  }
+  25% {
+    transform: translateY(-9px) rotateY(14deg) rotateX(-5deg) scale(1.05);
+  }
+  50% {
+    transform: translateY(-3px) rotateY(26deg) rotateX(6deg) scale(1.02);
+  }
+  75% {
+    transform: translateY(-11px) rotateY(-12deg) rotateX(-6deg) scale(1.06);
+  }
+  100% {
+    transform: translateY(0px) rotateY(-20deg) rotateX(6deg) scale(1);
+  }
+}
+
+@keyframes auraPulse {
+  0%   { transform: scale(0.85); opacity: 0.5; }
+  100% { transform: scale(1.3); opacity: 0.95; }
+}
+
+@keyframes sparkleTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.6) rotate(0deg); }
+  50%      { opacity: 1; transform: scale(1.3) rotate(30deg); }
+}
+
 .all-done-card h2 {
   font-size: 1.75rem; font-weight: 800;
   background: linear-gradient(135deg, #7c3aed, #a78bfa);

@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=15" />
 </head>
 <body>
 
@@ -789,27 +789,36 @@
     
     <!-- Renderable Card for Export & Sharing -->
     <div id="share-card-canvas-wrap" class="share-card-canvas">
+      
+      <!-- Top Brand Bar -->
       <div class="share-card-header">
         <div class="share-card-brand">
-          <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
-            <rect width="100" height="100" rx="24" fill="#8B5CF6"/>
-            <path d="M28 52l16 16 28-32" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <div class="share-brand-icon">
+            <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+              <rect width="100" height="100" rx="26" fill="#8B5CF6"/>
+              <path d="M28 52l16 16 28-32" stroke="white" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
           <span class="share-brand-name">Habitly</span>
         </div>
-        <span class="share-card-date" id="share-card-date">Today</span>
+        <span class="share-card-date" id="share-card-date">Aug 30, 2026</span>
       </div>
 
+      <!-- Avatar & User Info -->
       <div class="share-card-body">
         <div class="share-avatar-circle" id="share-card-avatar-wrap">
           <span id="share-card-avatar-text">👤</span>
         </div>
-        <h3 class="share-user-name" id="share-card-name">Kelvin</h3>
-        <p class="share-user-level" id="share-card-level">Lv. 4 · Consistent 🔥</p>
+        <h3 class="share-user-name" id="share-card-name">User</h3>
+        <div class="share-level-pill" id="share-card-level">Lv. 1 · Novice 🌱</div>
 
         <!-- Big Streak Hero Box -->
         <div class="share-streak-box">
-          <span class="share-streak-fire">🔥</span>
+          <div class="share-streak-icon-wrap">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="#F59E0B">
+              <path d="M12 23c-4.97 0-9-4.03-9-9 0-3.32 1.83-6.22 4.54-7.75C7.94 8.27 8.5 10.3 9.4 11.2c.4-.7 1.1-2.4 1.1-4.2 0-.8-.1-1.5-.3-2.2 3.8 1.4 6.8 5 6.8 9.2 0 4.97-4.03 9-9 9z"/>
+            </svg>
+          </div>
           <div class="share-streak-details">
             <h2 id="share-card-streak">14 Days</h2>
             <p>Active Habit Streak</p>
@@ -820,21 +829,23 @@
         <div class="share-stats-grid">
           <div class="share-stat-col">
             <span class="share-stat-num" id="share-card-habits-count">5</span>
-            <span class="share-stat-lbl">Habits</span>
+            <span class="share-stat-lbl">🎯 Habits</span>
           </div>
           <div class="share-stat-col">
             <span class="share-stat-num" id="share-card-total-done">42</span>
-            <span class="share-stat-lbl">Check-ins</span>
+            <span class="share-stat-lbl">✅ Check-ins</span>
           </div>
           <div class="share-stat-col">
-            <span class="share-stat-num" id="share-card-shields">🛡️ 1</span>
-            <span class="share-stat-lbl">Shields</span>
+            <span class="share-stat-num" id="share-card-shields">1</span>
+            <span class="share-stat-lbl">🛡️ Shield</span>
           </div>
         </div>
       </div>
 
+      <!-- Footer Quote & Brand Tag -->
       <div class="share-card-footer">
-        <span class="share-quote">"Building consistency every single day" 🚀</span>
+        <p class="share-quote">"Building consistency every single day" 🚀</p>
+        <span class="share-tagline">✨ Tracked on Habitly App</span>
       </div>
     </div>
 
@@ -855,6 +866,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=19"></script>
+<script type="module" src="app.js?v=20"></script>
 </body>
 </html>

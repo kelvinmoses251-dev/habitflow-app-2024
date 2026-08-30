@@ -509,6 +509,7 @@ function openShareCardModal() {
   const maxStreak = calcStreak(allHabits);
   const levelInfo = getLevelInfo(currentUserXP);
   const totalDone = calcTotalDone(allHabits);
+  const shieldCount = typeof userStreakShields === 'number' ? userStreakShields : 1;
 
   const nameEl = document.getElementById('share-card-name');
   if (nameEl) nameEl.textContent = currentUser.displayName || 'Habit Master';
@@ -526,7 +527,7 @@ function openShareCardModal() {
   if (totalDoneEl) totalDoneEl.textContent = totalDone;
 
   const shieldsEl = document.getElementById('share-card-shields');
-  if (shieldsEl) shieldsEl.textContent = `🛡️ ${userStreakShields}`;
+  if (shieldsEl) shieldsEl.textContent = shieldCount;
 
   const dateEl = document.getElementById('share-card-date');
   if (dateEl) {
@@ -537,10 +538,10 @@ function openShareCardModal() {
   const avatarWrap = document.getElementById('share-card-avatar-wrap');
   if (avatarWrap) {
     if (currentUser.photoURL) {
-      avatarWrap.innerHTML = `<img src="${currentUser.photoURL}" alt="User Avatar" />`;
+      avatarWrap.innerHTML = `<img src="${currentUser.photoURL}" alt="User Avatar" crossorigin="anonymous" />`;
     } else {
       const initials = (currentUser.displayName || '?')[0].toUpperCase();
-      avatarWrap.innerHTML = `<span style="font-weight:800; font-size:1.4rem;">${initials}</span>`;
+      avatarWrap.innerHTML = `<span style="font-weight:800; font-size:1.4rem; color:#fff;">${initials}</span>`;
     }
   }
 
@@ -578,7 +579,7 @@ document.getElementById('share-card-download')?.addEventListener('click', async 
 
   try {
     toast('Preparing image...', 'info');
-    const canvas = await window.html2canvas(cardEl, { scale: 2, backgroundColor: null, useCORS: true });
+    const canvas = await window.html2canvas(cardEl, { scale: 3, backgroundColor: '#1e1b4b', useCORS: true, logging: false });
     const link = document.createElement('a');
     link.download = `habitly-streak-${new Date().toISOString().slice(0, 10)}.png`;
     link.href = canvas.toDataURL('image/png');
@@ -596,7 +597,8 @@ document.getElementById('share-card-share')?.addEventListener('click', async () 
   if (!cardEl || !window.html2canvas) return;
 
   try {
-    const canvas = await window.html2canvas(cardEl, { scale: 2, backgroundColor: null, useCORS: true });
+    toast('Opening share...', 'info');
+    const canvas = await window.html2canvas(cardEl, { scale: 3, backgroundColor: '#1e1b4b', useCORS: true, logging: false });
     canvas.toBlob(async (blob) => {
       if (blob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'streak.png', { type: 'image/png' })] })) {
         const file = new File([blob], 'habitly-streak.png', { type: 'image/png' });

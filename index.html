@@ -300,6 +300,7 @@
       <div class="page-content">
         <h1 class="page-title">Statistics</h1>
 
+        <!-- Summary stat cards -->
         <div class="stats-grid">
           <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span><span class="stat-val" id="stat-today">0/0</span><span class="stat-lbl">Today</span></div>
           <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span><span class="stat-val" id="stat-streak">0</span><span class="stat-lbl">Streak</span></div>
@@ -307,16 +308,70 @@
           <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span><span class="stat-val" id="stat-rate">0%</span><span class="stat-lbl">This Week</span></div>
         </div>
 
+        <!-- Weekly Progress Report -->
+        <div class="card weekly-report-card">
+          <h2 class="card-title">📋 Weekly Progress Report</h2>
+          <div class="report-grid">
+            <div class="report-item">
+              <span class="report-icon">🏆</span>
+              <span class="report-label">Best Day</span>
+              <span class="report-val" id="report-best-day">—</span>
+            </div>
+            <div class="report-item">
+              <span class="report-icon">⭐</span>
+              <span class="report-label">Top Habit</span>
+              <span class="report-val" id="report-top-habit">—</span>
+            </div>
+            <div class="report-item">
+              <span class="report-icon">🎯</span>
+              <span class="report-label">Perfect Days</span>
+              <span class="report-val" id="report-perfect-days">0</span>
+            </div>
+            <div class="report-item">
+              <span class="report-icon">📅</span>
+              <span class="report-label">Active Weeks</span>
+              <span class="report-val" id="report-active-weeks">0</span>
+            </div>
+          </div>
+          <div class="report-summary" id="report-summary-text"></div>
+        </div>
+
+        <!-- Weekly Completions Chart -->
         <div class="card">
           <h2 class="card-title">Weekly Completions</h2>
           <div class="chart-wrap"><canvas id="weekly-chart"></canvas></div>
         </div>
-        
+
+        <!-- Heatmap - upgraded with labels -->
         <div class="card">
-          <h2 class="card-title">Consistency Heatmap (90 Days)</h2>
-          <div id="heatmap" class="heatmap-container"></div>
+          <h2 class="card-title">Consistency Heatmap <span class="card-subtitle">Last 16 Weeks</span></h2>
+          <div class="heatmap-wrap">
+            <div class="heatmap-day-labels">
+              <span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span>
+            </div>
+            <div class="heatmap-inner">
+              <div id="heatmap-month-labels" class="heatmap-month-labels"></div>
+              <div id="heatmap" class="heatmap-container"></div>
+            </div>
+          </div>
+          <div class="heatmap-legend">
+            <span class="legend-label">Less</span>
+            <span class="heatmap-cell"></span>
+            <span class="heatmap-cell" data-count="1"></span>
+            <span class="heatmap-cell" data-count="2"></span>
+            <span class="heatmap-cell" data-count="3"></span>
+            <span class="heatmap-cell" data-count="4"></span>
+            <span class="legend-label">More</span>
+          </div>
         </div>
 
+        <!-- Habit Success Rate -->
+        <div class="card">
+          <h2 class="card-title">Habit Success Rate <span class="card-subtitle">Last 30 Days</span></h2>
+          <div id="success-rate-list" class="success-rate-list"></div>
+        </div>
+
+        <!-- By Category -->
         <div class="card">
           <h2 class="card-title">By Category</h2>
           <div class="chart-wrap" style="height: 250px;"><canvas id="pie-chart"></canvas></div>
@@ -547,6 +602,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=7"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
 </html>

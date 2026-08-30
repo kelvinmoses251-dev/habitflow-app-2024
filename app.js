@@ -935,6 +935,8 @@ function renderStats() {
   renderChart(labels, counts);
   renderCatBreakdown();
   renderHeatmap();
+  renderWeeklyReport();
+  renderSuccessRate();
 }
 
 function animCount(id, target) {
@@ -1028,46 +1030,201 @@ function renderCatBreakdown() {
 
 function renderHeatmap() {
   const container = document.getElementById('heatmap');
+  const monthLabelsEl = document.getElementById('heatmap-month-labels');
   if (!container) return;
   container.innerHTML = '';
-  
-  // Create last 90 days array
-  const today = new Date();
+  if (monthLabelsEl) monthLabelsEl.innerHTML = '';
+
+  // Build last 16 weeks (112 days), starting from the most recent Monday
+  const today = new Date(); today.setHours(0,0,0,0);
+  // Find the start of this week (Monday)
+  const dayOfWeek = (today.getDay() + 6) % 7; // 0=Mon, 6=Sun
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - dayOfWeek);
+  // Go back 15 more weeks for 16 total
+  const gridStart = new Date(weekStart);
+  gridStart.setDate(weekStart.getDate() - 15 * 7);
+
+  // Build all days from gridStart to today
   const days = [];
-  for (let i = 89; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = [
-      d.getFullYear(),
-      String(d.getMonth() + 1).padStart(2, '0'),
-      String(d.getDate()).padStart(2, '0')
-    ].join('-');
-    days.push(dateStr);
+  const d = new Date(gridStart);
+  while (d <= today) {
+    const ds = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+    days.push({ ds, date: new Date(d) });
+    d.setDate(d.getDate() + 1);
   }
 
   // Count completions per day
   const counts = {};
-  days.forEach(d => counts[d] = 0);
+  days.forEach(({ ds }) => counts[ds] = 0);
   allHabits.forEach(h => {
-    (h.completedDates || []).forEach(d => {
-      if (counts[d] !== undefined) counts[d]++;
+    (h.completedDates || []).forEach(ds => {
+      if (counts[ds] !== undefined) counts[ds]++;
     });
   });
 
-  // Render cells
-  days.forEach(d => {
-    const count = counts[d];
+  // Build month labels (one per column-week where month changes)
+  if (monthLabelsEl) {
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let lastMonth = -1;
+    let colIndex = 0;
+    const totalCols = Math.ceil(days.length / 7);
+    const labels = [];
+    for (let col = 0; col < totalCols; col++) {
+      const dayIndex = col * 7;
+      if (dayIndex < days.length) {
+        const month = days[dayIndex].date.getMonth();
+        if (month !== lastMonth) {
+          labels.push({ col, label: MONTHS[month] });
+          lastMonth = month;
+        } else {
+          labels.push({ col, label: '' });
+        }
+      }
+    }
+    // Render month label spans with dynamic widths
+    let i = 0;
+    while (i < labels.length) {
+      const span = document.createElement('span');
+      span.className = 'heatmap-month-label';
+      span.textContent = labels[i].label;
+      // width = number of columns until next label * (14px cell + 4px gap)
+      const nextIdx = labels.findIndex((l, idx) => idx > i && l.label !== '');
+      const spanCols = (nextIdx === -1 ? labels.length : nextIdx) - i;
+      span.style.width = (spanCols * 18) + 'px';
+      span.style.flexShrink = '0';
+      monthLabelsEl.appendChild(span);
+      i = nextIdx === -1 ? labels.length : nextIdx;
+    }
+  }
+
+  // Render heatmap cells
+  days.forEach(({ ds, date }) => {
+    const count = counts[ds];
     const cell = document.createElement('div');
     cell.className = 'heatmap-cell';
-    cell.title = `${d}: ${count} habits completed`;
-    
-    // Scale intensity 1-4 based on count
+    const displayDate = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    cell.title = `${displayDate}: ${count} habit${count !== 1 ? 's' : ''} completed`;
     if (count > 0) {
-      const intensity = Math.min(Math.ceil(count / 2), 4); // 1-2 = 1, 3-4 = 2, 5-6 = 3, 7+ = 4
+      const intensity = Math.min(Math.ceil(count / Math.max(allHabits.length / 4, 1)), 4);
       cell.setAttribute('data-count', intensity);
     }
-    
+    // Dim future placeholder cells
+    if (date > today) cell.style.opacity = '0';
     container.appendChild(cell);
+  });
+}
+
+function renderWeeklyReport() {
+  if (!allHabits.length) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  // Analyse last 30 days
+  const days30 = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const ds = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+    days30.push({ ds, date: d });
+  }
+
+  // Perfect days (all daily habits done)
+  const dailyHabits = allHabits.filter(h => !h.frequency || h.frequency === 'daily');
+  let perfectDays = 0;
+  let bestDayCount = 0; let bestDayName = '—';
+  const dayTotals = {};
+
+  days30.forEach(({ ds, date }) => {
+    const doneThatDay = allHabits.filter(h => (h.completedDates || []).includes(ds)).length;
+    if (dailyHabits.length > 0 && doneThatDay >= dailyHabits.length && dailyHabits.every(h => (h.completedDates||[]).includes(ds))) perfectDays++;
+    if (doneThatDay > bestDayCount) { bestDayCount = doneThatDay; bestDayName = DAYS[date.getDay()]; }
+    const dayName = DAYS[date.getDay()];
+    dayTotals[dayName] = (dayTotals[dayName] || 0) + doneThatDay;
+  });
+
+  // Top habit (most completions in 30 days)
+  const topHabit = allHabits
+    .map(h => ({ name: h.name, count: (h.completedDates||[]).filter(ds => days30.some(d => d.ds === ds)).length }))
+    .sort((a, b) => b.count - a.count)[0];
+
+  // Active weeks (weeks where at least 1 habit was done)
+  let activeWeeks = 0;
+  for (let w = 0; w < 4; w++) {
+    const wStart = new Date(today); wStart.setDate(today.getDate() - (w+1)*7 + 1);
+    const wEnd   = new Date(today); wEnd.setDate(today.getDate() - w*7);
+    const active = allHabits.some(h =>
+      (h.completedDates||[]).some(ds => { const d = new Date(ds); return d >= wStart && d <= wEnd; })
+    );
+    if (active) activeWeeks++;
+  }
+
+  document.getElementById('report-best-day').textContent  = bestDayCount > 0 ? `${bestDayName} (${bestDayCount})` : '—';
+  document.getElementById('report-top-habit').textContent  = topHabit?.count > 0 ? topHabit.name : '—';
+  document.getElementById('report-perfect-days').textContent = perfectDays;
+  document.getElementById('report-active-weeks').textContent = `${activeWeeks}/4`;
+
+  // Summary sentence
+  const total30 = days30.reduce((s, {ds}) => s + allHabits.filter(h => (h.completedDates||[]).includes(ds)).length, 0);
+  const possible30 = dailyHabits.length * 30;
+  const pct30 = possible30 > 0 ? Math.round((total30 / possible30) * 100) : 0;
+  let summary = '';
+  if (pct30 >= 80) summary = `🔥 Incredible! You completed ${pct30}% of your habits over the last 30 days. You're on fire — keep it up!`;
+  else if (pct30 >= 50) summary = `💪 Good progress! You completed ${pct30}% of your habits over 30 days. Push a little harder this week!`;
+  else if (pct30 > 0) summary = `📈 You're building momentum — ${pct30}% in 30 days. Consistency is the key. Keep showing up!`;
+  else summary = `🌱 Start small. Every big journey begins with a single step. Tick your first habit today!`;
+  document.getElementById('report-summary-text').textContent = summary;
+}
+
+function renderSuccessRate() {
+  const list = document.getElementById('success-rate-list');
+  if (!list || !allHabits.length) return;
+  list.innerHTML = '';
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days30 = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    days30.push([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'));
+  }
+
+  const rates = allHabits
+    .filter(h => !h.frequency || h.frequency === 'daily') // only daily habits for 30-day rate
+    .map(h => {
+      const done = (h.completedDates || []).filter(ds => days30.includes(ds)).length;
+      const pct  = Math.round((done / 30) * 100);
+      return { name: h.name, done, pct };
+    })
+    .sort((a, b) => b.pct - a.pct);
+
+  if (!rates.length) {
+    list.innerHTML = '<p style="color:var(--text-2);font-size:.9rem;">No daily habits tracked yet.</p>';
+    return;
+  }
+
+  rates.forEach(({ name, done, pct }) => {
+    const colorClass = pct >= 70 ? 'high' : pct >= 40 ? 'mid' : 'low';
+    const item = document.createElement('div');
+    item.className = 'success-rate-item';
+    item.innerHTML = `
+      <div class="success-rate-header">
+        <span class="success-rate-name">${escHtml(name)}</span>
+        <span class="success-rate-pct">${pct}%</span>
+      </div>
+      <div class="success-rate-bar-bg">
+        <div class="success-rate-bar-fill ${colorClass}" style="width:0%" data-pct="${pct}"></div>
+      </div>
+      <span class="success-rate-meta">${done} of 30 days completed</span>
+    `;
+    list.appendChild(item);
+  });
+
+  // Animate bars after a short delay (for visual pop)
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      list.querySelectorAll('.success-rate-bar-fill').forEach(bar => {
+        bar.style.width = bar.dataset.pct + '%';
+      });
+    }, 100);
   });
 }
 

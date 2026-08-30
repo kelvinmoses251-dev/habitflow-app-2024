@@ -215,9 +215,13 @@ function hideLoading() {
 }
 
 // ── Onboarding ────────────────────────────────────────────
-function initOnboarding() {
-  if (localStorage.getItem('habitly_seen')) return;
-  const ob     = document.getElementById('onboarding');
+function initOnboarding(force = false) {
+  if (!currentUser && !force) return;
+  const userKey = currentUser ? 'habitly_seen_' + currentUser.uid : 'habitly_seen';
+  if (!force && localStorage.getItem(userKey)) return;
+
+  const ob = document.getElementById('onboarding');
+  if (!ob) return;
   ob.classList.remove('hidden');
   ob.style.opacity = '1';
   const slides = [...ob.querySelectorAll('.slide')];
@@ -226,23 +230,34 @@ function initOnboarding() {
   const skip   = document.getElementById('onboarding-skip');
   let cur      = 0;
 
+  // Reset to first slide
+  slides.forEach((s, idx) => s.classList.toggle('active', idx === 0));
+  dots.forEach((d, idx) => d.classList.toggle('active', idx === 0));
+  if (next) next.textContent = slides.length === 1 ? 'Get Started 🚀' : 'Next →';
+
   function go(i) {
-    slides[cur].classList.remove('active');
-    dots[cur].classList.remove('active');
+    if (slides[cur]) slides[cur].classList.remove('active');
+    if (dots[cur]) dots[cur].classList.remove('active');
     cur = i;
-    slides[cur].classList.add('active');
-    dots[cur].classList.add('active');
-    next.textContent = cur === slides.length - 1 ? 'Get Started 🚀' : 'Next →';
+    if (slides[cur]) slides[cur].classList.add('active');
+    if (dots[cur]) dots[cur].classList.add('active');
+    if (next) next.textContent = cur === slides.length - 1 ? 'Get Started 🚀' : 'Next →';
     // Haptic pulse on slide change
     if (navigator.vibrate) navigator.vibrate(30);
   }
 
-  dots.forEach(d => d.addEventListener('click', () => go(+d.dataset.dot)));
-  next.addEventListener('click', () => cur < slides.length - 1 ? go(cur + 1) : done());
-  skip.addEventListener('click', done);
+  dots.forEach(d => {
+    d.onclick = () => go(+d.dataset.dot);
+  });
+  if (next) next.onclick = () => (cur < slides.length - 1 ? go(cur + 1) : done());
+  if (skip) skip.onclick = done;
 
   function done() {
-    localStorage.setItem('habitly_seen', '1');
+    if (currentUser) {
+      localStorage.setItem('habitly_seen_' + currentUser.uid, '1');
+    } else {
+      localStorage.setItem('habitly_seen', '1');
+    }
     ob.style.transition = 'opacity .35s ease';
     ob.style.opacity = '0';
     setTimeout(() => ob.classList.add('hidden'), 380);
@@ -448,7 +463,6 @@ function showApp() {
 function showAuth() {
   document.getElementById('app').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
-  initOnboarding();
 }
 
 let userProfileUnsubscribe = null;
@@ -1284,6 +1298,13 @@ if (darkModeToggle) {
 }
 
 const smartSortToggle = document.getElementById('smart-sort-toggle');
+
+const openTutorialBtn = document.getElementById('open-tutorial-btn');
+if (openTutorialBtn) {
+  openTutorialBtn.addEventListener('click', () => {
+    initOnboarding(true);
+  });
+}
 if (smartSortToggle) {
   smartSortToggle.checked = localStorage.getItem('smartSort') !== 'false';
   smartSortToggle.addEventListener('change', (e) => {

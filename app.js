@@ -8,7 +8,7 @@ import {
 import {
   getFirestore, collection, addDoc, query, where,
   onSnapshot, deleteDoc, doc, setDoc, updateDoc, getDoc,
-  arrayUnion, arrayRemove, getDocs, orderBy, limit
+  arrayUnion, arrayRemove, getDocs, orderBy, limit, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage, ref, uploadString, getDownloadURL
@@ -673,10 +673,40 @@ async function restoreHabit(id) {
 }
 
 async function toggleHabit(id, currentlyDone, dateToRemove) {
-  const d = todayStr();
-  await updateDoc(doc(db, 'habits', id), {
-    completedDates: currentlyDone ? arrayRemove(dateToRemove || d) : arrayUnion(d)
-  });
+  const d = dateToRemove || todayStr();
+  const habitRef = doc(db, 'habits', id);
+  const now = Date.now();
+
+  if (currentlyDone) {
+    // Check if habit is locked (> 1 hour old)
+    const h = allHabits.find(x => x.id === id);
+    if (h) {
+      const completionTime = h.completedTimestamps?.[d];
+      if (completionTime && (now - completionTime > 3600000)) {
+        toast('🔒 Habit is locked! Cannot be unchecked after 1 hour.', 'warning');
+        return false;
+      }
+      if (!completionTime && d !== todayStr()) {
+        toast('🔒 Habit is locked! Past completions cannot be unchecked.', 'warning');
+        return false;
+      }
+    }
+
+    const updatePayload = {
+      completedDates: arrayRemove(d)
+    };
+    if (h && h.completedTimestamps && h.completedTimestamps[d]) {
+      updatePayload[`completedTimestamps.${d}`] = deleteField();
+    }
+    await updateDoc(habitRef, updatePayload);
+  } else {
+    // Checking the habit
+    await updateDoc(habitRef, {
+      completedDates: arrayUnion(d),
+      [`completedTimestamps.${d}`]: now
+    });
+  }
+  return true;
 }
 
 let deletedHabits = []; // Stores soft-deleted habits
@@ -766,6 +796,17 @@ function renderHabits() {
     const createdMs = h.createdAt ? new Date(h.createdAt).getTime() : 0;
     const isEditable = (nowMs - createdMs) <= 60 * 60 * 1000;
 
+    // Check if completion is locked (> 1 hour after checking)
+    let isLocked = false;
+    if (isDone) {
+      const completionTime = h.completedTimestamps?.[completedDateForToggle];
+      if (completionTime) {
+        isLocked = (nowMs - completionTime) > 3600000;
+      } else if (completedDateForToggle !== t) {
+        isLocked = true;
+      }
+    }
+
     const habitStreak = calcHabitStreak(h);
     
     const li = document.createElement('li');
@@ -773,13 +814,14 @@ function renderHabits() {
     li.dataset.id = h.id;
     li.innerHTML = `
       <div class="habit-label">
-        <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" ${isDone ? 'checked' : ''} />
+        <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} />
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name ${isDone ? 'done' : ''}">${escHtml(h.name)}</span>
           <div class="badges-row">
             <span class="cat-badge" style="color:${cat.color};background:${cat.bg}">${cat.emoji} ${cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
             ${habitStreak > 0 ? '<span class="streak-pill">🔥 ' + habitStreak + '</span>' : ''}
+            ${isLocked ? '<span class="locked-badge" title="Completed & locked (cannot uncheck after 1 hr)">🔒 Locked</span>' : ''}
           </div>
         </div>
       </div>
@@ -923,6 +965,21 @@ document.getElementById('habits').addEventListener('click', async e => {
     const id       = cb.dataset.id;
     const dateToRm = cb.dataset.date;
     const isDone   = cb.checked; // new state after click
+
+    // If user is trying to uncheck a habit, check if it is locked (> 1 hour)
+    if (!isDone) {
+      const h = allHabits.find(x => x.id === id);
+      const completionTime = h?.completedTimestamps?.[dateToRm];
+      const nowMs = Date.now();
+      const isLocked = completionTime ? (nowMs - completionTime > 3600000) : (dateToRm !== todayStr());
+
+      if (isLocked) {
+        cb.checked = true; // Re-check the checkbox immediately
+        if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+        toast('🔒 Habit is locked! Completed habits cannot be unchecked after 1 hour.', 'warning');
+        return;
+      }
+    }
 
     // Play sound immediately on user tap
     if (isDone) {

@@ -496,6 +496,18 @@ select { cursor: pointer; }
   align-items: center;
   gap: 2px;
 }
+.locked-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--r-sm);
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
 .badges-row {
   display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
 }

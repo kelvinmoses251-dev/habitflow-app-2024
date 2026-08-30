@@ -9,7 +9,7 @@
 :root {
   /* Colors */
   --bg:          #F7F6FF;
-  --bg-gradient: linear-gradient(135deg, #FDFDFF 0%, #EAE7FF 100%);
+  --bg-gradient: linear-gradient(to bottom, #F7F6FF 0%, #F7F6FF 50%, #EAE7FF 100%);
   --surface:     #FFFFFF;
   --surface-2:   #F3F0FF;
   --primary:     #7C3AED;
@@ -57,7 +57,7 @@
 
 [data-theme="dark"] {
   --bg:          #000000;
-  --bg-gradient: linear-gradient(135deg, #050505 0%, #130f24 100%);
+  --bg-gradient: linear-gradient(to bottom, #000000 0%, #000000 50%, #130f24 100%);
   --surface:     #121212;
   --surface-2:   #1E1E1E;
   --text:        #E0E0E0;

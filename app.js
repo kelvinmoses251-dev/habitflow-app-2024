@@ -517,8 +517,8 @@ function openShareCardModal() {
   const levelEl = document.getElementById('share-card-level');
   if (levelEl) levelEl.textContent = `Lv. ${levelInfo.level} · ${levelInfo.title} ${levelInfo.icon}`;
 
-  const streakEl = document.getElementById('share-card-streak');
-  if (streakEl) streakEl.textContent = `${maxStreak} Day${maxStreak === 1 ? '' : 's'}`;
+  const streakNumEl = document.getElementById('share-card-streak-num');
+  if (streakNumEl) streakNumEl.textContent = maxStreak;
 
   const habitsCountEl = document.getElementById('share-card-habits-count');
   if (habitsCountEl) habitsCountEl.textContent = allHabits.length;

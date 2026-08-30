@@ -619,61 +619,92 @@ button { cursor: pointer; font-family: var(--font); }
   box-shadow: 0 2px 8px rgba(14, 165, 233, 0.25);
 }
 
-/* ── Shareable Card Canvas Styling (Optimized for html2canvas) ── */
-.share-card-canvas {
-  background: #1e1b4b;
-  background-image: linear-gradient(160deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
-  border-radius: 24px;
-  padding: 24px 20px 24px;
-  color: #ffffff;
+/* ── Share Modal Container ── */
+.share-modal-container {
+  width: 100%;
+  max-width: 380px;
+  max-height: 94vh;
+  overflow-y: auto;
   text-align: center;
-  box-shadow: 0 16px 40px rgba(76, 29, 149, 0.45);
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-3);
+}
+
+/* ── 9:16 Vertical Story Card for WhatsApp / Instagram / Social ── */
+.share-card-canvas {
+  width: 340px;
+  height: 604px; /* Exact 9:16 Story Proportion */
+  background: #0d0726;
+  background-image: 
+    radial-gradient(circle at 50% 42%, rgba(139, 92, 246, 0.45) 0%, transparent 65%),
+    radial-gradient(circle at 85% 15%, rgba(236, 72, 153, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 15% 85%, rgba(14, 165, 233, 0.25) 0%, transparent 55%),
+    linear-gradient(180deg, #0d0726 0%, #1a0f44 50%, #080417 100%);
+  border-radius: 32px;
+  padding: 38px 20px 44px; /* Ample safe zones for WhatsApp top/bottom bars */
+  color: #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  box-sizing: border-box;
-  width: 100%;
 }
-.share-card-header {
+
+.share-story-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  width: 100%;
 }
-.share-card-brand {
+.share-brand-pill {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.share-brand-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 4px 12px;
+  border-radius: 9999px;
 }
 .share-brand-name {
-  font-size: 1.15rem;
+  font-size: 0.85rem;
   font-weight: 800;
-  letter-spacing: 0.5px;
-  color: #f3e8ff;
+  letter-spacing: 1.5px;
+  color: #ffffff;
 }
 .share-card-date {
   font-size: 0.78rem;
   color: #cbd5e1;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+.share-user-spotlight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 .share-avatar-circle {
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: #7c3aed;
-  border: 2.5px solid #c084fc;
+  border: 3px solid #c084fc;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 8px;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
+  font-weight: 800;
   color: #ffffff;
   overflow: hidden;
+  margin-bottom: 2px;
 }
 .share-avatar-circle img {
   width: 100%;
@@ -681,98 +712,105 @@ button { cursor: pointer; font-family: var(--font); }
   object-fit: cover;
 }
 .share-user-name {
-  font-size: 1.3rem;
-  font-weight: 800;
-  margin: 0 0 4px;
-  color: #ffffff;
-}
-.share-level-pill {
-  display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #e9d5ff;
-  background: rgba(168, 85, 247, 0.25);
-  border: 1px solid rgba(192, 132, 252, 0.4);
-  padding: 3px 12px;
-  border-radius: 9999px;
-  margin: 0 0 16px;
-}
-.share-streak-box {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 16px;
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 16px;
-}
-.share-streak-icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.share-streak-details {
-  text-align: left;
-}
-.share-streak-details h2 {
-  font-size: 1.75rem;
+  font-size: 1.4rem;
   font-weight: 800;
   margin: 0;
-  line-height: 1.1;
   color: #ffffff;
+  letter-spacing: -0.3px;
 }
-.share-streak-details p {
-  font-size: 0.78rem;
-  color: #cbd5e1;
-  margin: 3px 0 0;
+.share-level-pill {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f3e8ff;
+  background: rgba(168, 85, 247, 0.3);
+  border: 1px solid rgba(192, 132, 252, 0.5);
+  padding: 3px 14px;
+  border-radius: 9999px;
 }
-.share-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+
+.share-streak-hero-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 24px;
+  padding: 16px 24px 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.share-fire-hero-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 16px rgba(255, 110, 0, 0.7));
+}
+.share-streak-number {
+  font-size: 3.4rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffffff;
+  letter-spacing: -1px;
+}
+.share-streak-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #fbbf24;
+  margin-top: 2px;
+}
+
+.share-stats-pill-row {
+  display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  width: 100%;
+  justify-content: space-between;
 }
-.share-stat-col {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+.share-stat-pill {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
   padding: 10px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
-.share-stat-num {
+.share-stat-val {
   font-size: 1.25rem;
   font-weight: 800;
   color: #ffffff;
 }
-.share-stat-lbl {
-  font-size: 0.7rem;
+.share-stat-tag {
+  font-size: 0.72rem;
   font-weight: 600;
   color: #cbd5e1;
 }
-.share-card-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  padding-top: 12px;
+
+.share-story-bottom {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   align-items: center;
+  gap: 6px;
 }
 .share-quote {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: #f1f5f9;
   font-style: italic;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.3;
+  text-align: center;
 }
-.share-tagline {
-  font-size: 0.72rem;
+.share-footer-badge {
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #a78bfa;
+  color: #c084fc;
+  background: rgba(124, 58, 237, 0.25);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  padding: 3px 12px;
+  border-radius: 9999px;
   letter-spacing: 0.5px;
 }
 

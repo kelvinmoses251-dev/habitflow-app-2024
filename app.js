@@ -2,7 +2,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, updateProfile,
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, updateProfile,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -325,15 +325,39 @@ function fireConfetti() {
 }
 
 // ── Auth ──────────────────────────────────────────────────
+// Handle redirect sign-in result (if user was redirected on mobile/webview)
+getRedirectResult(auth).then(cred => {
+  if (cred) {
+    const details = getAdditionalUserInfo(cred);
+    if (details && details.isNewUser) {
+      fireConfetti();
+    }
+  }
+}).catch(err => {
+  if (err.code !== 'auth/credential-already-in-use') {
+    console.warn('Redirect sign-in error:', err);
+  }
+});
+
 document.getElementById('login-btn').addEventListener('click', async () => {
+  const provider = new GoogleAuthProvider();
   try {
-    const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+    const cred = await signInWithPopup(auth, provider);
     const details = getAdditionalUserInfo(cred);
     if (details && details.isNewUser) {
       fireConfetti();
     }
   } catch (e) {
-    toast('Sign-in failed: ' + e.message, 'error');
+    // If popup is blocked by mobile browser or webview, fall back to redirect
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch (redirectErr) {
+        toast('Sign-in failed: ' + redirectErr.message, 'error');
+      }
+    } else {
+      toast('Sign-in failed: ' + e.message, 'error');
+    }
   }
 });
 

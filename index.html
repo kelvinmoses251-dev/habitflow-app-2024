@@ -32,7 +32,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=12" />
+  <link rel="stylesheet" href="style.css?v=13" />
 </head>
 <body>
 
@@ -307,6 +307,28 @@
           </div>
         </div>
 
+        <!-- 🎮 Level & XP Progression Card -->
+        <div class="xp-card">
+          <div class="xp-card-top">
+            <div class="xp-level-badge">
+              <span class="xp-level-num" id="user-level-badge">Lv. 1</span>
+              <span class="xp-level-title" id="user-level-title">Novice 🌱</span>
+            </div>
+            <div class="xp-count-text">
+              <span id="user-current-xp">0</span> / <span id="user-next-xp">100</span> <span style="color:var(--primary); font-weight:700;">XP</span>
+            </div>
+          </div>
+          <div class="xp-bar-track">
+            <div class="xp-bar-fill" id="user-xp-bar" style="width: 0%;">
+              <div class="xp-bar-shimmer"></div>
+            </div>
+          </div>
+          <div class="xp-card-bottom">
+            <span class="xp-hint">Earn +25 XP per habit, +100 XP all-done bonus!</span>
+            <span class="xp-percentage" id="user-xp-pct">0%</span>
+          </div>
+        </div>
+
         <!-- Add Habit -->
         <div class="card">
           <h2 class="card-title">Add a Habit</h2>
@@ -502,6 +524,15 @@
             <div class="setting-row">
               <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span><span class="setting-label">Export Data</span></div>
               <button id="export-data-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem; color: var(--primary);">Download PDF</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon">⚡</span><span class="setting-label">Level & Rank</span></div>
+              <span id="s-level-rank" class="setting-val" style="color:var(--primary); font-weight:700;">Lv. 1 · Novice</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon">✨</span><span class="setting-label">Total XP Earned</span></div>
+              <span id="s-total-xp" class="setting-val">0 XP</span>
             </div>
 
             <div class="setting-row">
@@ -715,6 +746,27 @@
   </div>
 </div>
 
+<!-- 🏆 Level Up Celebration Modal -->
+<div id="level-up-modal" class="onboarding hidden" style="z-index:10000;">
+  <div class="card level-up-card" style="width: 100%; max-width: 360px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-8) var(--sp-6);">
+    <div class="level-up-crown-wrapper">
+      <div class="level-up-aura"></div>
+      <div class="level-up-icon" id="level-up-icon">⚡</div>
+    </div>
+    <div>
+      <span class="level-up-pill">LEVEL UP! 🎉</span>
+      <h2 style="font-size: 1.85rem; font-weight: 800; margin: var(--sp-2) 0 2px;" id="level-up-new-level">Level 2</h2>
+      <p style="font-size: 1.15rem; font-weight: 700; color: var(--primary); margin: 0 0 var(--sp-2);" id="level-up-new-title">Apprentice</p>
+      <p style="font-size: 0.9rem; color: var(--text-2); line-height: 1.5; margin: 0;" id="level-up-perk-text">
+        Incredible dedication! You're forging unstoppable consistency.
+      </p>
+    </div>
+    <button id="level-up-claim-btn" class="btn-primary" style="width: 100%; max-width: 220px; font-weight: 700; font-size: 1rem; border-radius: var(--r-full); padding: var(--sp-3) var(--sp-6); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);">
+      Claim & Continue 🚀
+    </button>
+  </div>
+</div>
+
 
 
 <!-- Confetti Animation Library -->
@@ -723,6 +775,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=17"></script>
+<script type="module" src="app.js?v=18"></script>
 </body>
 </html>

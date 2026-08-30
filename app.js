@@ -255,6 +255,195 @@ function getUserBadge(maxStreak) {
   return { name: 'Seedling', icon: '🌱', color: '#84cc16', c1: '#bef264', c2: '#3f6212', cb: '#ecfccb' };
 }
 
+// ── XP & LEVELING SYSTEM ────────────────────────────────────
+const LEVEL_TITLES = [
+  { level: 1,  minXP: 0,     title: 'Novice',          icon: '🌱', perk: 'Daily Habit Tracking Unlocked' },
+  { level: 2,  minXP: 100,   title: 'Apprentice',      icon: '⚡', perk: 'Consistency Sparks' },
+  { level: 3,  minXP: 250,   title: 'Disciplined',     icon: '🛡️', perk: 'Bronze Focus Aura' },
+  { level: 4,  minXP: 450,   title: 'Consistent',      icon: '🔥', perk: 'Streak Multiplier' },
+  { level: 5,  minXP: 700,   title: 'Dedicated',       icon: '⭐', perk: 'Silver Habit Warrior' },
+  { level: 6,  minXP: 1000,  title: 'Habit Warrior',   icon: '⚔️', perk: 'Golden Habit Crest' },
+  { level: 7,  minXP: 1400,  title: 'Unstoppable',     icon: '💫', perk: 'Diamond Aura' },
+  { level: 8,  minXP: 1900,  title: 'Grandmaster',     icon: '👑', perk: 'Mastery Crown' },
+  { level: 9,  minXP: 2500,  title: 'Legend',          icon: '🌌', perk: 'Cosmic Legend Tier' },
+  { level: 10, minXP: 3200,  title: 'Ascended Master', icon: '💎', perk: 'Infinite Ascended Tier' }
+];
+
+let currentUserXP = 0;
+
+function getLevelInfo(totalXP) {
+  const xp = Math.max(0, totalXP || 0);
+  let currentLevelObj = LEVEL_TITLES[0];
+  let nextLevelObj = LEVEL_TITLES[1];
+
+  for (let i = 0; i < LEVEL_TITLES.length; i++) {
+    if (xp >= LEVEL_TITLES[i].minXP) {
+      currentLevelObj = LEVEL_TITLES[i];
+      nextLevelObj = LEVEL_TITLES[i + 1] || { 
+        level: currentLevelObj.level + 1, 
+        minXP: currentLevelObj.minXP + 800, 
+        title: 'Mythic Master', 
+        icon: '🌟', 
+        perk: 'Top 1% Habit Master' 
+      };
+    } else {
+      break;
+    }
+  }
+
+  const levelBaseXP = currentLevelObj.minXP;
+  const levelTargetXP = nextLevelObj.minXP;
+  const xpInCurrentLevel = xp - levelBaseXP;
+  const xpRequiredForNext = levelTargetXP - levelBaseXP;
+  const progressPct = Math.min(100, Math.max(0, Math.round((xpInCurrentLevel / xpRequiredForNext) * 100)));
+
+  return {
+    level: currentLevelObj.level,
+    title: currentLevelObj.title,
+    icon: currentLevelObj.icon,
+    perk: currentLevelObj.perk,
+    totalXP: xp,
+    xpInCurrentLevel,
+    xpRequiredForNext,
+    levelTargetXP,
+    progressPct,
+    nextTitle: nextLevelObj.title,
+    nextIcon: nextLevelObj.icon
+  };
+}
+
+function updateXPUI() {
+  const info = getLevelInfo(currentUserXP);
+  const badgeEl = document.getElementById('user-level-badge');
+  if (badgeEl) badgeEl.textContent = `Lv. ${info.level}`;
+  
+  const titleEl = document.getElementById('user-level-title');
+  if (titleEl) titleEl.textContent = `${info.title} ${info.icon}`;
+
+  const curXpEl = document.getElementById('user-current-xp');
+  if (curXpEl) curXpEl.textContent = info.xpInCurrentLevel;
+
+  const nextXpEl = document.getElementById('user-next-xp');
+  if (nextXpEl) nextXpEl.textContent = info.xpRequiredForNext;
+
+  const barEl = document.getElementById('user-xp-bar');
+  if (barEl) barEl.style.width = `${info.progressPct}%`;
+
+  const pctEl = document.getElementById('user-xp-pct');
+  if (pctEl) pctEl.textContent = `${info.progressPct}%`;
+
+  // Profile rows
+  const rankEl = document.getElementById('s-level-rank');
+  if (rankEl) rankEl.textContent = `Lv. ${info.level} · ${info.title} ${info.icon}`;
+
+  const totalXpEl = document.getElementById('s-total-xp');
+  if (totalXpEl) totalXpEl.textContent = `${info.totalXP.toLocaleString()} XP`;
+}
+
+function playLevelUpSound() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [
+      { f: 523.25, t: 0.00 }, // C5
+      { f: 659.25, t: 0.10 }, // E5
+      { f: 783.99, t: 0.20 }, // G5
+      { f: 1046.50, t: 0.32 }, // C6
+      { f: 1318.51, t: 0.46 }, // E6
+      { f: 1567.98, t: 0.62 }  // G6
+    ];
+    notes.forEach(({ f, t }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f, now + t);
+      gain.gain.setValueAtTime(0, now + t);
+      gain.gain.linearRampToValueAtTime(0.22, now + t + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + t);
+      osc.stop(now + t + 0.85);
+    });
+  } catch(e) {
+    console.warn("Level up sound error", e);
+  }
+}
+
+function spawnFloatingXP(targetEl, amount = 25) {
+  if (!targetEl) return;
+  const rect = targetEl.getBoundingClientRect();
+  const chip = document.createElement('div');
+  chip.className = 'floating-xp';
+  chip.textContent = `+${amount} XP ✨`;
+  chip.style.left = `${Math.max(10, rect.left + rect.width / 2 - 35)}px`;
+  chip.style.top = `${rect.top + window.scrollY - 10}px`;
+  document.body.appendChild(chip);
+  setTimeout(() => {
+    if (chip.parentNode) chip.parentNode.removeChild(chip);
+  }, 1500);
+}
+
+function showLevelUpModal(info) {
+  playLevelUpSound();
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+  fireConfetti();
+
+  const modal = document.getElementById('level-up-modal');
+  if (!modal) return;
+
+  const iconEl = document.getElementById('level-up-icon');
+  if (iconEl) iconEl.textContent = info.icon;
+
+  const lvlEl = document.getElementById('level-up-new-level');
+  if (lvlEl) lvlEl.textContent = `Level ${info.level}`;
+
+  const titleEl = document.getElementById('level-up-new-title');
+  if (titleEl) titleEl.textContent = `${info.title}`;
+
+  const perkEl = document.getElementById('level-up-perk-text');
+  if (perkEl) perkEl.textContent = `Perk Unlocked: ${info.perk}!`;
+
+  modal.classList.remove('hidden');
+  modal.style.opacity = '1';
+}
+
+const levelUpClaimBtn = document.getElementById('level-up-claim-btn');
+if (levelUpClaimBtn) {
+  levelUpClaimBtn.addEventListener('click', () => {
+    const modal = document.getElementById('level-up-modal');
+    if (modal) modal.classList.add('hidden');
+    fireConfetti();
+  });
+}
+
+async function addXP(amount, targetEl = null) {
+  if (!currentUser) return;
+  if (targetEl) spawnFloatingXP(targetEl, amount);
+
+  const prevInfo = getLevelInfo(currentUserXP);
+  currentUserXP += amount;
+  const newInfo = getLevelInfo(currentUserXP);
+
+  updateXPUI();
+
+  // Save to Firestore
+  try {
+    const userRef = doc(db, 'users', currentUser.uid);
+    await setDoc(userRef, { xp: currentUserXP }, { merge: true });
+  } catch (err) {
+    console.warn("Failed to persist XP:", err);
+  }
+
+  // Check Level-Up
+  if (newInfo.level > prevInfo.level) {
+    setTimeout(() => {
+      showLevelUpModal(newInfo);
+    }, 600);
+  }
+}
+
 function calcTotalDone(habits) {
   return habits.reduce((s, h) => s + (h.completedDates?.length || 0), 0);
 }
@@ -366,10 +555,12 @@ function checkAllDone(justCompletedId = null) {
   isCelebrating = true;
   sessionStorage.setItem('allDoneCelebrated', today);
 
-  setTimeout(() => {
+  setTimeout(async () => {
     playChime();
     const overlay = document.getElementById('all-done-overlay');
     if (overlay) overlay.classList.remove('hidden');
+    await addXP(100);
+    toast('🎉 Daily Master Bonus: +100 XP!', 'success');
 
     // Mega confetti blast!
     if (window.confetti) {
@@ -578,8 +769,13 @@ function updateAvatars(user) {
 
   userProfileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
     let photoURL = user.photoURL;
-    if (docSnap.exists() && docSnap.data().avatar) {
-      photoURL = docSnap.data().avatar;
+    if (docSnap.exists()) {
+      const uData = docSnap.data();
+      if (uData.avatar) photoURL = uData.avatar;
+      if (typeof uData.xp === 'number') {
+        currentUserXP = uData.xp;
+        updateXPUI();
+      }
     }
     
     if (photoURL) {
@@ -754,6 +950,17 @@ function subscribeToHabits() {
     renderHabits();
     updateStreak();
     syncUserStats();
+
+    // Auto-seed XP if new user or legacy habits exist
+    if (currentUserXP === 0 && allHabits.length > 0) {
+      const historicalXP = allHabits.reduce((acc, h) => acc + ((h.completedDates || []).length * 25), 0);
+      if (historicalXP > 0) {
+        currentUserXP = historicalXP;
+        setDoc(doc(db, 'users', currentUser.uid), { xp: currentUserXP }, { merge: true }).catch(console.warn);
+      }
+    }
+    updateXPUI();
+
     if (location.hash === '#stats') renderStats();
     if (location.hash === '#profile') renderProfile();
     if (!document.getElementById('recovery-modal').classList.contains('hidden')) {
@@ -1023,7 +1230,8 @@ if (confirmModal) {
 
       setTimeout(async () => {
         await toggleHabit(id, false, dateToRm);
-        toast('Great job! Habit completed 🎉', 'success');
+        await addXP(25, checkboxEl);
+        toast('Great job! Habit completed 🎉 (+25 XP)', 'success');
         fireConfetti();
         checkAllDone(id);
       }, 300);
@@ -1965,6 +2173,8 @@ document.getElementById('timer-start')?.addEventListener('click', () => {
       playChime();
       fireConfetti();
       toggleHabit(activeTimerHabit.id, false, todayStr()); // Check it off
+      addXP(50);
+      toast('Focus session completed! 🎯 (+50 XP)', 'success');
       document.getElementById('timer-modal').classList.add('hidden');
       document.getElementById('timer-start').classList.remove('hidden');
       document.getElementById('timer-pause').classList.add('hidden');

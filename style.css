@@ -446,6 +446,164 @@ button { cursor: pointer; font-family: var(--font); }
 .streak-lbl  { font-size: .65rem; opacity: .85; }
 
 /* ═══════════════════════════════════════════════════════
+   XP & LEVEL PROGRESSION CARD
+═══════════════════════════════════════════════════════ */
+.xp-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.xp-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.xp-level-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.xp-level-num {
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--r-full);
+  background: linear-gradient(135deg, #7c3aed, #9333ea);
+  color: #fff;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+.xp-level-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.xp-count-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* XP Progress Bar Track */
+.xp-bar-track {
+  width: 100%;
+  height: 10px;
+  background: var(--surface-2);
+  border-radius: var(--r-full);
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+.xp-bar-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+.xp-bar-shimmer {
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  animation: xpShimmer 2.5s infinite;
+}
+@keyframes xpShimmer {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+
+.xp-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+.xp-percentage {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ── Floating XP Chip Animation ── */
+.floating-xp {
+  position: absolute;
+  z-index: 999;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.45);
+  pointer-events: none;
+  animation: floatXpUp 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes floatXpUp {
+  0% {
+    opacity: 0;
+    transform: translateY(0px) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-12px) scale(1.15);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-28px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-44px) scale(0.8);
+  }
+}
+
+/* ── Level Up Celebration Modal ── */
+.level-up-crown-wrapper {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.level-up-aura {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.5) 0%, rgba(236, 72, 153, 0.2) 60%, transparent 80%);
+  filter: blur(10px);
+  animation: auraPulse 2s infinite alternate;
+}
+.level-up-icon {
+  font-size: 3.5rem;
+  z-index: 2;
+  animation: spin 0.8s ease-out;
+}
+.level-up-pill {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #fff;
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  padding: 3px 12px;
+  border-radius: var(--r-full);
+  display: inline-block;
+  box-shadow: 0 2px 10px rgba(236, 72, 153, 0.35);
+}
+
+/* ═══════════════════════════════════════════════════════
    HABIT FORM
 ═══════════════════════════════════════════════════════ */
 

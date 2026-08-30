@@ -9,6 +9,7 @@
 :root {
   /* Colors */
   --bg:          #F7F6FF;
+  --bg-gradient: linear-gradient(135deg, #FDFDFF 0%, #EAE7FF 100%);
   --surface:     #FFFFFF;
   --surface-2:   #F3F0FF;
   --primary:     #7C3AED;
@@ -56,6 +57,7 @@
 
 [data-theme="dark"] {
   --bg:          #000000;
+  --bg-gradient: linear-gradient(135deg, #050505 0%, #130f24 100%);
   --surface:     #121212;
   --surface-2:   #1E1E1E;
   --text:        #E0E0E0;
@@ -72,6 +74,7 @@ html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
 body {
   font-family: var(--font);
   background: var(--bg);
+  background: var(--bg-gradient);
   color: var(--text);
   line-height: 1.6;
   min-height: 100dvh;

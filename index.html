@@ -628,6 +628,28 @@
   </div>
 </div>
 
+<!-- Export Data Confirmation Modal -->
+<div id="confirm-export-modal" class="onboarding hidden" style="z-index:9999;">
+  <div class="card" style="width: 100%; max-width: 380px; text-align: center; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-6);">
+    <div style="width: 56px; height: 56px; border-radius: var(--r-full); background: rgba(59, 130, 246, 0.12); color: #3b82f6; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.75rem;">
+      📥
+    </div>
+    <div>
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 var(--sp-2);">Export Your Data?</h2>
+      <p style="font-size: 0.95rem; color: var(--text-2); line-height: 1.5; margin: 0;">
+        Do you want to download a complete backup of all your habits and history as a JSON file?
+      </p>
+      <p id="export-habit-summary" style="font-size: 0.8rem; color: var(--text-3); margin-top: var(--sp-2);">
+        📄 Includes all habits and completion records.
+      </p>
+    </div>
+    <div style="display: flex; gap: var(--sp-3); width: 100%;">
+      <button id="confirm-export-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
+      <button id="confirm-export-yes" class="btn-primary" style="flex: 1;">Download Backup</button>
+    </div>
+  </div>
+</div>
+
 
 
 <!-- Confetti Animation Library -->
@@ -636,6 +658,6 @@
 <!-- SortableJS -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-<script type="module" src="app.js?v=15"></script>
+<script type="module" src="app.js?v=16"></script>
 </body>
 </html>

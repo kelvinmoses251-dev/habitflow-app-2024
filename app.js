@@ -1504,23 +1504,61 @@ if (smartSortToggle) {
   });
 }
 
+// ── Export Data Confirmation Flow ─────────────────────────
 const exportDataBtn = document.getElementById('export-data-btn');
+const confirmExportModal = document.getElementById('confirm-export-modal');
+const confirmExportCancel = document.getElementById('confirm-export-cancel');
+const confirmExportYes = document.getElementById('confirm-export-yes');
+
+function openExportConfirmModal() {
+  if (!allHabits || allHabits.length === 0) {
+    toast('No data to export', 'warning');
+    return;
+  }
+  const summaryEl = document.getElementById('export-habit-summary');
+  if (summaryEl) {
+    summaryEl.textContent = `📄 Backing up ${allHabits.length} habit${allHabits.length === 1 ? '' : 's'} and completion history.`;
+  }
+  if (confirmExportModal) {
+    confirmExportModal.classList.remove('hidden');
+    confirmExportModal.style.opacity = '1';
+  }
+}
+
+function closeExportConfirmModal() {
+  if (confirmExportModal) confirmExportModal.classList.add('hidden');
+}
+
+function executeDataExport() {
+  closeExportConfirmModal();
+  if (!allHabits || allHabits.length === 0) {
+    toast('No data to export', 'warning');
+    return;
+  }
+  const dataStr = JSON.stringify(allHabits, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `habitly-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Data backup exported successfully! 📥', 'success');
+}
+
 if (exportDataBtn) {
-  exportDataBtn.addEventListener('click', () => {
-    if (!allHabits || allHabits.length === 0) {
-      toast('No data to export', 'warning');
-      return;
-    }
-    const dataStr = JSON.stringify(allHabits, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `habitly-backup-${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('Data exported successfully!', 'success');
+  exportDataBtn.addEventListener('click', openExportConfirmModal);
+}
+if (confirmExportCancel) {
+  confirmExportCancel.addEventListener('click', closeExportConfirmModal);
+}
+if (confirmExportModal) {
+  confirmExportModal.addEventListener('click', (e) => {
+    if (e.target === confirmExportModal) closeExportConfirmModal();
   });
+}
+if (confirmExportYes) {
+  confirmExportYes.addEventListener('click', executeDataExport);
 }
 
 const delAccBtn = document.getElementById('delete-account-btn');

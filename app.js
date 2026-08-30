@@ -224,6 +224,24 @@ function calcHabitStreak(habit) {
   return streak;
 }
 
+function calcLongestStreak(habit) {
+  const dates = habit.completedDates || [];
+  if (!dates.length) return 0;
+  const sortedDates = [...dates].sort();
+  let longest = 1;
+  let tempStreak = 1;
+  for (let i = 1; i < sortedDates.length; i++) {
+    const diff = new Date(sortedDates[i]) - new Date(sortedDates[i-1]);
+    if (diff <= 86400000 * 1.5) {
+      tempStreak++;
+      if (tempStreak > longest) longest = tempStreak;
+    } else {
+      tempStreak = 1;
+    }
+  }
+  return Math.max(calcHabitStreak(habit), longest);
+}
+
 function getUserBadge(maxStreak) {
   if (maxStreak >= 365) return { name: 'Legend', icon: '🌌', color: '#6366f1', c1: '#818cf8', c2: '#312e81', cb: '#a5b4fc' };
   if (maxStreak >= 200) return { name: 'Ascended', icon: '☄️', color: '#8b5cf6', c1: '#c084fc', c2: '#581c87', cb: '#e879f9' };
@@ -1512,12 +1530,12 @@ const confirmExportYes = document.getElementById('confirm-export-yes');
 
 function openExportConfirmModal() {
   if (!allHabits || allHabits.length === 0) {
-    toast('No data to export', 'warning');
+    toast('No habits to export', 'warning');
     return;
   }
   const summaryEl = document.getElementById('export-habit-summary');
   if (summaryEl) {
-    summaryEl.textContent = `📄 Backing up ${allHabits.length} habit${allHabits.length === 1 ? '' : 's'} and completion history.`;
+    summaryEl.textContent = `📄 Exporting report for ${allHabits.length} habit${allHabits.length === 1 ? '' : 's'} and completion history.`;
   }
   if (confirmExportModal) {
     confirmExportModal.classList.remove('hidden');
@@ -1532,18 +1550,154 @@ function closeExportConfirmModal() {
 function executeDataExport() {
   closeExportConfirmModal();
   if (!allHabits || allHabits.length === 0) {
-    toast('No data to export', 'warning');
+    toast('No habits to export', 'warning');
     return;
   }
-  const dataStr = JSON.stringify(allHabits, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `habitly-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('Data backup exported successfully! 📥', 'success');
+
+  try {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      toast('PDF generator loading, please try again in a second', 'warning');
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // ── Header Banner ──
+    doc.setFillColor(124, 58, 237); // #7C3AED
+    doc.rect(0, 0, 210, 36, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Habitly', 14, 20);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Habit & Consistency Progress Report', 14, 28);
+
+    const reportDate = new Date().toLocaleDateString('en-US', {
+      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+    });
+    doc.setFontSize(9);
+    doc.text(`Generated: ${reportDate}`, 196, 28, { align: 'right' });
+
+    // ── User Info & Overview ──
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('User Profile & Summary', 14, 46);
+
+    const userName = currentUser?.displayName || 'Habitly User';
+    const userEmail = currentUser?.email || 'N/A';
+    const totalHabits = allHabits.length;
+
+    let totalCompletions = 0;
+    allHabits.forEach(h => {
+      totalCompletions += (h.completedDates || []).length;
+    });
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`User: ${userName} (${userEmail})`, 14, 54);
+    doc.text(`Total Habits Tracked: ${totalHabits}    |    Total Check-ins Logged: ${totalCompletions}`, 14, 61);
+
+    // ── Habits Table ──
+    const tableRows = allHabits.map((h, idx) => {
+      const cat = CATS[h.category] || CATS.health;
+      const streak = calcHabitStreak(h);
+      const longest = calcLongestStreak(h);
+      const completions = (h.completedDates || []).length;
+      const freq = (h.frequency || 'daily').toUpperCase();
+
+      return [
+        idx + 1,
+        h.name || 'Untitled',
+        cat.label || h.category,
+        freq,
+        `${streak} days`,
+        `${longest} days`,
+        completions
+      ];
+    });
+
+    doc.autoTable({
+      startY: 68,
+      head: [['#', 'Habit Name', 'Category', 'Frequency', 'Current Streak', 'Best Streak', 'Total Done']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [124, 58, 237],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 9
+      },
+      bodyStyles: {
+        fontSize: 9,
+        textColor: [51, 65, 85]
+      },
+      alternateRowStyles: {
+        fillColor: [247, 246, 255]
+      },
+      margin: { left: 14, right: 14 }
+    });
+
+    // ── Journal Notes Section (if any) ──
+    const habitsWithNotes = allHabits.filter(h => h.notes && h.notes.length > 0);
+    if (habitsWithNotes.length > 0) {
+      let currentY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 14 : 140;
+      if (currentY > 250) {
+        doc.addPage();
+        currentY = 20;
+      }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('Journal Notes', 14, currentY);
+      currentY += 8;
+
+      habitsWithNotes.forEach(h => {
+        if (currentY > 265) {
+          doc.addPage();
+          currentY = 20;
+        }
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(124, 58, 237);
+        doc.text(`• ${h.name}:`, 14, currentY);
+        currentY += 6;
+
+        h.notes.slice(-5).reverse().forEach(n => {
+          if (currentY > 275) {
+            doc.addPage();
+            currentY = 20;
+          }
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(71, 85, 105);
+          doc.text(`[${n.date}] ${n.text}`, 20, currentY);
+          currentY += 5;
+        });
+        currentY += 4;
+      });
+    }
+
+    // ── Footer with Page Numbers ──
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Habitly Report · Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+    }
+
+    const filename = `habitly-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(filename);
+    toast('PDF Report exported successfully! 📄', 'success');
+  } catch (err) {
+    console.error('PDF Export failed:', err);
+    toast('Failed to export PDF: ' + err.message, 'error');
+  }
 }
 
 if (exportDataBtn) {

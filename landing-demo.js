@@ -58,7 +58,7 @@ function init() {
     stickySub: $('ls-sub'), stickyBtn: $('ls-btn'), loginBtn: $('login-btn'),
   };
 
-  const today = () => new Date().toISOString().split('T')[0]; // same basis as app.js
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }; // local day, same basis as app.js
   let uid = 0;
   const newId = () => 'd' + Date.now().toString(36) + (uid++);
 

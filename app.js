@@ -169,7 +169,12 @@ let unsubHabits  = null;
 let routerReady  = false;
 
 // ── Date Helpers ─────────────────────────────────────────
-const todayStr = () => new Date().toISOString().split('T')[0];
+// Day keys are LOCAL calendar days ("YYYY-MM-DD") so a day rolls over at the user's own midnight.
+// (Using toISOString() meant UTC midnight: streaks broke at 7pm in New York, 1am in Lagos.)
+const pad2 = n => String(n).padStart(2, '0');
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const dayKeyOffset = n => { const d = new Date(); d.setDate(d.getDate() + n); return dayKey(d); };
+const todayStr = () => dayKey();
 
 function isSameWeek(ds) {
   const [y, m, d] = ds.split('-');
@@ -206,6 +211,23 @@ function getFirstName(user) {
 // ── Stats Helpers & Streak Shield ────────────────────────
 let userStreakShields = 1;
 let userFrozenDates = [];
+let userShieldUsedAt = 0;          // ms timestamp the last shield was consumed (drives the weekly recharge)
+let userAllDoneBonusDate = null;   // local day the +100 Daily Master bonus was last awarded (once per day)
+let userDocLoaded = false;         // true once users/{uid} has been read, so we never act on default values
+const SHIELD_RECHARGE_MS = 7 * 24 * 60 * 60 * 1000;
+const XP_PER_HABIT = 25;
+const XP_DAILY_BONUS = 100;
+
+// Wipe per-account state so one user's XP/shields can never leak into (or be written onto) another account.
+function resetUserState() {
+  currentUserXP = 0;
+  userStreakShields = 1;
+  userFrozenDates = [];
+  userShieldUsedAt = 0;
+  userAllDoneBonusDate = null;
+  userDocLoaded = false;
+  previousMaxStreak = null;
+}
 
 function calcStreak(habits) {
   // Global max streak across all individual habits
@@ -221,7 +243,7 @@ function calcHabitStreak(habit) {
   
   if (!dates.has(todayStr()) && !frozen.has(todayStr())) d.setDate(d.getDate() - 1);
   while (true) {
-    const ds = d.toISOString().split('T')[0];
+    const ds = dayKey(d);
     if (dates.has(ds) || frozen.has(ds)) { 
       streak++; 
       d.setDate(d.getDate() - 1); 
@@ -428,10 +450,10 @@ if (levelUpClaimBtn) {
 
 async function addXP(amount, targetEl = null) {
   if (!currentUser) return;
-  if (targetEl) spawnFloatingXP(targetEl, amount);
+  if (targetEl && amount > 0) spawnFloatingXP(targetEl, amount);
 
   const prevInfo = getLevelInfo(currentUserXP);
-  currentUserXP += amount;
+  currentUserXP = Math.max(0, currentUserXP + amount);
   const newInfo = getLevelInfo(currentUserXP);
 
   updateXPUI();
@@ -445,7 +467,7 @@ async function addXP(amount, targetEl = null) {
   }
 
   // Check Level-Up
-  if (newInfo.level > prevInfo.level) {
+  if (amount > 0 && newInfo.level > prevInfo.level) {
     setTimeout(() => {
       showLevelUpModal(newInfo);
     }, 600);
@@ -466,39 +488,55 @@ function updateStreakShieldUI() {
   }
   const sShields = document.getElementById('s-streak-shields');
   if (sShields) {
-    sShields.textContent = userStreakShields > 0 ? `${userStreakShields} Active 🛡️` : '0 Active (Recharges Weekly)';
+    if (userStreakShields > 0) sShields.textContent = `${userStreakShields} Active 🛡️`;
+    else {
+      const usedAt = userShieldUsedAt || (userFrozenDates.length ? new Date([...userFrozenDates].sort().pop() + 'T12:00:00').getTime() : Date.now());
+      const days = Math.max(1, Math.ceil((usedAt + SHIELD_RECHARGE_MS - Date.now()) / 86400000));
+      sShields.textContent = `Recharges in ${days} day${days === 1 ? '' : 's'}`;
+    }
   }
 }
 
 async function checkAndApplyStreakShield() {
-  if (!currentUser || userStreakShields <= 0 || allHabits.length === 0) return;
-  
-  const y = new Date();
-  y.setDate(y.getDate() - 1);
-  const yesterdayStr = y.toISOString().split('T')[0];
+  // Never act on default values: wait for users/{uid} and for at least one habit.
+  if (!currentUser || !userDocLoaded || allHabits.length === 0) return;
 
-  if (userFrozenDates.includes(yesterdayStr)) return; // already protected
-
-  // Check if user completed ANY habit yesterday
-  const completedAnyYesterday = allHabits.some(h => (h.completedDates || []).includes(yesterdayStr));
-  
-  if (!completedAnyYesterday) {
-    // Yesterday was missed! Auto-consume 1 shield to protect streak!
-    userStreakShields--;
-    userFrozenDates.push(yesterdayStr);
-
-    try {
-      await setDoc(doc(db, 'users', currentUser.uid), {
-        streakShields: userStreakShields,
-        frozenDates: userFrozenDates
-      }, { merge: true });
-
-      toast('🛡️ Streak Freeze activated! Your daily streak was protected.', 'info', 5000);
+  // 1) Weekly recharge: a spent shield comes back 7 days after it was used.
+  if (userStreakShields <= 0) {
+    const lastFrozen = userFrozenDates.length ? new Date([...userFrozenDates].sort().pop() + 'T12:00:00').getTime() : 0;
+    const usedAt = userShieldUsedAt || lastFrozen;
+    if (Date.now() - usedAt >= SHIELD_RECHARGE_MS) {
+      userStreakShields = 1;
+      try {
+        await setDoc(doc(db, 'users', currentUser.uid), { streakShields: 1 }, { merge: true });
+        toast('🛡️ Your Streak Shield has recharged!', 'success', 4500);
+      } catch (e) { console.warn('Shield recharge failed:', e); }
       updateStreakShieldUI();
-      renderHabits();
-    } catch (e) {
-      console.warn("Error updating streak shield:", e);
     }
+  }
+  if (userStreakShields <= 0) return;
+
+  // 2) Protect yesterday only if there was a streak to protect. A shield guards an existing streak;
+  //    it must not conjure one for a brand-new user or "rescue" a streak that already ended.
+  const yesterdayStr = dayKeyOffset(-1);
+  const covered = ds => userFrozenDates.includes(ds) || allHabits.some(h => (h.completedDates || []).includes(ds));
+  if (covered(yesterdayStr)) return;            // nothing was missed
+  if (!covered(dayKeyOffset(-2))) return;       // no streak running into yesterday
+
+  userStreakShields--;
+  userFrozenDates = [...userFrozenDates, yesterdayStr];
+  userShieldUsedAt = Date.now();
+  try {
+    await setDoc(doc(db, 'users', currentUser.uid), {
+      streakShields: userStreakShields,
+      frozenDates: userFrozenDates,
+      shieldUsedAt: userShieldUsedAt
+    }, { merge: true });
+    toast('🛡️ Streak Freeze activated! Your daily streak was protected.', 'info', 5000);
+    updateStreakShieldUI();
+    renderHabits();
+  } catch (e) {
+    console.warn('Error updating streak shield:', e);
   }
 }
 
@@ -839,7 +877,7 @@ document.getElementById('share-card-download')?.addEventListener('click', () => 
 
   try {
     const link = document.createElement('a');
-    link.download = `habitly-streak-story-${new Date().toISOString().slice(0, 10)}.png`;
+    link.download = `habitly-streak-story-${dayKey()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
     toast('Streak story saved in Full HD! 📥', 'success');
@@ -871,7 +909,7 @@ document.getElementById('share-card-share')?.addEventListener('click', () => {
         });
       } else {
         const link = document.createElement('a');
-        link.download = `habitly-streak-story-${new Date().toISOString().slice(0, 10)}.png`;
+        link.download = `habitly-streak-story-${dayKey()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
         toast('Card saved to your device! 📸', 'success');
@@ -890,7 +928,7 @@ function getWeeklyData(habits) {
   const labels = [], counts = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    const ds = d.toISOString().split('T')[0];
+    const ds = dayKey(d);
     labels.push(d.toLocaleDateString('en', { weekday: 'short' }));
     counts.push(habits.filter(h => (h.completedDates || []).includes(ds)).length);
   }
@@ -1007,8 +1045,14 @@ function checkAllDone(justCompletedId = null) {
     playChime();
     const overlay = document.getElementById('all-done-overlay');
     if (overlay) overlay.classList.remove('hidden');
-    await addXP(100);
-    toast('🎉 Daily Master Bonus: +100 XP!', 'success');
+    if (userAllDoneBonusDate !== today) {
+      userAllDoneBonusDate = today;
+      await addXP(XP_DAILY_BONUS);
+      setDoc(doc(db, 'users', currentUser.uid), { allDoneBonusDate: today }, { merge: true }).catch(console.warn);
+      toast('🎉 Daily Master Bonus: +100 XP!', 'success');
+    } else {
+      toast('🎉 All done again! (Daily bonus already claimed)', 'info');
+    }
 
     // Mega confetti blast!
     if (window.confetti) {
@@ -1160,7 +1204,7 @@ signupBtn.addEventListener('click', async () => {
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
   if (unsubHabits) { unsubHabits(); unsubHabits = null; }
-  allHabits = []; routerReady = false;
+  allHabits = []; routerReady = false; resetUserState();
   await signOut(auth);
   toast('Signed out. See you soon! 👋');
 });
@@ -1168,6 +1212,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 onAuthStateChanged(auth, async user => {
   hideLoading();
   if (user) {
+    if (currentUser && currentUser.uid !== user.uid) resetUserState();
     currentUser = user;
     try { localStorage.setItem('habitly_returning', '1'); } catch (_) {}
     showApp();
@@ -1177,6 +1222,7 @@ onAuthStateChanged(auth, async user => {
   } else {
     currentUser = null;
     allHabits = [];
+    resetUserState();
     showAuth();
   }
 });
@@ -1282,7 +1328,13 @@ function updateAvatars(user) {
       if (Array.isArray(uData.frozenDates)) {
         userFrozenDates = uData.frozenDates;
       }
+      if (typeof uData.shieldUsedAt === 'number') userShieldUsedAt = uData.shieldUsedAt;
+      if (typeof uData.allDoneBonusDate === 'string') userAllDoneBonusDate = uData.allDoneBonusDate;
       updateStreakShieldUI();
+    }
+    if (!userDocLoaded) {
+      userDocLoaded = true;
+      if (allHabits.length) { checkAndApplyStreakShield(); renderHabits(); updateStreak(); }
     }
     
     if (photoURL) {
@@ -1749,7 +1801,7 @@ if (confirmModal) {
 
       setTimeout(async () => {
         await toggleHabit(id, false, dateToRm);
-        await addXP(25, checkboxEl);
+        await addXP(XP_PER_HABIT, checkboxEl);
         toast('Great job! Habit completed 🎉 (+25 XP)', 'success');
         fireConfetti();
         checkAllDone(id);
@@ -1794,7 +1846,8 @@ document.getElementById('habits').addEventListener('change', async e => {
   if (navigator.vibrate) navigator.vibrate(30);
 
   setTimeout(async () => {
-    await toggleHabit(id, true, dateToRm);
+    // Refund the XP so ticking/unticking can't be farmed
+    if (await toggleHabit(id, true, dateToRm)) await addXP(-XP_PER_HABIT);
   }, 200);
 });
 
@@ -1861,7 +1914,7 @@ function renderDeletedHabits() {
     div.className = 'deleted-habit-item';
     div.innerHTML = `
       <div class="deleted-habit-info">
-        <span class="deleted-habit-name">${h.name}</span>
+        <span class="deleted-habit-name">${escHtml(h.name || '')}</span>
         <span class="deleted-habit-time">Permanently deleted in ${minsLeft}m</span>
       </div>
       <button class="btn-ghost restore-btn" data-id="${h.id}" style="color: var(--primary);">Restore</button>
@@ -2420,7 +2473,7 @@ function executeDataExport() {
       doc.text(`Habitly Report · Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
     }
 
-    const filename = `habitly-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const filename = `habitly-report-${dayKey()}.pdf`;
     doc.save(filename);
     toast('PDF Report exported successfully! 📄', 'success');
   } catch (err) {

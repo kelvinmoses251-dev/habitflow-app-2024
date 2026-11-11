@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>idb probe</title>
+<script type="module">
+// Throwaway probe: does the REAL Firestore SDK keep working with persistentLocalCache when IndexedDB is unavailable?
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, getDocFromCache, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+const out = { idb: typeof indexedDB };
+try {
+  const app = initializeApp({ apiKey: 'x', projectId: 'probe-project-' + Date.now(), appId: '1:1:web:1' });
+  const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  out.init = 'ok';
+  try { await getDocFromCache(doc(db, 'habits', 'x')); out.readMissing = 'found?!'; } catch (e) { out.readMissing = e.code + ' | ' + String(e.message).slice(0, 110); }
+  setDoc(doc(db, 'habits', 'y'), { a: 1 }).catch(() => {});          // never acknowledged: no backend
+  await new Promise(r => setTimeout(r, 600));
+  try { const s = await getDocFromCache(doc(db, 'habits', 'y')); out.localWrite = s.exists() ? 'applied-locally' : 'missing'; } catch (e) { out.localWrite = e.code + ' | ' + String(e.message).slice(0, 110); }
+} catch (e) { out.init = 'THREW ' + e.message; }
+window.__out = out;
+</script>

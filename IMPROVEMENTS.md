@@ -44,3 +44,5 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 36 | Reliability | **Real service worker**: network-first app shell + cached Firebase SDK/CDN libs, so the app opens with no connection after one visit (the old worker was a pass-through that cached nothing). Firestore/Auth traffic is never touched | Habit apps get used on trains, in lifts and on patchy mobile data |
 | 37 | UX | **Offline banner** ("Changes are saved on this device and will sync automatically") and a "Back online" toast | People need to know their taps are safe |
 | 38 | Bug fix | Tapping a reminder notification now **opens the app** (there was no `notificationclick` handler) and the notification icon path is fixed (`/icons/icon-192.png` didn't exist) | Reminders were a dead end |
+
+_Verified against the real Firestore SDK (not the mock): the offline cache keeps working, via memory fallback, where IndexedDB is unavailable (`tests/scenarios/12-idb-fallback.js`)._

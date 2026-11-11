@@ -1092,6 +1092,16 @@ select { cursor: pointer; }
 .notif-ask-actions { display: flex; gap: var(--sp-2); margin-left: auto; }
 .notif-ask-actions button { padding: .5rem .95rem; font-size: .85rem; }
 
+/* Insights */
+.insights-card.hidden { display: none !important; }
+.insights-list { list-style: none; display: flex; flex-direction: column; gap: var(--sp-3); }
+.insights-list li { display: flex; align-items: flex-start; gap: var(--sp-3); font-size: .9rem; line-height: 1.45; color: var(--text-2); }
+.insights-list li strong { color: var(--text); }
+.insights-list .ins-ic {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--primary-lt); font-size: 1.1rem;
+}
+
 /* Starter packs */
 .pack-grid {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3);

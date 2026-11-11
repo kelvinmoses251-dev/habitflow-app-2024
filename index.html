@@ -55,7 +55,7 @@
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib),
        so first paint no longer waits on ~900KB of scripts most sessions never use. -->
 
-  <link rel="stylesheet" href="style.css?v=21" />
+  <link rel="stylesheet" href="style.css?v=22" />
 </head>
 <body>
 
@@ -505,6 +505,12 @@
           <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span><span class="stat-val" id="stat-rate">0%</span><span class="stat-lbl">This Week</span></div>
         </div>
 
+        <!-- Insights: plain-language read of the user's own data -->
+        <div class="card insights-card hidden" id="insights-card">
+          <h2 class="card-title">💡 Insights</h2>
+          <ul class="insights-list" id="insights-list"></ul>
+        </div>
+
         <!-- Weekly Progress Report -->
         <div class="card weekly-report-card">
           <h2 class="card-title">📋 Weekly Progress Report</h2>
@@ -930,6 +936,6 @@
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 
 <script type="module" src="landing-demo.js?v=2"></script>
-<script type="module" src="app.js?v=26"></script>
+<script type="module" src="app.js?v=27"></script>
 </body>
 </html>

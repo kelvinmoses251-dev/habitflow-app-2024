@@ -33,3 +33,4 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 25 | Accessibility | **Escape closes** the top-most modal/overlay | Keyboard users were trapped in dialogs |
 | 26 | Accessibility | Muted text raised to WCAG AA contrast (2.7:1 → 5:1 light, 3.1:1 → 5.4:1 dark) | Helper text was hard to read, especially outdoors |
 | 27 | Accessibility | Visible keyboard focus ring everywhere; global `prefers-reduced-motion` support | Keyboard focus was invisible; motion-sensitive users had no relief |
+| 28 | Engagement | **Insights** card on Stats: momentum vs last week ("Up 33%"), strongest and weakest weekday, best streak ever, most consistent habit: all computed locally from the user's own data | The Stats tab was charts with no conclusions |

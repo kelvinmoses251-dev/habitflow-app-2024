@@ -2200,6 +2200,7 @@ function renderStats() {
   renderHeatmap();
   renderWeeklyReport();
   renderSuccessRate();
+  renderInsights();
   ensureLib('chart').then(() => {
     if (location.hash !== '#stats') return;      // user navigated away while it loaded
     renderChart(labels, counts);
@@ -2381,6 +2382,65 @@ function renderHeatmap() {
     if (date > today) cell.style.opacity = '0';
     container.appendChild(cell);
   });
+}
+
+// ── Insights: turn raw check-ins into plain-language observations ──
+function buildInsights(habits, today = new Date()) {
+  const out = [];
+  const WEEKDAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+  const base = new Date(today); base.setHours(12, 0, 0, 0);
+  const keyAt = n => { const d = new Date(base); d.setDate(d.getDate() - n); return dayKey(d); };
+  const countOn = ds => habits.reduce((s, h) => s + ((h.completedDates || []).includes(ds) ? 1 : 0), 0);
+
+  // 1) Momentum: last 7 days vs the 7 before
+  let thisWeek = 0, lastWeek = 0;
+  for (let n = 0; n < 7; n++) { thisWeek += countOn(keyAt(n)); lastWeek += countOn(keyAt(n + 7)); }
+  if (thisWeek + lastWeek >= 3) {
+    if (lastWeek === 0) out.push({ ic: '🚀', html: `<strong>${thisWeek} check-ins</strong> this week. A fresh start, keep it rolling.` });
+    else {
+      const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
+      if (pct > 0) out.push({ ic: '📈', html: `<strong>Up ${pct}%</strong> on last week (${thisWeek} vs ${lastWeek} check-ins).` });
+      else if (pct < 0) out.push({ ic: '📉', html: `<strong>Down ${Math.abs(pct)}%</strong> from last week (${thisWeek} vs ${lastWeek}). One habit today gets you back on track.` });
+      else out.push({ ic: '⚖️', html: `<strong>Steady:</strong> the same ${thisWeek} check-ins as last week.` });
+    }
+  }
+
+  // 2) Strongest / weakest weekday over the last 8 weeks
+  const byDay = [0, 0, 0, 0, 0, 0, 0];
+  let total = 0;
+  for (let n = 0; n < 56; n++) {
+    const c = countOn(keyAt(n));
+    if (c) { const d = new Date(base); d.setDate(d.getDate() - n); byDay[d.getDay()] += c; total += c; }
+  }
+  if (total >= 7) {
+    const max = Math.max(...byDay), min = Math.min(...byDay);
+    const best = byDay.indexOf(max), worst = byDay.indexOf(min);
+    out.push({ ic: '🏆', html: `<strong>${WEEKDAYS[best]}</strong> are your strongest day (${max} check-ins in 8 weeks).` });
+    if (best !== worst && min <= max * 0.5) out.push({ ic: '🪫', html: `<strong>${WEEKDAYS[worst]}</strong> are your weak spot. Try a smaller version of your habits that day.` });
+  }
+
+  // 3) Best streak ever
+  let bestStreak = 0, bestName = '';
+  habits.forEach(h => { const s = calcLongestStreak(h); if (s > bestStreak) { bestStreak = s; bestName = h.name; } });
+  if (bestStreak >= 3) out.push({ ic: '🔥', html: `Your best streak ever: <strong>${bestStreak} days</strong> on \u201C${escHtml(bestName)}\u201D.` });
+
+  // 4) Most consistent habit (last 30 days, daily habits only)
+  let top = null;
+  habits.filter(h => !h.frequency || h.frequency === 'daily').forEach(h => {
+    let done = 0; for (let n = 0; n < 30; n++) if ((h.completedDates || []).includes(keyAt(n))) done++;
+    if (!top || done > top.done) top = { name: h.name, done };
+  });
+  if (top && top.done >= 5) out.push({ ic: '⭐', html: `Most consistent: <strong>\u201C${escHtml(top.name)}\u201D</strong>, ${top.done} of the last 30 days.` });
+
+  return out;
+}
+
+function renderInsights() {
+  const card = document.getElementById('insights-card'), list = document.getElementById('insights-list');
+  if (!card || !list) return;
+  const items = allHabits.length ? buildInsights(allHabits) : [];
+  list.innerHTML = items.map(i => `<li><span class="ins-ic" aria-hidden="true">${i.ic}</span><span>${i.html}</span></li>`).join('');
+  card.classList.toggle('hidden', !items.length);
 }
 
 function renderWeeklyReport() {

@@ -75,9 +75,14 @@ function runQuery(q) {
 }
 const snapFor = ref => (ref.kind === 'doc' ? mkDocSnap(ref.name, ref.id) : runQuery(ref.kind === 'col' ? { name: ref.name, cons: [] } : ref));
 
-function notify() {
+// Like real Firestore, only listeners on the collection that changed are re-fired.
+function notify(name) {
   persist();
-  setTimeout(() => dbListeners.forEach(l => { try { l.cb(snapFor(l.ref)); } catch (e) { console.error('mock onSnapshot cb', e); } }), 0);
+  setTimeout(() => dbListeners.forEach(l => {
+    if (name && l.ref.name !== name) return;
+    { try { l.cb(snapFor(l.ref)); } catch (e) { console.error('mock onSnapshot cb', e); }
+    }
+  }), 0);
 }
 
 export function onSnapshot(ref, cb) {
@@ -91,7 +96,7 @@ export async function addDoc(c, data) {
   const d = {}; applyUpdate(d, data);
   col(c.name)[id] = d;
   writes.push({ op: 'add', col: c.name, id, data: clone(d) });
-  notify();
+  notify(c.name);
   return { id };
 }
 export async function setDoc(ref, data, opts) {
@@ -99,16 +104,16 @@ export async function setDoc(ref, data, opts) {
   if (opts && opts.merge && c[ref.id]) applyUpdate(c[ref.id], data);
   else { c[ref.id] = {}; applyUpdate(c[ref.id], data); }
   writes.push({ op: 'set', col: ref.name, id: ref.id, data: clone(data) });
-  notify();
+  notify(ref.name);
 }
 export async function updateDoc(ref, data) {
   const d = col(ref.name)[ref.id];
   if (!d) throw Object.assign(new Error('No document to update'), { code: 'not-found' });
   applyUpdate(d, data);
   writes.push({ op: 'update', col: ref.name, id: ref.id, data: clone(data) });
-  notify();
+  notify(ref.name);
 }
-export async function deleteDoc(ref) { delete col(ref.name)[ref.id]; writes.push({ op: 'delete', col: ref.name, id: ref.id }); notify(); }
+export async function deleteDoc(ref) { delete col(ref.name)[ref.id]; writes.push({ op: 'delete', col: ref.name, id: ref.id }); notify(ref.name); }
 export async function getDoc(ref) { return mkDocSnap(ref.name, ref.id); }
 export async function getDocs(q) { return runQuery(q.kind === 'col' ? { name: q.name, cons: [] } : q); }
 

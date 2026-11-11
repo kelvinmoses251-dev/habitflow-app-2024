@@ -261,6 +261,7 @@ function init() {
   let audioCtx = null;
   function tone(freqs, { type = 'sine', gap = 0.09, len = 0.5, vol = 0.25 } = {}) {
     try {
+      if (localStorage.getItem('habitly_sound') === 'off') return;
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       audioCtx = audioCtx || new AC();
@@ -341,7 +342,7 @@ function init() {
     syncAuthCopy();
     syncSticky();
 
-    if (navigator.vibrate) navigator.vibrate(h.done ? 18 : 8);
+    if (navigator.vibrate && localStorage.getItem('habitly_haptics') !== 'off') navigator.vibrate(h.done ? 18 : 8);
 
     if (h.done) {
       pop();

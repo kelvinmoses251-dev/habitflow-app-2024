@@ -95,7 +95,11 @@ function check(name, cond, detail) {
   await send('Fetch.enable', { patterns: [{ urlPattern: 'https://www.gstatic.com/firebasejs/*' }] });
 
   // Load the origin, wipe + seed storage, reload. `seed` is a map of localStorage keys.
-  async function boot({ seed = {}, mobile = true, tz = 'Africa/Lagos', hash = '' } = {}) {
+  let initScriptId = null;
+  async function boot({ seed = {}, mobile = true, tz = 'Africa/Lagos', hash = '', colorScheme = 'light', initScript = null } = {}) {
+    if (initScriptId) { await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: initScriptId }); initScriptId = null; }
+    if (initScript) initScriptId = (await send('Page.addScriptToEvaluateOnNewDocument', { source: initScript })).result.identifier;
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: colorScheme }] });
     await send('Emulation.setDeviceMetricsOverride', mobile ? { width: 390, height: 844, deviceScaleFactor: 2, mobile: true } : { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
     await send('Emulation.setTimezoneOverride', { timezoneId: tz });
     await send('Page.navigate', { url: ORIGIN + '/404-boot' }); await sleep(300);   // any same-origin page to reach localStorage

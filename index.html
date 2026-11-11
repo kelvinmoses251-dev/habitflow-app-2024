@@ -6,6 +6,15 @@
   <meta name="description" content="Habitly — Track your daily habits, build streaks, and grow every day." />
   <title>Habitly — Build Better Habits</title>
 
+  <!-- Apply the saved (or system) theme before first paint so dark-mode users never see a light flash -->
+  <script>
+    (function () { try {
+      var t = localStorage.getItem('theme');
+      var dark = t ? t === 'dark' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {} })();
+  </script>
+
   <!-- Favicon & Touch Icon -->
   <link rel="icon" type="image/png" href="favicon.png?v=3" />
   <link rel="apple-touch-icon" href="icon-192.png?v=3" />
@@ -30,7 +39,7 @@
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib),
        so first paint no longer waits on ~900KB of scripts most sessions never use. -->
 
-  <link rel="stylesheet" href="style.css?v=19" />
+  <link rel="stylesheet" href="style.css?v=20" />
 </head>
 <body>
 
@@ -381,6 +390,13 @@
           </div>
         </div>
 
+        <!-- 🔥 Streak-at-risk nudge (evening, streak alive, nothing ticked yet) -->
+        <button id="streak-risk" class="risk-banner hidden" type="button">
+          <span class="risk-flame" aria-hidden="true">🔥</span>
+          <span class="risk-text"><strong id="risk-title"></strong><span id="risk-sub"></span></span>
+          <span class="risk-go" aria-hidden="true">→</span>
+        </button>
+
         <!-- 🎮 Level & XP Progression Card -->
         <div class="xp-card">
           <div class="xp-card-top">
@@ -586,6 +602,16 @@
               <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></span><span class="setting-label">Dark Mode</span></div>
               <label class="toggle"><input type="checkbox" id="dark-mode-toggle"><span class="toggle-track"></span></label>
             </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon">🔊</span><span class="setting-label">Sound effects</span></div>
+              <label class="toggle"><input type="checkbox" id="sound-toggle" checked><span class="toggle-track"></span></label>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon">📳</span><span class="setting-label">Vibration</span></div>
+              <label class="toggle"><input type="checkbox" id="haptics-toggle" checked><span class="toggle-track"></span></label>
+            </div>
             
             <div class="setting-row">
               <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><span class="setting-label">App Tutorial Guide</span></div>
@@ -656,6 +682,18 @@
     </a>
   </nav>
 
+</div>
+
+<!-- Contextual "daily reminders" ask: shown after the first completed habit, never at login -->
+<div id="notif-ask" class="notif-ask hidden" role="dialog" aria-label="Daily reminders">
+  <div class="notif-ask-text">
+    <strong>Never lose your streak 🔥</strong>
+    <span>One gentle reminder a day. Turn it off anytime.</span>
+  </div>
+  <div class="notif-ask-actions">
+    <button id="notif-ask-no" class="btn-ghost" type="button">Not now</button>
+    <button id="notif-ask-yes" class="btn-primary" type="button">Remind me</button>
+  </div>
 </div>
 
 <!-- Toast container -->
@@ -875,7 +913,7 @@
 <!-- Confetti Animation Library -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 
-<script type="module" src="landing-demo.js?v=1"></script>
-<script type="module" src="app.js?v=24"></script>
+<script type="module" src="landing-demo.js?v=2"></script>
+<script type="module" src="app.js?v=25"></script>
 </body>
 </html>

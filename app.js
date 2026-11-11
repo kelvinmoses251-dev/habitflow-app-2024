@@ -54,16 +54,37 @@ function ensureLib(name) {
   return libPromises[name];
 }
 
-// ── Dark Mode Init ───────────────────────────────────────
-if (localStorage.getItem('theme') === 'dark') {
-  document.body.setAttribute('data-theme', 'dark');
+// ── Theme: saved choice wins, otherwise follow the system (a head script applies it before first paint) ──
+const systemDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+function isDarkTheme() {
+  const saved = localStorage.getItem('theme');
+  return saved ? saved === 'dark' : !!(systemDark && systemDark.matches);
 }
+function applyTheme() {
+  const dark = isDarkTheme();
+  [document.documentElement, document.body].forEach(el => dark ? el.setAttribute('data-theme', 'dark') : el.removeAttribute('data-theme'));
+}
+applyTheme();
+if (systemDark && systemDark.addEventListener) {
+  systemDark.addEventListener('change', () => {
+    if (localStorage.getItem('theme')) return;     // an explicit choice always wins
+    applyTheme();
+    if (location.hash === '#stats') renderStats();
+  });
+}
+
+// ── Sound & vibration preferences ─────────────────────────
+const prefOn = key => localStorage.getItem(key) !== 'off';
+const soundOn = () => prefOn('habitly_sound');
+const hapticsOn = () => prefOn('habitly_haptics');
+function buzz(pattern) { if (hapticsOn() && navigator.vibrate) navigator.vibrate(pattern); }
 
 // ── Audio Synthesizers ─────────────────────────────────────
 const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
 
 function getAudioContext() {
+  if (!soundOn()) return null;     // every sound helper bails when there is no context
   if (!audioCtx && AudioCtxClass) {
     audioCtx = new AudioCtxClass();
   }
@@ -460,7 +481,7 @@ function spawnFloatingXP(targetEl, amount = 25) {
 
 function showLevelUpModal(info) {
   playLevelUpSound();
-  if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+  buzz([100, 50, 100, 50, 200]);
   fireConfetti();
 
   const modal = document.getElementById('level-up-modal');
@@ -569,6 +590,12 @@ async function checkAndApplyStreakShield() {
   userStreakShields--;
   userFrozenDates = [...userFrozenDates, yesterdayStr];
   userShieldUsedAt = Date.now();
+  // Show the protected streak straight away (not only after the next habit write), and don't
+  // treat "streak restored by a shield" as a level-up.
+  previousMaxStreak = null;
+  updateStreakShieldUI();
+  renderHabits();
+  updateStreak();
   try {
     await setDoc(doc(db, 'users', currentUser.uid), {
       streakShields: userStreakShields,
@@ -576,8 +603,6 @@ async function checkAndApplyStreakShield() {
       shieldUsedAt: userShieldUsedAt
     }, { merge: true });
     toast('🛡️ Streak Freeze activated! Your daily streak was protected.', 'info', 5000);
-    updateStreakShieldUI();
-    renderHabits();
   } catch (e) {
     console.warn('Error updating streak shield:', e);
   }
@@ -1042,7 +1067,7 @@ function initOnboarding(force = false) {
     if (dots[cur]) dots[cur].classList.add('active');
     if (next) next.textContent = cur === slides.length - 1 ? 'Get Started 🚀' : 'Next →';
     // Haptic pulse on slide change
-    if (navigator.vibrate) navigator.vibrate(30);
+    buzz(30);
   }
 
   dots.forEach(d => {
@@ -1111,7 +1136,7 @@ function checkAllDone(justCompletedId = null) {
         if (Date.now() < end) requestAnimationFrame(frame);
       }());
     }
-    if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
+    buzz([100, 50, 100, 50, 200]);
     setTimeout(() => { isCelebrating = false; }, 3000);
   }, 400);
 }
@@ -1318,7 +1343,7 @@ onAuthStateChanged(auth, async user => {
     showApp();
     updateAvatars(user);
     subscribeToHabits();
-    await requestNotificationPermission();
+    initNotifications();
   } else {
     currentUser = null;
     allHabits = [];
@@ -1328,6 +1353,7 @@ onAuthStateChanged(auth, async user => {
 });
 
 function showApp() {
+  if (!riskTimer) riskTimer = setInterval(updateStreakRisk, 60000);   // keep the countdown fresh
   // Warm up Chart.js when the browser is idle so the Stats tab opens instantly
   (window.requestIdleCallback || (cb => setTimeout(cb, 4000)))(() => ensureLib('chart').catch(() => {}));
   document.getElementById('auth-screen').classList.add('hidden');
@@ -1625,7 +1651,7 @@ function subscribeToHabits() {
     });
 
     renderHabits();
-    updateStreak();
+    if (userDocLoaded) updateStreak();   // before that, shield data is still defaults
     syncUserStats();
 
     // Auto-seed XP if new user or legacy habits exist
@@ -1660,6 +1686,7 @@ function renderHabits() {
     empty.classList.remove('hidden');
     renderStarterPacks();
     updateProgress(0, 0);
+    updateStreakRisk();
     return;
   }
   empty.classList.add('hidden');
@@ -1751,7 +1778,39 @@ function renderHabits() {
     if (first) first.classList.add('nudge');
   }
   updateProgress(done, allHabits.length);
+  updateStreakRisk();
 }
+
+// 🔥 Loss aversion: late in the day, say exactly which streak is about to end and how long is left.
+let riskTimer = null;
+function updateStreakRisk() {
+  const el = document.getElementById('streak-risk');
+  if (!el) return;
+  const now = new Date();
+  const t = todayStr();
+  const atRisk = allHabits
+    .filter(h => (!h.frequency || h.frequency === 'daily') && !(h.completedDates || []).includes(t) && calcHabitStreak(h) > 0)
+    .sort((x, y) => calcHabitStreak(y) - calcHabitStreak(x));
+  if (!atRisk.length || now.getHours() < 16) { el.classList.add('hidden'); return; }
+
+  const top = atRisk[0];
+  const mid = new Date(now); mid.setHours(24, 0, 0, 0);
+  const mins = Math.max(1, Math.round((mid - now) / 60000));
+  const left = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+  document.getElementById('risk-title').textContent = `${calcHabitStreak(top)}-day streak on \u201C${top.name}\u201D ends in ${left}`;
+  document.getElementById('risk-sub').textContent = userStreakShields > 0
+    ? 'Tick it now and keep your 🛡️ shield.'
+    : 'Tick it before midnight to keep it alive.';
+  el.dataset.habit = top.id;
+  el.classList.remove('hidden');
+}
+document.getElementById('streak-risk')?.addEventListener('click', e => {
+  const cb = document.querySelector(`.habit-item[data-id="${CSS.escape(e.currentTarget.dataset.habit || '')}"] .habit-check`);
+  if (!cb) return;
+  cb.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  cb.classList.add('nudge');
+  setTimeout(() => cb.classList.remove('nudge'), 4000);
+});
 
 function renderStarterPacks() {
   const grid = document.getElementById('starter-packs');
@@ -1779,7 +1838,7 @@ async function addStarterPack(id, btn) {
     })));
     nudgeFirstHabit = true;
     toast(`${pack.emoji} ${pack.title} added. Tick your first habit!`, 'success');
-    if (navigator.vibrate) navigator.vibrate(25);
+    buzz(25);
   } catch (err) {
     toast('Could not add the pack: ' + err.message, 'error');
     document.querySelectorAll('.pack-card').forEach(b => { b.disabled = false; });
@@ -1948,7 +2007,7 @@ if (confirmModal) {
       if (checkboxEl) checkboxEl.checked = true;
       nudgeFirstHabit = false;
       playPop();
-      if (navigator.vibrate) navigator.vibrate([40, 20, 40]);
+      buzz([40, 20, 40]);
 
       setTimeout(async () => {
         await toggleHabit(id, false, dateToRm);
@@ -1956,6 +2015,7 @@ if (confirmModal) {
         toast('Great job! Habit completed 🎉 (+25 XP)', 'success');
         fireConfetti();
         checkAllDone(id);
+        maybeAskForReminders();
       }, 300);
     });
   }
@@ -1987,14 +2047,14 @@ document.getElementById('habits').addEventListener('change', async e => {
 
   if (isLocked) {
     cb.checked = true; // Re-check the checkbox immediately
-    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+    buzz([60, 40, 60]);
     toast('🔒 Habit is locked! Completed habits cannot be unchecked after 1 hour.', 'warning');
     return;
   }
 
   // Unchecking within 1 hour allowed
   playUncheck();
-  if (navigator.vibrate) navigator.vibrate(30);
+  buzz(30);
 
   setTimeout(async () => {
     // Refund the XP so ticking/unticking can't be farmed
@@ -2429,16 +2489,28 @@ document.getElementById('notif-toggle').addEventListener('change', async e => {
 
 const darkModeToggle = document.getElementById('dark-mode-toggle');
 if (darkModeToggle) {
-  darkModeToggle.checked = localStorage.getItem('theme') === 'dark';
+  darkModeToggle.checked = isDarkTheme();
   darkModeToggle.addEventListener('change', (e) => {
-    if (e.target.checked) {
-      document.body.setAttribute('data-theme', 'dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.body.removeAttribute('data-theme');
-      localStorage.setItem('theme', 'light');
-    }
+    localStorage.setItem('theme', e.target.checked ? 'dark' : 'light');
+    applyTheme();
     if (location.hash === '#stats') renderStats();
+  });
+}
+
+const soundToggle = document.getElementById('sound-toggle');
+if (soundToggle) {
+  soundToggle.checked = soundOn();
+  soundToggle.addEventListener('change', e => {
+    localStorage.setItem('habitly_sound', e.target.checked ? 'on' : 'off');
+    if (e.target.checked) playPop();
+  });
+}
+const hapticsToggle = document.getElementById('haptics-toggle');
+if (hapticsToggle) {
+  hapticsToggle.checked = hapticsOn();
+  hapticsToggle.addEventListener('change', e => {
+    localStorage.setItem('habitly_haptics', e.target.checked ? 'on' : 'off');
+    if (e.target.checked) buzz(30);
   });
 }
 
@@ -2682,12 +2754,40 @@ if (delAccBtn) {
 // ── Push Notifications ────────────────────────────────────
 const VAPID_KEY = "BE5rwPAdz5SJaPh4ML2Mqb8L-Ecdqj6lBjxpmMEt8T8VCkhvx3IjJuJ2GV5pa_80-YxE2rXXZ4SJbKGLAP-es1k";
 
+// Don't spend the browser's one-shot permission prompt at sign-in, before the user has any reason to say yes.
+// Already-granted users silently refresh their push token; everyone else is asked after their first completed
+// habit (maybeAskForReminders) or via the Settings toggle.
+async function initNotifications() {
+  if (!messaging || typeof Notification === 'undefined') return;
+  if (Notification.permission === 'granted') await requestNotificationPermission();
+  else { const t = document.getElementById('notif-toggle'); if (t) t.checked = false; }
+}
+
+const NOTIF_ASKED_KEY = 'habitly_notif_asked';
+function maybeAskForReminders() {
+  try {
+    if (!messaging || typeof Notification === 'undefined' || Notification.permission !== 'default') return;
+    if (Date.now() - (+localStorage.getItem(NOTIF_ASKED_KEY) || 0) < 7 * 864e5) return;   // at most weekly
+  } catch (_) { return; }
+  setTimeout(() => document.getElementById('notif-ask')?.classList.remove('hidden'), 1800);
+}
+function closeReminderAsk() {
+  document.getElementById('notif-ask')?.classList.add('hidden');
+  try { localStorage.setItem(NOTIF_ASKED_KEY, String(Date.now())); } catch (_) {}
+}
+document.getElementById('notif-ask-no')?.addEventListener('click', closeReminderAsk);
+document.getElementById('notif-ask-yes')?.addEventListener('click', async () => {
+  closeReminderAsk();
+  await requestNotificationPermission();
+});
+
 async function requestNotificationPermission() {
   if (!messaging) return;
   try {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') {
       document.getElementById('notif-toggle').checked = false;
+      if (perm === 'denied') toast('Notifications are blocked. Enable them in your browser settings to get reminders.', 'warning', 5000);
       return;
     }
     document.getElementById('notif-toggle').checked = true;

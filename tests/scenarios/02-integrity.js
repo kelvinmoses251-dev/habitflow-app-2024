@@ -19,6 +19,7 @@ module.exports = (scenario, c) => {
     await waitFor(`!document.getElementById('confirm-check-modal').classList.contains('hidden')`);
     await ev(`document.getElementById('confirm-check-yes').click()`);
     await waitFor(`document.querySelector('#habits .habit-check').checked === true`);
+    await waitFor(`(Object.values(window.__mockDB.habits)[0].completedDates || []).length === 1`);   // the write lands ~300ms after the checkbox flips
   }
 
   // UTC+14 and UTC-11 can't BOTH share today's date with UTC, so at least one of these fails on a UTC-based "today".

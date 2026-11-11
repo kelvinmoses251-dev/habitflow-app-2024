@@ -23,7 +23,7 @@ module.exports = (scenario, c) => {
     const list = (await items()).join(' | ');
     check('momentum read is present', /(Up|Down) \d+%|Steady|Up/.test(list), list);
     check('names a strongest weekday', /are your strongest day/.test(list), list);
-    check('best streak surfaced (4 consecutive days)', /best streak ever: 4 days/.test(list), list);
+    check('longest streak surfaced (4 consecutive days)', /Longest streak: 4 days/.test(list), list);
     noExceptions();
   });
 

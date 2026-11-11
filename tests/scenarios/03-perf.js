@@ -32,7 +32,7 @@ module.exports = (scenario, c) => {
     await ev(`document.getElementById('export-data-btn').click()`);
     check('confirm dialog opens', await waitFor(`!document.getElementById('confirm-export-modal').classList.contains('hidden')`));
     await ev(`document.getElementById('confirm-export-yes').click()`);
-    check('PDF reports success', await waitFor(`document.getElementById('toast-container').textContent.includes('exported successfully')`, 25000),
+    check('PDF reports success', await waitFor(`document.getElementById('toast-container').textContent.includes('Report downloaded')`, 25000),
       await text('#toast-container'));
     noExceptions();
   });
@@ -44,7 +44,7 @@ module.exports = (scenario, c) => {
     check('share modal opens', await waitFor(`!document.getElementById('share-card-modal').classList.contains('hidden')`));
     await sleep(1500);
     check('canvas has painted pixels', (await ev(`(()=>{const x=document.getElementById('share-story-canvas').getContext('2d'); return x.getImageData(540,900,1,1).data[3] > 0})()`)) === true);
-    check('brand font is loaded', (await ev(`document.fonts.check('700 28px "Plus Jakarta Sans"')`)) === true);
+    check('brand font is loaded', (await ev(`document.fonts.check('600 28px Inter')`)) === true);
     noExceptions();
   });
 };

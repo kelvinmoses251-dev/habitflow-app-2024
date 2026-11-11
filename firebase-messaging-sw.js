@@ -26,9 +26,9 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || '💪 Habit Reminder';
+  const title = payload.notification?.title || 'Habitly';
   self.registration.showNotification(title, {
-    body: payload.notification?.body || 'Time to check your habits for today!',
+    body: payload.notification?.body || 'You still have habits to complete today.',
     icon: '/icon-192.png',          // was '/icons/icon-192.png', which does not exist
     badge: '/icon-192.png',
     tag: 'habitly-reminder',        // one reminder at a time, not a pile

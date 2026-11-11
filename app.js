@@ -105,7 +105,7 @@ if (systemDark && systemDark.addEventListener) {
 
 // ── Sound & vibration preferences ─────────────────────────
 const prefOn = key => localStorage.getItem(key) !== 'off';
-const soundOn = () => prefOn('habitly_sound');
+const soundOn = () => localStorage.getItem('habitly_sound') === 'on';   // opt-in
 const hapticsOn = () => prefOn('habitly_haptics');
 function buzz(pattern) { if (hapticsOn() && navigator.vibrate) navigator.vibrate(pattern); }
 
@@ -245,6 +245,12 @@ const icons = {
   project: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>'
 };
 
+// Category icons: tidy the mapping (mind was a dollar sign; saving was a plus in a circle)
+const _icon = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">${inner}</svg>`;
+icons.saving = _icon('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>');
+icons.mind   = _icon('<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>');
+icons.growth = _icon('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');
+
 // ── Categories ───────────────────────────────────────────
 const CATS = {
   health:     { label: 'Health',     emoji: icons.health, color: '#DC2626', bg: '#FFF0F0' },
@@ -260,49 +266,15 @@ const CATS = {
   project:    { label: 'Project',    emoji: icons.project, color: '#475569', bg: '#F1F5F9' },
 };
 
-// ── Auto emoji: every habit gets a fitting icon from its name (falls back to its category) ──
-const EMOJI_RULES = [   // every pattern is anchored to a word START so "start" is not "art" and "create" is not "eat"
-  [/\b(?:phone|screen ?time|social media|scroll)/i, '📵'],
-  [/\b(?:water|hydrat|drink)/i, '💧'],
-  [/\b(?:vitamin|supplement|medic|pill)/i, '💊'],
-  [/\b(?:read(?!y)|book|page|novel)/i, '📖'],
-  [/\b(?:run|jog|sprint|cardio)/i, '🏃'],
-  [/\b(?:walk|steps|hike)/i, '🚶'],
-  [/\b(?:gym|workout|lift|weights|exercise|push-?ups?|squat)/i, '🏋️'],
-  [/\b(?:stretch|yoga|mobility)/i, '🤸'],
-  [/\bswim/i, '🏊'], [/\b(?:cycl|bike)/i, '🚴'],
-  [/\b(?:medit|mindful|breath)/i, '🧘'],
-  [/\b(?:pray|bible|church|devotion|quran|worship)/i, '🙏'],
-  [/\b(?:sleep|bed ?time|nap|wake)/i, '😴'],
-  [/\b(?:journal|diary|gratitude|writ)/i, '✍️'],
-  [/\b(?:code|coding|program|leetcode|develop)/i, '💻'],
-  [/\b(?:study|learn|course|lesson|homework|revise|review|practi[cs]e|language)/i, '🎓'],
-  [/\b(?:sav(?:e|ing)|budget|invest|money|spend)/i, '💰'],
-  [/\b(?:protein|meal|eat|veg|fruit|diet|cook|breakfast|lunch|dinner|salad)/i, '🥗'],
-  [/\b(?:clean|tidy|laundry|dish|declutter|chore)/i, '🧹'],
-  [/\b(?:call|text|friend|family|mum|mom|dad|parent|partner)/i, '📞'],
-  [/\b(?:music|guitar|piano|sing|instrument)/i, '🎵'],
-  [/\b(?:draw|paint|art|sketch|design)/i, '🎨'],
-  [/\b(?:plan(?!t)|todo|to-do|task|inbox|email|organi[sz]e)/i, '🗓️'],
-  [/\b(?:floss|brush|teeth|skincare|shower|bath)/i, '🪥'],
-  [/\b(?:outside|nature|garden|plant|sun)/i, '🌿'],
-];
-const CATEGORY_EMOJI = { health: '❤️', mind: '🧠', social: '👥', growth: '🌱', productive: '⚡', nutrition: '🥗', fitness: '💪',
-  reading: '📖', saving: '💰', relaxation: '🧘', project: '🛠️' };
-function habitEmoji(h) {
-  const hit = EMOJI_RULES.find(([re]) => re.test(h.name || ''));
-  return hit ? hit[1] : (CATEGORY_EMOJI[h.category] || '✅');
-}
-
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
-  { id: 'morning', emoji: '🌅', title: 'Morning Reset', habits: [
+  { id: 'morning', title: 'Morning routine', habits: [
     ['Drink a glass of water', 'health'], ['5-minute stretch', 'fitness'], ['Plan my top 3 tasks', 'productive'] ] },
-  { id: 'fit',     emoji: '💪', title: 'Get Fit', habits: [
+  { id: 'fit',     title: 'Fitness', habits: [
     ['Workout 20 minutes', 'fitness'], ['Walk 8,000 steps', 'health'], ['Protein with every meal', 'nutrition'] ] },
-  { id: 'calm',    emoji: '🧘', title: 'Calm Mind', habits: [
+  { id: 'calm',    title: 'Mindfulness', habits: [
     ['Meditate 5 minutes', 'relaxation'], ['Write 3 lines in a journal', 'mind'], ['No phone in bed', 'mind'] ] },
-  { id: 'learn',   emoji: '📚', title: 'Learn Daily', habits: [
+  { id: 'learn',   title: 'Learning', habits: [
     ['Read 10 pages', 'reading'], ['Practice a skill for 15 min', 'growth'], ['Review today\u2019s notes', 'productive'] ] },
 ];
 let nudgeFirstHabit = false;   // pulse the first checkbox right after a pack is added
@@ -420,101 +392,71 @@ function calcLongestStreak(habit) {
 }
 
 function getUserBadge(maxStreak) {
-  if (maxStreak >= 365) return { name: 'Legend', icon: '🌌', color: '#6366f1', c1: '#818cf8', c2: '#312e81', cb: '#a5b4fc' };
-  if (maxStreak >= 200) return { name: 'Ascended', icon: '☄️', color: '#8b5cf6', c1: '#c084fc', c2: '#581c87', cb: '#e879f9' };
-  if (maxStreak >= 100) return { name: 'Mystic', icon: '🔮', color: '#a855f7', c1: '#d8b4fe', c2: '#6b21a8', cb: '#f3e8ff' };
-  if (maxStreak >= 60)  return { name: 'Diamond', icon: '💎', color: '#0ea5e9', c1: '#7dd3fc', c2: '#0369a1', cb: '#e0f2fe' };
-  if (maxStreak >= 30)  return { name: 'Master', icon: '👑', color: '#eab308', c1: '#fde047', c2: '#a16207', cb: '#fef08a' };
-  if (maxStreak >= 21)  return { name: 'Gold', icon: '🥇', color: '#f59e0b', c1: '#fcd34d', c2: '#b45309', cb: '#fef3c7' };
-  if (maxStreak >= 14)  return { name: 'Silver', icon: '🥈', color: '#9ca3af', c1: '#d1d5db', c2: '#4b5563', cb: '#f3f4f6' };
-  if (maxStreak >= 7)   return { name: 'Bronze', icon: '🥉', color: '#b45309', c1: '#fdba74', c2: '#9a3412', cb: '#ffedd5' };
-  if (maxStreak >= 3)   return { name: 'Sprout', icon: '🌿', color: '#22c55e', c1: '#86efac', c2: '#166534', cb: '#dcfce3' };
-  return { name: 'Seedling', icon: '🌱', color: '#84cc16', c1: '#bef264', c2: '#3f6212', cb: '#ecfccb' };
+  if (maxStreak >= 365) return { name: 'Legend' };
+  if (maxStreak >= 200) return { name: 'Ascended' };
+  if (maxStreak >= 100) return { name: 'Mystic' };
+  if (maxStreak >= 60)  return { name: 'Diamond' };
+  if (maxStreak >= 30)  return { name: 'Master' };
+  if (maxStreak >= 21)  return { name: 'Gold' };
+  if (maxStreak >= 14)  return { name: 'Silver' };
+  if (maxStreak >= 7)   return { name: 'Bronze' };
+  if (maxStreak >= 3)   return { name: 'Rising' };
+  return { name: 'Starter' };
 }
 
-// ── XP & LEVELING SYSTEM ────────────────────────────────────
+// ── Levels ──────────────────────────────────────────────────
 const LEVEL_TITLES = [
-  { level: 1,  minXP: 0,     title: 'Novice',          icon: '🌱', perk: 'Daily Habit Tracking Unlocked' },
-  { level: 2,  minXP: 100,   title: 'Apprentice',      icon: '⚡', perk: 'Consistency Sparks' },
-  { level: 3,  minXP: 250,   title: 'Disciplined',     icon: '🛡️', perk: 'Bronze Focus Aura' },
-  { level: 4,  minXP: 450,   title: 'Consistent',      icon: '🔥', perk: 'Streak Multiplier' },
-  { level: 5,  minXP: 700,   title: 'Dedicated',       icon: '⭐', perk: 'Silver Habit Warrior' },
-  { level: 6,  minXP: 1000,  title: 'Habit Warrior',   icon: '⚔️', perk: 'Golden Habit Crest' },
-  { level: 7,  minXP: 1400,  title: 'Unstoppable',     icon: '💫', perk: 'Diamond Aura' },
-  { level: 8,  minXP: 1900,  title: 'Grandmaster',     icon: '👑', perk: 'Mastery Crown' },
-  { level: 9,  minXP: 2500,  title: 'Legend',          icon: '🌌', perk: 'Cosmic Legend Tier' },
-  { level: 10, minXP: 3200,  title: 'Ascended Master', icon: '💎', perk: 'Infinite Ascended Tier' }
+  { level: 1,  minXP: 0,    title: 'Starter' },
+  { level: 2,  minXP: 100,  title: 'Builder' },
+  { level: 3,  minXP: 250,  title: 'Steady' },
+  { level: 4,  minXP: 450,  title: 'Consistent' },
+  { level: 5,  minXP: 700,  title: 'Dedicated' },
+  { level: 6,  minXP: 1000, title: 'Committed' },
+  { level: 7,  minXP: 1400, title: 'Disciplined' },
+  { level: 8,  minXP: 1900, title: 'Expert' },
+  { level: 9,  minXP: 2500, title: 'Master' },
+  { level: 10, minXP: 3200, title: 'Grandmaster' }
 ];
 
 let currentUserXP = 0;
 
 function getLevelInfo(totalXP) {
   const xp = Math.max(0, totalXP || 0);
-  let currentLevelObj = LEVEL_TITLES[0];
-  let nextLevelObj = LEVEL_TITLES[1];
-
+  let cur = LEVEL_TITLES[0];
+  let next = LEVEL_TITLES[1];
   for (let i = 0; i < LEVEL_TITLES.length; i++) {
     if (xp >= LEVEL_TITLES[i].minXP) {
-      currentLevelObj = LEVEL_TITLES[i];
-      nextLevelObj = LEVEL_TITLES[i + 1] || { 
-        level: currentLevelObj.level + 1, 
-        minXP: currentLevelObj.minXP + 800, 
-        title: 'Mythic Master', 
-        icon: '🌟', 
-        perk: 'Top 1% Habit Master' 
-      };
-    } else {
-      break;
-    }
+      cur = LEVEL_TITLES[i];
+      next = LEVEL_TITLES[i + 1] || { level: cur.level + 1, minXP: cur.minXP + 800, title: 'Grandmaster' };
+    } else break;
   }
-
-  const levelBaseXP = currentLevelObj.minXP;
-  const levelTargetXP = nextLevelObj.minXP;
-  const xpInCurrentLevel = xp - levelBaseXP;
-  const xpRequiredForNext = levelTargetXP - levelBaseXP;
-  const progressPct = Math.min(100, Math.max(0, Math.round((xpInCurrentLevel / xpRequiredForNext) * 100)));
-
+  const xpInCurrentLevel = xp - cur.minXP;
+  const xpRequiredForNext = next.minXP - cur.minXP;
   return {
-    level: currentLevelObj.level,
-    title: currentLevelObj.title,
-    icon: currentLevelObj.icon,
-    perk: currentLevelObj.perk,
+    level: cur.level,
+    title: cur.title,
     totalXP: xp,
     xpInCurrentLevel,
     xpRequiredForNext,
-    levelTargetXP,
-    progressPct,
-    nextTitle: nextLevelObj.title,
-    nextIcon: nextLevelObj.icon
+    levelTargetXP: next.minXP,
+    progressPct: Math.min(100, Math.max(0, Math.round((xpInCurrentLevel / xpRequiredForNext) * 100))),
+    nextTitle: next.title
   };
 }
 
 function updateXPUI() {
   const info = getLevelInfo(currentUserXP);
-  const badgeEl = document.getElementById('user-level-badge');
-  if (badgeEl) badgeEl.textContent = `Lv. ${info.level}`;
-  
-  const titleEl = document.getElementById('user-level-title');
-  if (titleEl) titleEl.textContent = `${info.title} ${info.icon}`;
-
-  const curXpEl = document.getElementById('user-current-xp');
-  if (curXpEl) curXpEl.textContent = info.xpInCurrentLevel;
-
-  const nextXpEl = document.getElementById('user-next-xp');
-  if (nextXpEl) nextXpEl.textContent = info.xpRequiredForNext;
-
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('user-level-badge', info.level);
+  set('user-level-title', info.title);
+  set('user-current-xp', info.xpInCurrentLevel);
+  set('user-next-xp', info.xpRequiredForNext);
+  set('user-xp-pct', info.progressPct + '%');
   const barEl = document.getElementById('user-xp-bar');
   if (barEl) barEl.style.width = `${info.progressPct}%`;
-
-  const pctEl = document.getElementById('user-xp-pct');
-  if (pctEl) pctEl.textContent = `${info.progressPct}%`;
-
   // Profile rows
-  const rankEl = document.getElementById('s-level-rank');
-  if (rankEl) rankEl.textContent = `Lv. ${info.level} · ${info.title} ${info.icon}`;
-
-  const totalXpEl = document.getElementById('s-total-xp');
-  if (totalXpEl) totalXpEl.textContent = `${info.totalXP.toLocaleString()} XP`;
+  set('s-level-rank', `Level ${info.level} · ${info.title}`);
+  set('s-total-xp', `${info.totalXP.toLocaleString()} XP`);
 }
 
 function playLevelUpSound() {
@@ -553,35 +495,22 @@ function spawnFloatingXP(targetEl, amount = 25) {
   const rect = targetEl.getBoundingClientRect();
   const chip = document.createElement('div');
   chip.className = 'floating-xp';
-  chip.textContent = `+${amount} XP ✨`;
-  chip.style.left = `${Math.max(10, rect.left + rect.width / 2 - 35)}px`;
+  chip.textContent = `+${amount} XP`;
+  chip.style.left = `${Math.max(10, rect.left + rect.width / 2 - 28)}px`;
   chip.style.top = `${rect.top + window.scrollY - 10}px`;
   document.body.appendChild(chip);
-  setTimeout(() => {
-    if (chip.parentNode) chip.parentNode.removeChild(chip);
-  }, 1500);
+  setTimeout(() => { if (chip.parentNode) chip.parentNode.removeChild(chip); }, 1200);
 }
 
 function showLevelUpModal(info) {
   playLevelUpSound();
-  buzz([100, 50, 100, 50, 200]);
-  fireConfetti();
-
+  buzz([60, 40, 60]);
   const modal = document.getElementById('level-up-modal');
   if (!modal) return;
-
-  const iconEl = document.getElementById('level-up-icon');
-  if (iconEl) iconEl.textContent = info.icon;
-
-  const lvlEl = document.getElementById('level-up-new-level');
-  if (lvlEl) lvlEl.textContent = `Level ${info.level}`;
-
-  const titleEl = document.getElementById('level-up-new-title');
-  if (titleEl) titleEl.textContent = `${info.title}`;
-
-  const perkEl = document.getElementById('level-up-perk-text');
-  if (perkEl) perkEl.textContent = `Perk Unlocked: ${info.perk}!`;
-
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('level-up-new-level', `Level ${info.level}`);
+  set('level-up-new-title', info.title);
+  set('level-up-perk-text', `You reached level ${info.level}. Next level at ${info.levelTargetXP.toLocaleString()} XP.`);
   modal.classList.remove('hidden');
   modal.style.opacity = '1';
 }
@@ -591,7 +520,6 @@ if (levelUpClaimBtn) {
   levelUpClaimBtn.addEventListener('click', () => {
     const modal = document.getElementById('level-up-modal');
     if (modal) modal.classList.add('hidden');
-    fireConfetti();
   });
 }
 
@@ -618,19 +546,11 @@ async function addXP(amount, targetEl = null) {
 
 // ── Streak Shield Management ──────────────────────────────
 function updateStreakShieldUI() {
-  const shieldBadge = document.getElementById('greeting-shield-badge');
   const shieldCount = document.getElementById('greeting-shield-count');
   if (shieldCount) shieldCount.textContent = userStreakShields;
-  if (shieldBadge) {
-    if (userStreakShields > 0) {
-      shieldBadge.style.display = 'inline-flex';
-    } else {
-      shieldBadge.style.display = 'none';
-    }
-  }
   const sShields = document.getElementById('s-streak-shields');
   if (sShields) {
-    if (userStreakShields > 0) sShields.textContent = `${userStreakShields} Active 🛡️`;
+    if (userStreakShields > 0) sShields.textContent = `${userStreakShields} active`;
     else {
       const usedAt = userShieldUsedAt || (userFrozenDates.length ? new Date([...userFrozenDates].sort().pop() + 'T12:00:00').getTime() : Date.now());
       const days = Math.max(1, Math.ceil((usedAt + SHIELD_RECHARGE_MS - Date.now()) / 86400000));
@@ -650,7 +570,7 @@ async function checkAndApplyStreakShield() {
     if (Date.now() - usedAt >= SHIELD_RECHARGE_MS) {
       userStreakShields = 1;
       backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { streakShields: 1 }, { merge: true }), 'recharge your shield', true);
-      toast('🛡️ Your Streak Shield has recharged!', 'success', 4500);
+      toast('Streak shield recharged', 'success', 4500);
       updateStreakShieldUI();
     }
   }
@@ -677,7 +597,7 @@ async function checkAndApplyStreakShield() {
     frozenDates: userFrozenDates,
     shieldUsedAt: userShieldUsedAt
   }, { merge: true }), 'save your streak shield', true);
-  toast('🛡️ Streak Freeze activated! Your daily streak was protected.', 'info', 5000);
+  toast('Streak shield used. Yesterday was covered.', 'info', 5000);
 }
 
 // ── Shareable 9:16 Story Progress Canvas ─────────────────
@@ -712,274 +632,79 @@ async function renderStoryCanvas() {
   const canvas = document.getElementById('share-story-canvas');
   if (!canvas) return;
   // Canvas text only uses a web font once it has loaded; without this the card silently falls back to a system font.
-  try {
-    await Promise.all(['500', '700', '800'].map(w => document.fonts.load(`${w} 28px "Plus Jakarta Sans"`)));
-  } catch (_) { /* fall back gracefully */ }
+  try { await Promise.all(['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 28px Inter`))); } catch (_) { /* fall back gracefully */ }
+
   const ctx = canvas.getContext('2d');
-  const W = 1080;
-  const H = 1920;
+  const W = 1080, H = 1920, M = 96;
+  const FONT = 'Inter, system-ui, sans-serif';
+  const INK = '#111113', LINE = '#2C2C31', TEXT = '#F2F2F4', MUTED = '#9A9AA3', ACCENT = '#A79EF5';
 
-  ctx.clearRect(0, 0, W, H);
-
-  // 1. Background Base Gradient
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-  bgGrad.addColorStop(0, '#0a0520');
-  bgGrad.addColorStop(0.35, '#170b42');
-  bgGrad.addColorStop(0.7, '#1b0d4e');
-  bgGrad.addColorStop(1, '#08031a');
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, W, H);
-
-  // 2. Ambient Radial Lighting Orbs
-  // Center purple glow
-  const purpleGlow = ctx.createRadialGradient(W / 2, 880, 50, W / 2, 880, 600);
-  purpleGlow.addColorStop(0, 'rgba(139, 92, 246, 0.45)');
-  purpleGlow.addColorStop(1, 'rgba(139, 92, 246, 0)');
-  ctx.fillStyle = purpleGlow;
-  ctx.fillRect(0, 0, W, H);
-
-  // Top-right pink aura
-  const pinkGlow = ctx.createRadialGradient(880, 320, 20, 880, 320, 480);
-  pinkGlow.addColorStop(0, 'rgba(236, 72, 153, 0.28)');
-  pinkGlow.addColorStop(1, 'rgba(236, 72, 153, 0)');
-  ctx.fillStyle = pinkGlow;
-  ctx.fillRect(0, 0, W, H);
-
-  // Center flame warm aura
-  const flameGlow = ctx.createRadialGradient(W / 2, 800, 30, W / 2, 800, 380);
-  flameGlow.addColorStop(0, 'rgba(255, 107, 0, 0.45)');
-  flameGlow.addColorStop(1, 'rgba(255, 107, 0, 0)');
-  ctx.fillStyle = flameGlow;
-  ctx.fillRect(0, 0, W, H);
-
-  // Bottom cyan aura
-  const cyanGlow = ctx.createRadialGradient(200, 1650, 20, 200, 1650, 450);
-  cyanGlow.addColorStop(0, 'rgba(14, 165, 233, 0.25)');
-  cyanGlow.addColorStop(1, 'rgba(14, 165, 233, 0)');
-  ctx.fillStyle = cyanGlow;
-  ctx.fillRect(0, 0, W, H);
-
-  // 3. TOP BAR: [✓] HABITLY (x: 100, y: 150) & DATE (x: 980, y: 180)
-  // Brand pill
-  drawRoundRect(ctx, 100, 140, 260, 68, 34, 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.2)', 2);
-  // Brand Icon square
-  drawRoundRect(ctx, 114, 150, 48, 48, 14, '#8B5CF6');
-  // Checkmark inside brand icon
-  ctx.beginPath();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 6;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.moveTo(126, 174);
-  ctx.lineTo(135, 184);
-  ctx.lineTo(151, 164);
-  ctx.stroke();
-
-  // Brand Name
-  ctx.font = '900 28px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textAlign = 'left';
-  ctx.fillText('HABITLY', 176, 184);
-
-  // Date
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
-  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#CBD5E1';
-  ctx.textAlign = 'right';
-  ctx.fillText(dateStr, 980, 184);
-
-  // 4. USER PROFILE SPOTLIGHT
-  const name = (currentUser?.displayName || 'Habit Master').trim();
+  const name = (currentUser?.displayName || 'Habitly user').trim();
   const levelInfo = getLevelInfo(currentUserXP);
   const maxStreak = calcStreak(allHabits);
   const totalDone = calcTotalDone(allHabits);
   const shieldCount = typeof userStreakShields === 'number' ? userStreakShields : 1;
 
-  // Avatar Circle at (540, 360, r: 75)
-  ctx.save();
-  ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
-  ctx.shadowBlur = 28;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = INK;
+  ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'alphabetic';
+
+  // Header: logo mark, wordmark, date
+  drawRoundRect(ctx, M, 120, 56, 56, 13, '#6657DB');
   ctx.beginPath();
-  ctx.arc(W / 2, 360, 75, 0, Math.PI * 2);
-  ctx.fillStyle = '#7C3AED';
-  ctx.fill();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = '#C084FC';
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.moveTo(M + 15, 149); ctx.lineTo(M + 25, 159); ctx.lineTo(M + 42, 139);
   ctx.stroke();
-  ctx.restore();
+  ctx.textAlign = 'left';
+  ctx.font = `600 36px ${FONT}`; ctx.fillStyle = TEXT;
+  ctx.fillText('Habitly', M + 76, 160);
+  ctx.textAlign = 'right';
+  ctx.font = `500 28px ${FONT}`; ctx.fillStyle = MUTED;
+  ctx.fillText(new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), W - M, 158);
 
-  // Avatar Image / Initial
-  let imgLoaded = false;
-  if (currentUser?.photoURL) {
-    try {
-      const userImg = new Image();
-      userImg.crossOrigin = 'anonymous';
-      userImg.src = currentUser.photoURL;
-      await new Promise((resolve) => {
-        userImg.onload = () => {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(W / 2, 360, 72, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(userImg, W / 2 - 72, 360 - 72, 144, 144);
-          ctx.restore();
-          imgLoaded = true;
-          resolve();
-        };
-        userImg.onerror = () => resolve();
-        setTimeout(resolve, 800);
-      });
-    } catch(e) {}
-  }
+  // Identity
+  ctx.textAlign = 'left';
+  ctx.font = `600 64px ${FONT}`; ctx.fillStyle = TEXT;
+  let shown = name;
+  while (shown.length > 3 && ctx.measureText(shown).width > W - M * 2) shown = shown.slice(0, -2);
+  ctx.fillText(shown === name ? name : shown.trimEnd() + '...', M, 430);
+  ctx.font = `500 34px ${FONT}`; ctx.fillStyle = MUTED;
+  ctx.fillText(`Level ${levelInfo.level} · ${levelInfo.title}`, M, 488);
 
-  if (!imgLoaded) {
-    const initials = name[0]?.toUpperCase() || '?';
-    ctx.font = '900 68px "Plus Jakarta Sans", sans-serif';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(initials, W / 2, 360);
-    ctx.textBaseline = 'alphabetic';
-  }
+  ctx.fillStyle = LINE; ctx.fillRect(M, 560, W - M * 2, 2);
 
-  // User Name
-  ctx.font = '900 52px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textAlign = 'center';
-  ctx.fillText(name, W / 2, 500);
-
-  // Level Pill
-  const levelText = `Lv. ${levelInfo.level} · ${levelInfo.title} ${levelInfo.icon}`;
-  ctx.font = '700 28px "Plus Jakarta Sans", sans-serif';
-  const levelWidth = ctx.measureText(levelText).width + 60;
-  drawRoundRect(ctx, W / 2 - levelWidth / 2, 530, levelWidth, 58, 29, 'rgba(168, 85, 247, 0.3)', 'rgba(192, 132, 252, 0.5)', 2);
-  ctx.fillStyle = '#F3E8FF';
-  ctx.fillText(levelText, W / 2, 570);
-
-  // 5. CENTER HERO CARD: (x: 100, y: 640, w: 880, h: 580, r: 40)
-  drawRoundRect(ctx, 100, 640, 880, 580, 40, 'rgba(255, 255, 255, 0.07)', 'rgba(255, 255, 255, 0.18)', 2.5);
-
-  // Draw Glowing Flame at (x: 540, y: 680 to 860)
+  // Streak: line flame, big number, label
   ctx.save();
-  ctx.translate(W / 2, 680);
-  ctx.scale(1.8, 1.8);
-  ctx.translate(-50, 0);
-
-  // Flame outer
-  const fGrad1 = ctx.createLinearGradient(50, 0, 50, 100);
-  fGrad1.addColorStop(0, '#FF4500');
-  fGrad1.addColorStop(0.5, '#FF9800');
-  fGrad1.addColorStop(1, '#FFC107');
-
-  ctx.beginPath();
-  ctx.moveTo(50, 5);
-  ctx.bezierCurveTo(50, 5, 62, 25, 62, 40);
-  ctx.bezierCurveTo(62, 43, 61, 47, 59, 50);
-  ctx.bezierCurveTo(65, 44, 70, 36, 70, 36);
-  ctx.bezierCurveTo(70, 36, 82, 52, 82, 68);
-  ctx.bezierCurveTo(82, 85.67, 67.67, 100, 50, 100);
-  ctx.bezierCurveTo(32.33, 100, 18, 85.67, 18, 68);
-  ctx.bezierCurveTo(18, 48, 34, 26, 50, 5);
-  ctx.closePath();
-  ctx.fillStyle = fGrad1;
-  ctx.shadowColor = 'rgba(255, 100, 0, 0.8)';
-  ctx.shadowBlur = 30;
-  ctx.fill();
-
-  // Flame inner yellow
-  const fGrad2 = ctx.createLinearGradient(50, 35, 50, 96);
-  fGrad2.addColorStop(0, '#FFEE58');
-  fGrad2.addColorStop(1, '#FF9800');
-  ctx.beginPath();
-  ctx.moveTo(50, 35);
-  ctx.bezierCurveTo(50, 35, 58, 48, 58, 58);
-  ctx.bezierCurveTo(58, 60, 57, 63, 55, 65);
-  ctx.bezierCurveTo(60, 61, 64, 55, 64, 55);
-  ctx.bezierCurveTo(64, 55, 72, 66, 72, 76);
-  ctx.bezierCurveTo(72, 88, 62, 96, 50, 96);
-  ctx.bezierCurveTo(38, 96, 28, 88, 28, 76);
-  ctx.bezierCurveTo(28, 62, 40, 48, 50, 35);
-  ctx.closePath();
-  ctx.fillStyle = fGrad2;
-  ctx.shadowBlur = 0;
-  ctx.fill();
-
-  // Flame center white hot
-  ctx.beginPath();
-  ctx.moveTo(50, 60);
-  ctx.bezierCurveTo(50, 60, 55, 68, 55, 75);
-  ctx.bezierCurveTo(55, 80, 50, 86, 50, 86);
-  ctx.bezierCurveTo(50, 86, 45, 80, 45, 75);
-  ctx.bezierCurveTo(45, 68, 50, 60, 50, 60);
-  ctx.closePath();
-  ctx.fillStyle = '#FFFBEB';
-  ctx.fill();
-
+  ctx.translate(M, 640); ctx.scale(4.2, 4.2);
+  ctx.strokeStyle = ACCENT; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.stroke(new Path2D('M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z'));
   ctx.restore();
+  ctx.font = `700 380px ${FONT}`; ctx.fillStyle = TEXT;
+  ctx.fillText(String(maxStreak), M - 14, 1130);
+  ctx.font = `500 48px ${FONT}`; ctx.fillStyle = MUTED;
+  ctx.fillText(maxStreak === 1 ? 'day streak' : 'day streak', M, 1210);
 
-  // Giant Streak Number (Y: 1040)
-  ctx.font = '900 150px "Plus Jakarta Sans", system-ui, sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textAlign = 'center';
-  ctx.shadowColor = 'rgba(255, 150, 0, 0.7)';
-  ctx.shadowBlur = 35;
-  ctx.fillText(String(maxStreak), W / 2, 1050);
-  ctx.shadowBlur = 0;
+  // Three figures separated by hairlines
+  const top = 1360, colW = (W - M * 2) / 3;
+  ctx.fillStyle = LINE;
+  ctx.fillRect(M, top, W - M * 2, 2);
+  ctx.fillRect(M, top + 200, W - M * 2, 2);
+  [[allHabits.length, 'Habits'], [totalDone, 'Check-ins'], [shieldCount, 'Shields']].forEach(([val, label], i) => {
+    const x = M + i * colW + (i ? 32 : 0);
+    if (i) ctx.fillRect(M + i * colW, top + 2, 2, 198);
+    ctx.font = `600 84px ${FONT}`; ctx.fillStyle = TEXT;
+    ctx.fillText(String(val), x, top + 120);
+    ctx.font = `500 28px ${FONT}`; ctx.fillStyle = MUTED;
+    ctx.fillText(label, x, top + 168);
+    ctx.fillStyle = LINE;
+  });
 
-  // Streak Subtitle (Y: 1140)
-  ctx.font = '900 36px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#FBBF24';
-  ctx.fillText('DAY STREAK CRUSHED 🔥', W / 2, 1135);
-
-  // 6. THREE CONSISTENCY STAT PILLS (Y: 1270, H: 200)
-  const statCardW = 270;
-  const statCardH = 200;
-  const statCardY = 1270;
-  const col1X = 100;
-  const col2X = 405;
-  const col3X = 710;
-
-  // Col 1: Habits
-  drawRoundRect(ctx, col1X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
-  ctx.font = '900 58px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textAlign = 'center';
-  ctx.fillText(String(allHabits.length), col1X + statCardW / 2, statCardY + 95);
-  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#CBD5E1';
-  ctx.fillText('🎯 Habits', col1X + statCardW / 2, statCardY + 155);
-
-  // Col 2: Check-ins
-  drawRoundRect(ctx, col2X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
-  ctx.font = '900 58px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(String(totalDone), col2X + statCardW / 2, statCardY + 95);
-  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#CBD5E1';
-  ctx.fillText('✅ Check-ins', col2X + statCardW / 2, statCardY + 155);
-
-  // Col 3: Shields
-  drawRoundRect(ctx, col3X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
-  ctx.font = '900 58px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillText(String(shieldCount), col3X + statCardW / 2, statCardY + 95);
-  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#CBD5E1';
-  ctx.fillText('🛡️ Shields', col3X + statCardW / 2, statCardY + 155);
-
-  // 7. BOTTOM SAFE ZONE (Y: 1570 to 1750)
-  // Quote
-  ctx.font = 'italic 600 32px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#F1F5F9';
-  ctx.textAlign = 'center';
-  ctx.fillText('"Small daily habits compound into massive victories" 🚀', W / 2, 1600);
-
-  // Footer Branding Pill
-  // Footer pill carries the URL so the story itself brings people back to the app
-  drawRoundRect(ctx, W / 2 - 380, 1660, 760, 68, 34, 'rgba(124, 58, 237, 0.3)', 'rgba(168, 85, 247, 0.5)', 2);
-  ctx.font = '800 30px "Plus Jakarta Sans", sans-serif';
-  ctx.fillStyle = '#E9D5FF';
-  ctx.fillText('✨ ' + SHARE_URL.replace('https://', ''), W / 2, 1704);
+  // Footer
+  ctx.font = `500 36px ${FONT}`; ctx.fillStyle = TEXT;
+  ctx.fillText(SHARE_URL.replace('https://', ''), M, 1700);
+  ctx.font = `400 28px ${FONT}`; ctx.fillStyle = MUTED;
+  ctx.fillText('Habit tracker', M, 1748);
 }
 
 async function openShareCardModal() {
@@ -1021,8 +746,8 @@ const SHARE_URL = 'https://habit-tracker-demo-34c0a.web.app';
 function shareMessage() {
   const n = calcStreak(allHabits);
   return n > 0
-    ? `I'm on a ${n}-day streak on Habitly 🔥 Think you can beat it? ${SHARE_URL}`
-    : `I'm building better habits on Habitly 🔥 Join me: ${SHARE_URL}`;
+    ? `I'm on a ${n}-day streak on Habitly. ${SHARE_URL}`
+    : `I'm tracking my habits on Habitly. ${SHARE_URL}`;
 }
 
 // Download Card as PNG directly from Canvas
@@ -1035,7 +760,7 @@ document.getElementById('share-card-download')?.addEventListener('click', () => 
     link.download = `habitly-streak-story-${dayKey()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    toast('Streak story saved in Full HD! 📥', 'success');
+    toast('Image saved', 'success');
   } catch (err) {
     console.error('Download canvas error:', err);
     toast('Could not save image: ' + err.message, 'error');
@@ -1065,7 +790,7 @@ document.getElementById('share-card-share')?.addEventListener('click', () => {
         link.download = `habitly-streak-story-${dayKey()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
-        toast('Card saved to your device! 📸', 'success');
+        toast('Image saved', 'success');
       }
     }, 'image/png');
   } catch (err) {
@@ -1147,7 +872,7 @@ function initOnboarding(force = false) {
   // Reset to first slide
   slides.forEach((s, idx) => s.classList.toggle('active', idx === 0));
   dots.forEach((d, idx) => d.classList.toggle('active', idx === 0));
-  if (next) next.textContent = slides.length === 1 ? 'Get Started 🚀' : 'Next →';
+  if (next) next.textContent = slides.length === 1 ? 'Get started' : 'Next';
 
   function go(i) {
     if (slides[cur]) slides[cur].classList.remove('active');
@@ -1155,7 +880,7 @@ function initOnboarding(force = false) {
     cur = i;
     if (slides[cur]) slides[cur].classList.add('active');
     if (dots[cur]) dots[cur].classList.add('active');
-    if (next) next.textContent = cur === slides.length - 1 ? 'Get Started 🚀' : 'Next →';
+    if (next) next.textContent = cur === slides.length - 1 ? 'Get started' : 'Next';
     // Haptic pulse on slide change
     buzz(30);
   }
@@ -1211,23 +936,12 @@ function checkAllDone(justCompletedId = null) {
       userAllDoneBonusDate = today;
       await addXP(XP_DAILY_BONUS);
       setDoc(doc(db, 'users', currentUser.uid), { allDoneBonusDate: today }, { merge: true }).catch(console.warn);
-      toast('🎉 Daily Master Bonus: +100 XP!', 'success');
+      toast('All habits done. +100 XP bonus', 'success');
       track('all_done_bonus');
     } else {
-      toast('🎉 All done again! (Daily bonus already claimed)', 'info');
+      toast("All habits done. Today's bonus was already claimed", 'info');
     }
-
-    // Mega confetti blast!
-    if (window.confetti) {
-      const end = Date.now() + 2500;
-      const colors = ['#7c3aed', '#a78bfa', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
-      (function frame() {
-        window.confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors, disableForReducedMotion: true });
-        window.confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors, disableForReducedMotion: true });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      }());
-    }
-    buzz([100, 50, 100, 50, 200]);
+    buzz([60, 40, 60]);
     setTimeout(() => { isCelebrating = false; }, 3000);
   }, 400);
 }
@@ -1288,19 +1002,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── Confetti ────────────────────────────────────────────────
-function fireConfetti() {
-  if (window.confetti) {
-    window.confetti({
-      particleCount: 120,
-      spread: 70,
-      origin: { y: 0.6 },
-      disableForReducedMotion: true,
-      colors: ['#8b5cf6', '#a78bfa', '#d8b4fe', '#fbcfe8'] // Brand colors
-    });
-  }
-}
-
 // ── Auth ──────────────────────────────────────────────────
 // Turn Firebase's raw error ("Firebase: Error (auth/invalid-credential).") into something a person can act on.
 function authErrorMessage(err) {
@@ -1327,10 +1028,7 @@ function authErrorMessage(err) {
 getRedirectResult(auth).then(cred => {
   if (cred) {
     const details = getAdditionalUserInfo(cred);
-    if (details && details.isNewUser) {
-      fireConfetti();
-    }
-  }
+      }
 }).catch(err => {
   if (err.code !== 'auth/credential-already-in-use') {
     console.warn('Redirect sign-in error:', err);
@@ -1343,10 +1041,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     const cred = await signInWithPopup(auth, provider);
     const details = getAdditionalUserInfo(cred);
     track(details && details.isNewUser ? 'sign_up' : 'login', { method: 'google' });
-    if (details && details.isNewUser) {
-      fireConfetti();
-    }
-  } catch (e) {
+      } catch (e) {
     // If popup is blocked by mobile browser or webview, fall back to redirect
     if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
       try {
@@ -1400,9 +1095,8 @@ signupBtn.addEventListener('click', async () => {
     const name = email.split('@')[0];
     await updateProfile(cred.user, { displayName: name });
     emailForm.reset();
-    toast('Account created successfully! 🎉', 'success');
+    toast('Account created', 'success');
     track('sign_up', { method: 'email' });
-    fireConfetti();
   } catch (e) {
     toast(authErrorMessage(e), 'error');
   } finally {
@@ -1447,7 +1141,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   if (unsubHabits) { unsubHabits(); unsubHabits = null; }
   allHabits = []; routerReady = false; resetUserState();
   await signOut(auth);
-  toast('Signed out. See you soon! 👋');
+  toast('Signed out');
 });
 
 onAuthStateChanged(auth, async user => {
@@ -1478,7 +1172,7 @@ window.addEventListener('unhandledrejection', e => {
 function updateOnlineStatus(announce = false) {
   const offline = navigator.onLine === false;
   document.getElementById('offline-bar')?.classList.toggle('hidden', !offline);
-  if (announce && !offline) toast('Back online. Syncing your changes ✅', 'success');
+  if (announce && !offline) toast('Back online. Syncing your changes', 'success');
 }
 window.addEventListener('offline', () => updateOnlineStatus());
 window.addEventListener('online', () => updateOnlineStatus(true));
@@ -1494,7 +1188,7 @@ function showApp() {
 
   // Greeting
   document.getElementById('greeting-time').textContent = getGreeting();
-  document.getElementById('greeting-name').textContent = getFirstName(currentUser) + '!';
+  document.getElementById('greeting-name').textContent = getFirstName(currentUser);
   document.getElementById('today-date').textContent    = formatDisplayDate();
 
   initOnboarding();
@@ -1551,8 +1245,8 @@ async function seedHabitsFromLandingDemo() {
     }
     track('demo_carried_over', { habits: demo.habits.length, ticked });
     toast(ticked
-      ? `🎉 Your demo streak is saved. ${ticked} habit${ticked === 1 ? '' : 's'} already ticked!`
-      : '🎉 Your demo habits are ready to go!', 'success', 5000);
+      ? `Demo progress saved. ${ticked} habit${ticked === 1 ? '' : 's'} already completed.`
+      : 'Demo habits added to your account.', 'success', 5000);
   } catch (e) {
     console.warn('Could not carry over demo habits:', e);
   }
@@ -1673,7 +1367,7 @@ document.getElementById('crop-save').addEventListener('click', async () => {
     const userRef = doc(db, 'users', currentUser.uid);
     backgroundWrite(setDoc(userRef, { avatar: dataUrl }, { merge: true }), 'save your photo');
     
-    toast('Profile picture updated!', 'success');
+    toast('Profile picture updated', 'success');
     
     cropModal.classList.add('hidden');
     cropper.destroy();
@@ -1719,11 +1413,11 @@ async function toggleHabit(id, currentlyDone, dateToRemove) {
     if (h) {
       const completionTime = h.completedTimestamps?.[d];
       if (completionTime && (now - completionTime > 3600000)) {
-        toast('🔒 Habit is locked! Cannot be unchecked after 1 hour.', 'warning');
+        toast('Locked: a completed habit can only be unchecked within 1 hour.', 'warning');
         return false;
       }
       if (!completionTime && d !== todayStr()) {
-        toast('🔒 Habit is locked! Past completions cannot be unchecked.', 'warning');
+        toast('Locked: past completions cannot be unchecked.', 'warning');
         return false;
       }
     }
@@ -1876,14 +1570,13 @@ function renderHabits() {
     li.innerHTML = `
       <div class="habit-label">
         <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" aria-label="Mark ${escHtml(h.name)} complete" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} />
-        <span class="habit-emoji" aria-hidden="true">${habitEmoji(h)}</span>
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name ${isDone ? 'done' : ''}">${escHtml(h.name)}</span>
           <div class="badges-row">
-            <span class="cat-badge" style="color:${cat.color};background:${cat.bg}">${cat.emoji} ${cat.label}</span>
+            <span class="cat-badge"><span class="cat-ico" style="color:${cat.color}">${cat.emoji}</span>${cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
-            ${habitStreak > 0 ? '<span class="streak-pill">🔥 ' + habitStreak + '</span>' : ''}
-            ${isLocked ? '<span class="locked-badge" title="Completed & locked (cannot uncheck after 1 hr)">🔒 Locked</span>' : ''}
+            ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + habitStreak + '</span>' : ''}
+            ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>Locked</span>' : ''}
           </div>
         </div>
       </div>
@@ -1911,7 +1604,7 @@ function renderHabits() {
   updateStreakRisk();
 }
 
-// 🔥 Loss aversion: late in the day, say exactly which streak is about to end and how long is left.
+// Loss aversion: late in the day, say exactly which streak is about to end and how long is left.
 let riskTimer = null;
 function updateStreakRisk() {
   const el = document.getElementById('streak-risk');
@@ -1927,10 +1620,10 @@ function updateStreakRisk() {
   const mid = new Date(now); mid.setHours(24, 0, 0, 0);
   const mins = Math.max(1, Math.round((mid - now) / 60000));
   const left = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
-  document.getElementById('risk-title').textContent = `${calcHabitStreak(top)}-day streak on \u201C${top.name}\u201D ends in ${left}`;
+  document.getElementById('risk-title').textContent = `${top.name}: ${calcHabitStreak(top)}-day streak ends in ${left}`;
   document.getElementById('risk-sub').textContent = userStreakShields > 0
-    ? 'Tick it now and keep your 🛡️ shield.'
-    : 'Tick it before midnight to keep it alive.';
+    ? 'Complete it today to keep your shield.'
+    : 'Complete it before midnight to keep the streak.';
   el.dataset.habit = top.id;
   if (el.classList.contains('hidden')) track('streak_risk_shown', { streak: calcHabitStreak(top) });
   el.classList.remove('hidden');
@@ -1950,10 +1643,9 @@ function renderStarterPacks() {
   STARTER_PACKS.forEach(p => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'pack-card'; b.dataset.pack = p.id;
-    b.innerHTML = `<span class="pack-emoji" aria-hidden="true">${p.emoji}</span>
-      <span class="pack-title">${escHtml(p.title)}</span>
+    b.innerHTML = `<span class="pack-title">${escHtml(p.title)}</span>
       <ul class="pack-list">${p.habits.map(([n]) => `<li>${escHtml(n)}</li>`).join('')}</ul>
-      <span class="pack-add">+ Add all 3</span>`;
+      <span class="pack-add">Add these three</span>`;
     grid.appendChild(b);
   });
 }
@@ -1970,7 +1662,7 @@ async function addStarterPack(id, btn) {
     }), 'add the pack'));
     nudgeFirstHabit = true;
     track('starter_pack_added', { pack: pack.id });
-    toast(`${pack.emoji} ${pack.title} added. Tick your first habit!`, 'success');
+    toast(`${pack.title} added. Complete your first habit to start a streak.`, 'success');
     buzz(25);
   } catch (err) {
     toast('Could not add the pack: ' + err.message, 'error');
@@ -1993,45 +1685,21 @@ let previousMaxStreak = null;
 function updateStreak() {
   const maxStreak = calcStreak(allHabits);
   document.getElementById('greeting-streak').textContent = maxStreak;
-  
-  // Update badge UI
   const badge = getUserBadge(maxStreak);
-  
-  // Level up logic!
+
   if (previousMaxStreak !== null && maxStreak > previousMaxStreak) {
     const oldBadge = getUserBadge(previousMaxStreak);
     if (badge.name !== oldBadge.name) {
-      toast(`Level Up! You earned the ${badge.name} Badge! ${badge.icon}`, 'success', 5000);
+      toast(`New streak tier: ${badge.name}`, 'success', 5000);
       playChime();
-      fireConfetti();
     }
   }
   previousMaxStreak = maxStreak;
-  
-  const headerIcon = document.getElementById('header-badge');
-  if (headerIcon) {
-    headerIcon.textContent = badge.icon;
-    headerIcon.title = badge.name + ' Badge';
-    headerIcon.className = 'badge-icon-3d';
-    headerIcon.style.setProperty('--c1', badge.c1);
-    headerIcon.style.setProperty('--c2', badge.c2);
-    headerIcon.style.setProperty('--cb', badge.cb);
-  }
-  
-  const profileIcon = document.getElementById('profile-badge-icon');
-  if (profileIcon) {
-    profileIcon.textContent = badge.icon;
-    profileIcon.className = 'badge-icon-3d';
-    profileIcon.style.setProperty('--c1', badge.c1);
-    profileIcon.style.setProperty('--c2', badge.c2);
-    profileIcon.style.setProperty('--cb', badge.cb);
-  }
-  
+
+  const tag = document.getElementById('header-badge');
+  if (tag) { tag.textContent = badge.name; tag.title = `${badge.name} streak tier`; }
   const profileName = document.getElementById('profile-badge-name');
-  if (profileName) {
-    profileName.textContent = badge.name + ' Badge';
-    profileName.style.color = badge.color;
-  }
+  if (profileName) profileName.textContent = `${badge.name} streak tier`;
 }
 
 function escHtml(s) {
@@ -2053,7 +1721,7 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
     backgroundWrite(addHabit(name, category, frequency), 'add the habit');
     track('habit_added', { category, frequency, source: 'form' });
     document.getElementById('habit-input').value = '';
-    toast('Habit added! 💪', 'success');
+    toast('Habit added', 'success');
   } catch (err) {
     toast('Failed to add habit: ' + err.message, 'error');
   } finally {
@@ -2150,8 +1818,7 @@ if (confirmModal) {
       setTimeout(async () => {
         await toggleHabit(id, false, dateToRm);
         await addXP(XP_PER_HABIT, checkboxEl);
-        toast('Great job! Habit completed 🎉 (+25 XP)', 'success');
-        fireConfetti();
+        toast('Habit completed. +25 XP', 'success');
         track('habit_completed');
         checkAllDone(id);
         maybeAskForReminders();
@@ -2187,7 +1854,7 @@ document.getElementById('habits').addEventListener('change', async e => {
   if (isLocked) {
     cb.checked = true; // Re-check the checkbox immediately
     buzz([60, 40, 60]);
-    toast('🔒 Habit is locked! Completed habits cannot be unchecked after 1 hour.', 'warning');
+    toast('Locked: a completed habit can only be unchecked within 1 hour.', 'warning');
     return;
   }
 
@@ -2226,7 +1893,7 @@ document.getElementById('edit-habit-form').addEventListener('submit', async e =>
   try {
     backgroundWrite(updateDoc(doc(db, 'habits', id), { name, category, frequency }), 'update the habit');
     document.getElementById('edit-modal').classList.add('hidden');
-    toast('Habit updated!', 'success');
+    toast('Habit updated', 'success');
   } catch (err) {
     toast('Failed to update: ' + err.message, 'error');
   } finally {
@@ -2253,7 +1920,7 @@ function renderDeletedHabits() {
   list.innerHTML = '';
   
   if (!deletedHabits.length) {
-    list.innerHTML = '<div style="text-align:center; padding: 2rem 0; color: var(--text-secondary);">No recently deleted habits.</div>';
+    list.innerHTML = '<div class="deleted-empty">No recently deleted habits.</div>';
     return;
   }
   
@@ -2267,7 +1934,7 @@ function renderDeletedHabits() {
         <span class="deleted-habit-name">${escHtml(h.name || '')}</span>
         <span class="deleted-habit-time">Permanently deleted in ${minsLeft}m</span>
       </div>
-      <button class="btn-ghost restore-btn" data-id="${h.id}" style="color: var(--primary);">Restore</button>
+      <button class="btn-link restore-btn" data-id="${h.id}">Restore</button>
     `;
     list.appendChild(div);
   });
@@ -2282,7 +1949,7 @@ document.getElementById('deleted-habits-list').addEventListener('click', async e
     btn.textContent = 'Restoring...';
     try {
       backgroundWrite(restoreHabit(id), 'restore the habit');
-      toast('Habit restored!', 'success');
+      toast('Habit restored', 'success');
     } catch (err) {
       toast('Failed to restore: ' + err.message, 'error');
       btn.disabled = false;
@@ -2346,10 +2013,10 @@ function renderChart(labels, counts) {
       datasets: [{
         label: 'Habits done',
         data: counts,
-        backgroundColor: isDark ? 'rgba(124,58,237,.4)' : 'rgba(124,58,237,.15)',
-        borderColor:     isDark ? '#A78BFA' : 'rgba(124,58,237,.85)',
+        backgroundColor: isDark ? 'rgba(102,87,219,.45)' : 'rgba(74,58,184,.16)',
+        borderColor:     isDark ? '#AFA7F6' : '#4A3AB8',
         borderWidth: 2,
-        borderRadius: 8,
+        borderRadius: 4,
         borderSkipped: false,
       }]
     },
@@ -2359,11 +2026,11 @@ function renderChart(labels, counts) {
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, color: isDark ? '#A0A0A0' : '#9E9BC0', font: { family: 'Plus Jakarta Sans' } },
-          grid:  { color: isDark ? '#2A2A2A' : '#F3F0FF' }
+          ticks: { stepSize: 1, color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter' } },
+          grid:  { color: isDark ? '#2B2B30' : '#ECECE7' }
         },
         x: {
-          ticks: { color: isDark ? '#A0A0A0' : '#9E9BC0', font: { family: 'Plus Jakarta Sans' } },
+          ticks: { color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter' } },
           grid:  { display: false }
         }
       }
@@ -2403,7 +2070,7 @@ function renderCatBreakdown() {
       maintainAspectRatio: false,
       cutout: '65%',
       plugins: {
-        legend: { position: 'right', labels: { color: isDark ? '#A0A0A0' : '#4B4680', font: { family: 'Plus Jakarta Sans', size: 12 }, usePointStyle: true, pointStyle: 'circle' } }
+        legend: { position: 'right', labels: { color: isDark ? '#ABABB4' : '#51515A', font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' } }
       }
     }
   });
@@ -2508,12 +2175,12 @@ function buildInsights(habits, today = new Date()) {
   let thisWeek = 0, lastWeek = 0;
   for (let n = 0; n < 7; n++) { thisWeek += countOn(keyAt(n)); lastWeek += countOn(keyAt(n + 7)); }
   if (thisWeek + lastWeek >= 3) {
-    if (lastWeek === 0) out.push({ ic: '🚀', html: `<strong>${thisWeek} check-ins</strong> this week. A fresh start, keep it rolling.` });
+    if (lastWeek === 0) out.push({ ic: 'trend-up', html: `<strong>${thisWeek} check-ins</strong> this week, up from none last week.` });
     else {
       const pct = Math.round(((thisWeek - lastWeek) / lastWeek) * 100);
-      if (pct > 0) out.push({ ic: '📈', html: `<strong>Up ${pct}%</strong> on last week (${thisWeek} vs ${lastWeek} check-ins).` });
-      else if (pct < 0) out.push({ ic: '📉', html: `<strong>Down ${Math.abs(pct)}%</strong> from last week (${thisWeek} vs ${lastWeek}). One habit today gets you back on track.` });
-      else out.push({ ic: '⚖️', html: `<strong>Steady:</strong> the same ${thisWeek} check-ins as last week.` });
+      if (pct > 0) out.push({ ic: 'trend-up', html: `<strong>Up ${pct}%</strong> on last week (${thisWeek} vs ${lastWeek} check-ins).` });
+      else if (pct < 0) out.push({ ic: 'trend-down', html: `<strong>Down ${Math.abs(pct)}%</strong> from last week (${thisWeek} vs ${lastWeek} check-ins).` });
+      else out.push({ ic: 'minus', html: `<strong>Steady.</strong> The same ${thisWeek} check-ins as last week.` });
     }
   }
 
@@ -2527,14 +2194,14 @@ function buildInsights(habits, today = new Date()) {
   if (total >= 7) {
     const max = Math.max(...byDay), min = Math.min(...byDay);
     const best = byDay.indexOf(max), worst = byDay.indexOf(min);
-    out.push({ ic: '🏆', html: `<strong>${WEEKDAYS[best]}</strong> are your strongest day (${max} check-ins in 8 weeks).` });
-    if (best !== worst && min <= max * 0.5) out.push({ ic: '🪫', html: `<strong>${WEEKDAYS[worst]}</strong> are your weak spot. Try a smaller version of your habits that day.` });
+    out.push({ ic: 'award', html: `<strong>${WEEKDAYS[best]}</strong> are your strongest day (${max} check-ins in 8 weeks).` });
+    if (best !== worst && min <= max * 0.5) out.push({ ic: 'calendar', html: `<strong>${WEEKDAYS[worst]}</strong> are your weakest day. A lighter routine that day may help.` });
   }
 
-  // 3) Best streak ever
+  // 3) Longest streak
   let bestStreak = 0, bestName = '';
   habits.forEach(h => { const s = calcLongestStreak(h); if (s > bestStreak) { bestStreak = s; bestName = h.name; } });
-  if (bestStreak >= 3) out.push({ ic: '🔥', html: `Your best streak ever: <strong>${bestStreak} days</strong> on \u201C${escHtml(bestName)}\u201D.` });
+  if (bestStreak >= 3) out.push({ ic: 'flame', html: `Longest streak: <strong>${bestStreak} days</strong> on \u201C${escHtml(bestName)}\u201D.` });
 
   // 4) Most consistent habit (last 30 days, daily habits only)
   let top = null;
@@ -2542,7 +2209,7 @@ function buildInsights(habits, today = new Date()) {
     let done = 0; for (let n = 0; n < 30; n++) if ((h.completedDates || []).includes(keyAt(n))) done++;
     if (!top || done > top.done) top = { name: h.name, done };
   });
-  if (top && top.done >= 5) out.push({ ic: '⭐', html: `Most consistent: <strong>\u201C${escHtml(top.name)}\u201D</strong>, ${top.done} of the last 30 days.` });
+  if (top && top.done >= 5) out.push({ ic: 'star', html: `Most consistent: <strong>\u201C${escHtml(top.name)}\u201D</strong>, ${top.done} of the last 30 days.` });
 
   return out;
 }
@@ -2551,7 +2218,7 @@ function renderInsights() {
   const card = document.getElementById('insights-card'), list = document.getElementById('insights-list');
   if (!card || !list) return;
   const items = allHabits.length ? buildInsights(allHabits) : [];
-  list.innerHTML = items.map(i => `<li><span class="ins-ic" aria-hidden="true">${i.ic}</span><span>${i.html}</span></li>`).join('');
+  list.innerHTML = items.map(i => `<li><span class="ins-ic" aria-hidden="true"><svg class="icon"><use href="#i-${i.ic}"/></svg></span><span>${i.html}</span></li>`).join('');
   card.classList.toggle('hidden', !items.length);
 }
 
@@ -2608,10 +2275,10 @@ function renderWeeklyReport() {
   const possible30 = dailyHabits.length * 30;
   const pct30 = possible30 > 0 ? Math.round((total30 / possible30) * 100) : 0;
   let summary = '';
-  if (pct30 >= 80) summary = `🔥 Incredible! You completed ${pct30}% of your habits over the last 30 days. You're on fire — keep it up!`;
-  else if (pct30 >= 50) summary = `💪 Good progress! You completed ${pct30}% of your habits over 30 days. Push a little harder this week!`;
-  else if (pct30 > 0) summary = `📈 You're building momentum — ${pct30}% in 30 days. Consistency is the key. Keep showing up!`;
-  else summary = `🌱 Start small. Every big journey begins with a single step. Tick your first habit today!`;
+  if (pct30 >= 80) summary = `You completed ${pct30}% of your habits over the last 30 days. Excellent consistency.`;
+  else if (pct30 >= 50) summary = `You completed ${pct30}% of your habits over the last 30 days. Solid progress.`;
+  else if (pct30 > 0) summary = `You completed ${pct30}% of your habits over the last 30 days. Showing up regularly will raise this.`;
+  else summary = 'No completed habits in the last 30 days yet. Complete one today to start your record.';
   document.getElementById('report-summary-text').textContent = summary;
 }
 
@@ -2637,7 +2304,7 @@ function renderSuccessRate() {
     .sort((a, b) => b.pct - a.pct);
 
   if (!rates.length) {
-    list.innerHTML = '<p style="color:var(--text-2);font-size:.9rem;">No daily habits tracked yet.</p>';
+    list.innerHTML = '<p class="empty-note">No daily habits tracked yet.</p>';
     return;
   }
 
@@ -2683,7 +2350,7 @@ function renderProfile() {
 // Settings events
 document.getElementById('notif-toggle').addEventListener('change', async e => {
   if (e.target.checked) await requestNotificationPermission();
-  else toast('Daily reminders paused 🔕', 'warning');
+  else toast('Daily reminders turned off', 'info');
 });
 
 const darkModeToggle = document.getElementById('dark-mode-toggle');
@@ -2709,7 +2376,7 @@ if (analyticsToggle) {
   analyticsToggle.checked = localStorage.getItem('habitly_analytics') !== 'off';
   analyticsToggle.addEventListener('change', e => {
     localStorage.setItem('habitly_analytics', e.target.checked ? 'on' : 'off');
-    toast(e.target.checked ? 'Thanks! Anonymous usage data helps us improve Habitly.' : 'Usage data sharing is off.', 'info');
+    toast(e.target.checked ? 'Anonymous usage data is on.' : 'Anonymous usage data is off.', 'info');
   });
 }
 const hapticsToggle = document.getElementById('haptics-toggle');
@@ -2750,7 +2417,7 @@ function openExportConfirmModal() {
   }
   const summaryEl = document.getElementById('export-habit-summary');
   if (summaryEl) {
-    summaryEl.textContent = `📄 Exporting report for ${allHabits.length} habit${allHabits.length === 1 ? '' : 's'} and completion history.`;
+    summaryEl.textContent = `The report covers ${allHabits.length} habit${allHabits.length === 1 ? '' : 's'} and their completion history.`;
   }
   if (confirmExportModal) {
     confirmExportModal.classList.remove('hidden');
@@ -2907,7 +2574,7 @@ async function executeDataExport() {
 
     const filename = `habitly-report-${dayKey()}.pdf`;
     doc.save(filename);
-    toast('PDF Report exported successfully! 📄', 'success');
+    toast('Report downloaded', 'success');
   } catch (err) {
     console.error('PDF Export failed:', err);
     toast('Failed to export PDF: ' + err.message, 'error');
@@ -3029,7 +2696,7 @@ async function syncUserStats() {
     totalStreak += habitStreak;
     const badge = getUserBadge(habitStreak);
     // Map badge name to a numeric level for storage
-    const badgeLevels = { 'Seedling': 1, 'Sprout': 2, 'Bronze': 3, 'Silver': 4, 'Gold': 5, 'Master': 6, 'Diamond': 7, 'Mystic': 8, 'Ascended': 9, 'Legend': 10 };
+    const badgeLevels = { 'Starter': 1, 'Rising': 2, 'Bronze': 3, 'Silver': 4, 'Gold': 5, 'Master': 6, 'Diamond': 7, 'Mystic': 8, 'Ascended': 9, 'Legend': 10 };
     badgesCount += badgeLevels[badge.name] || 1;
   });
   
@@ -3113,24 +2780,19 @@ function renderJournal(habit) {
   const list = document.getElementById('details-journal-list');
   list.innerHTML = '';
   if (!habit.journals || habit.journals.length === 0) {
-    list.innerHTML = '<p class="text-secondary" style="font-size: 0.85rem; text-align: center;">No journal entries yet.</p>';
+    list.innerHTML = '<p class="journal-empty">No notes yet.</p>';
     return;
   }
-  
-  // Sort descending
-  const sorted = [...habit.journals].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const sorted = [...habit.journals].sort((a, b) => new Date(b.date) - new Date(a.date));
   sorted.forEach(j => {
     const div = document.createElement('div');
-    div.style = 'background: var(--surface-2); padding: var(--sp-2); border-radius: var(--r-sm); border: 1px solid var(--border); position: relative;';
+    div.className = 'journal-entry';
     div.innerHTML = `
-      <div style="font-size: 0.75rem; color: var(--text-2); margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+      <div class="journal-meta">
         <span>${new Date(j.date).toLocaleString()}</span>
-        <button class="btn-icon text-danger delete-journal-btn" data-date="${j.date}" style="color: var(--danger); padding: 0;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-        </button>
+        <button class="delete-journal-btn" data-date="${escHtml(j.date)}" aria-label="Delete note"><svg class="icon" aria-hidden="true" width="14" height="14"><use href="#i-trash"/></svg></button>
       </div>
-      <div style="font-size: 0.9rem; color: var(--text);">${escHtml(j.text)}</div>
-    `;
+      <div class="journal-text">${escHtml(j.text)}</div>`;
     list.appendChild(div);
   });
 }
@@ -3206,10 +2868,9 @@ document.getElementById('timer-start')?.addEventListener('click', () => {
       clearInterval(timerInterval);
       timerInterval = null;
       playChime();
-      fireConfetti();
       toggleHabit(activeTimerHabit.id, false, todayStr()); // Check it off
       addXP(50);
-      toast('Focus session completed! 🎯 (+50 XP)', 'success');
+      toast('Focus session complete. +50 XP', 'success');
       document.getElementById('timer-modal').classList.add('hidden');
       document.getElementById('timer-start').classList.remove('hidden');
       document.getElementById('timer-pause').classList.add('hidden');

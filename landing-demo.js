@@ -17,11 +17,11 @@ const MAX_HABITS    = 5;
 const XP_PER_HABIT  = 25;   // mirrors the real app
 const XP_ALL_DONE   = 100;  // mirrors the real app
 
-const LEVELS = [
-  { level: 1, min: 0,   title: 'Novice',      icon: '🌱' },
-  { level: 2, min: 100, title: 'Apprentice',  icon: '⚡' },
-  { level: 3, min: 250, title: 'Disciplined', icon: '🛡️' },
-  { level: 4, min: 450, title: 'Consistent',  icon: '🔥' },
+const LEVELS = [   // titles mirror LEVEL_TITLES in app.js
+  { level: 1, min: 0,   title: 'Starter'    },
+  { level: 2, min: 100, title: 'Builder'    },
+  { level: 3, min: 250, title: 'Steady'     },
+  { level: 4, min: 450, title: 'Consistent' },
 ];
 
 // `category` values are real keys of CATS in app.js so seeding is lossless.
@@ -36,10 +36,7 @@ const SUGGESTIONS = [
   { name: 'Journal one thing',   category: 'growth'     },
   { name: 'No phone before bed', category: 'mind'       },
 ];
-const EMOJI = {
-  health: '💧', reading: '📖', fitness: '🤸', relaxation: '🧘',
-  growth: '✍️', mind: '🧠', productive: '⚡',
-};
+const CATEGORIES = new Set(['health', 'reading', 'fitness', 'relaxation', 'growth', 'mind', 'productive']);
 
 // Analytics hand-off: app.js owns the (consent-aware) tracker; we queue events and poke it.
 function emit(name, params) {
@@ -86,7 +83,7 @@ function init() {
           habits: raw.habits.slice(0, MAX_HABITS).map(h => ({
             id: String(h.id || newId()),
             name: String(h.name || '').slice(0, 48),
-            category: EMOJI[h.category] ? h.category : 'productive',
+            category: CATEGORIES.has(h.category) ? h.category : 'productive',
             done: sameDay && !!h.done,
           })).filter(h => h.name),
           bonus: sameDay && !!raw.bonus,
@@ -153,25 +150,20 @@ function init() {
       btn.setAttribute('aria-pressed', h.done ? 'true' : 'false');
       btn.dataset.id = h.id;
 
-      const ico = document.createElement('span');
-      ico.className = 'demo-ico';
-      ico.textContent = EMOJI[h.category] || '⚡';
-      ico.setAttribute('aria-hidden', 'true');
-
       const name = document.createElement('span');
       name.className = 'demo-name';
       name.textContent = h.name;
 
       const chip = document.createElement('span');
       chip.className = 'demo-xpchip';
-      chip.textContent = h.done ? '✓ +' + XP_PER_HABIT : '+' + XP_PER_HABIT + ' XP';
+      chip.textContent = '+' + XP_PER_HABIT + ' XP';
 
       const check = document.createElement('span');
       check.className = 'demo-check';
       check.setAttribute('aria-hidden', 'true');
       check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
-      btn.append(ico, name, chip, check);
+      btn.append(name, chip, check);   // the check box is moved to the front with CSS order
       li.appendChild(btn);
       el.list.appendChild(li);
     });
@@ -187,7 +179,7 @@ function init() {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'demo-chip';
-      b.textContent = '+ ' + s.name;
+      b.textContent = 'Add ' + s.name;
       b.addEventListener('click', () => addHabit(s.name, s.category));
       el.suggest.appendChild(b);
     });
@@ -197,7 +189,7 @@ function init() {
     const xp = deriveXP(state);
     const lvl = levelFor(xp);
     const span = lvl.next - lvl.min;
-    el.level.textContent = `Lv. ${lvl.level} · ${lvl.title} ${lvl.icon}`;
+    el.level.textContent = `Level ${lvl.level} · ${lvl.title}`;
     el.xpNext.textContent = String(lvl.next - lvl.min);
     el.xpFill.style.width = Math.min(100, Math.round(((xp - lvl.min) / span) * 100)) + '%';
 
@@ -223,9 +215,9 @@ function init() {
     el.streak.classList.toggle('lit', d > 0);
 
     // Hint copy follows progress
-    if (d === 0) el.hint.textContent = '👆 Tap a habit to tick it off';
-    else if (!state.bonus) el.hint.textContent = `${d} of ${state.habits.length} done. Finish them all for a +${XP_ALL_DONE} XP bonus!`;
-    else el.hint.textContent = '🏆 Perfect day! Save it before it’s gone.';
+    if (d === 0) el.hint.textContent = 'Select a habit to mark it done.';
+    else if (!state.bonus) el.hint.textContent = `${d} of ${state.habits.length} done. Complete all of them for a +${XP_ALL_DONE} XP bonus.`;
+    else el.hint.textContent = 'All done. Create an account to keep this progress.';
 
     el.card.classList.toggle('engaged', state.touched);
     return lvl;
@@ -233,8 +225,8 @@ function init() {
 
   function syncAuthCopy() {
     if (isReturning()) {
-      el.heading.textContent = 'Welcome back';
-      el.sub.textContent = 'Sign in to pick up right where you left off';
+      el.heading.textContent = 'Sign in';
+      el.sub.textContent = 'Pick up where you left off.';
       el.fine.textContent = '';
       el.fine.classList.add('hidden');
       return;
@@ -243,13 +235,13 @@ function init() {
     const d = doneCount();
     const xp = deriveXP(state);
     if (d > 0) {
-      el.heading.textContent = 'Save your 🔥 streak';
-      el.sub.textContent = `${d} habit${d === 1 ? '' : 's'} ticked · ${xp} XP earned. Sign in and it all comes with you.`;
-      el.fine.textContent = 'Your demo habits move into your account automatically';
+      el.heading.textContent = 'Save your progress';
+      el.sub.textContent = `${d} habit${d === 1 ? '' : 's'} completed, ${xp} XP. Create an account to keep ${d === 1 ? 'it' : 'them'}.`;
+      el.fine.textContent = 'Your demo habits are added to your account automatically';
     } else {
-      el.heading.textContent = 'Start your streak';
-      el.sub.textContent = 'Create your account in 10 seconds, or sign in';
-      el.fine.textContent = 'Takes 10 seconds · No credit card needed';
+      el.heading.textContent = 'Create your account';
+      el.sub.textContent = 'It takes about 10 seconds. Already registered? Sign in below.';
+      el.fine.textContent = 'No credit card needed';
     }
   }
 
@@ -258,9 +250,8 @@ function init() {
     const show = !isReturning() && d > 0 && !authCardVisible;
     el.sticky.classList.toggle('show', show);
     if (d > 0) {
-      const xp = deriveXP(state);
-      el.stickyTitle.textContent = state.bonus ? '🏆 Perfect day!' : '🔥 Streak started!';
-      el.stickySub.textContent = `${xp} XP earned. Save it before it's gone`;
+      el.stickyTitle.textContent = 'Progress not saved';
+      el.stickySub.textContent = `${deriveXP(state)} XP earned in the demo`;
     }
   }
 
@@ -268,7 +259,7 @@ function init() {
   let audioCtx = null;
   function tone(freqs, { type = 'sine', gap = 0.09, len = 0.5, vol = 0.25 } = {}) {
     try {
-      if (localStorage.getItem('habitly_sound') === 'off') return;
+      if (localStorage.getItem('habitly_sound') !== 'on') return;   // sound is opt-in
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       audioCtx = audioCtx || new AC();
@@ -308,29 +299,6 @@ function init() {
     bannerTimer = setTimeout(() => el.banner.classList.remove('show'), 2800);
   }
 
-  function burst(big) {
-    if (!window.confetti) return;
-    const r = el.card.getBoundingClientRect();
-    window.confetti({
-      particleCount: big ? 140 : 40,
-      spread: big ? 80 : 55,
-      startVelocity: big ? 38 : 28,
-      origin: {
-        x: (r.left + r.width / 2) / window.innerWidth,
-        y: (r.top + r.height * (big ? 0.35 : 0.5)) / window.innerHeight,
-      },
-      colors: ['#8b5cf6', '#a78bfa', '#6366F1', '#f97316', '#fbbf24'],
-      disableForReducedMotion: true,
-      zIndex: 20000,
-    });
-  }
-
-  function pulseCTA() {
-    el.loginBtn.classList.remove('cta-pulse');
-    void el.loginBtn.offsetWidth; // restart animation
-    el.loginBtn.classList.add('cta-pulse');
-  }
-
   // ── Actions ──────────────────────────────────────────────
   function toggle(id) {
     const h = state.habits.find(x => x.id === id);
@@ -356,13 +324,12 @@ function init() {
       pop();
       const rowBtn = el.list.querySelector(`[data-id="${id}"]`);
       if (rowBtn) floatXP(rowBtn, '+' + XP_PER_HABIT + ' XP');
-      if (doneCount() === 1) { burst(false); pulseCTA(); }
       if (firstTickEver) emit('demo_first_tick');
       if (state.bonus && !hadBonus) {
-        chime(); burst(true); emit('demo_perfect_day');
+        chime(); emit('demo_perfect_day');
         setTimeout(() => floatXP(el.xpFill.parentElement, '+' + XP_ALL_DONE + ' XP bonus!'), 250);
       }
-      if (lvl.level > lastLevel) showBanner(`${lvl.icon} Level ${lvl.level} unlocked: ${lvl.title}!`);
+      if (lvl.level > lastLevel) showBanner(`Level ${lvl.level} reached: ${lvl.title}`);
     }
     lastLevel = lvl.level;
   }
@@ -395,7 +362,6 @@ function init() {
   });
   el.stickyBtn.addEventListener('click', () => {
     el.authCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    pulseCTA();
   });
 
   if ('IntersectionObserver' in window) {

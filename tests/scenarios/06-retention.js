@@ -122,11 +122,20 @@ module.exports = (scenario, c) => {
   const counters = `(()=>{ window.__vib=0; window.__ac=0; navigator.vibrate=()=>{window.__vib++; return true;};
     const A=window.AudioContext; if(A){ window.AudioContext=function(){ window.__ac++; return new A(...arguments); }; window.AudioContext.prototype=A.prototype; } })();`;
 
-  scenario('prefs: sound + vibration play by default', async () => {
+  scenario('prefs: vibration is on by default, sound is opt-in', async () => {
     await boot({ seed: todo(), initScript: counters });
     await ready();
+    check('sound toggle starts off', (await ev(`document.getElementById('sound-toggle').checked`)) === false);
     await tickFirst(); await sleep(400);
     check('vibrated', (await ev(`window.__vib`)) > 0);
+    check('no audio unless the user opts in', (await ev(`window.__ac`)) === 0, await ev(`window.__ac`));
+  });
+
+  scenario('prefs: sound plays once the user turns it on', async () => {
+    await boot({ seed: { ...todo(), habitly_sound: 'on' }, initScript: counters });
+    await ready();
+    check('toggle reflects the saved choice', (await ev(`document.getElementById('sound-toggle').checked`)) === true);
+    await tickFirst(); await sleep(400);
     check('audio used', (await ev(`window.__ac`)) > 0);
   });
 

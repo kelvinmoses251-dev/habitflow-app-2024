@@ -5,18 +5,18 @@ module.exports = (scenario, c) => {
   scenario('landing: signed-out visitor can play the demo', async () => {
     await boot();
     check('hero is shown to new visitors', await visible('#landing-hero'));
-    check('auth card says "Start your streak"', (await text('#auth-heading')) === 'Start your streak');
+    check('auth card invites visitors to create an account', (await text('#auth-heading')) === 'Create your account');
     await ev(`document.querySelector('.demo-habit').click()`);
     await sleep(400);
     check('streak lights up after first tick', (await text('#demo-streak-n')) === '1');
-    check('auth copy reacts to progress', /Save your/.test(await text('#auth-heading')));
+    check('auth copy reacts to progress', (await text('#auth-heading')) === 'Save your progress');
     noExceptions();
   });
 
   scenario('landing: returning users get the compact card (no hero)', async () => {
     await boot({ seed: { habitly_returning: '1' } });
     check('hero hidden', !(await visible('#landing-hero')));
-    check('heading is "Welcome back"', (await text('#auth-heading')) === 'Welcome back');
+    check('heading is "Sign in"', (await text('#auth-heading')) === 'Sign in');
   });
 
   scenario('demo carry-over: new account adopts demo habits + ticks, tour skipped', async () => {

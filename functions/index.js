@@ -4,7 +4,7 @@
 const functions = require('firebase-functions');
 const admin     = require('firebase-admin');
 
-admin.initializeApp(); // ✅ Fixed: was "admind.initializeApp()" (typo)
+admin.initializeApp();
 
 /**
  * Scheduled function that runs once per day at 09:00 UTC.
@@ -34,10 +34,8 @@ exports.dailyHabitReminder = functions.pubsub
 
     const message = {
       notification: {
-        title: '💪 Your Daily Habit Reminder',
-        // ✅ Fixed: apostrophe inside single-quoted string broke the syntax.
-        // Now using a template literal so apostrophes are safe.
-        body: `Check your habit tracker and mark today's progress!`
+        title: 'Habitly',
+        body: `You still have habits to complete today.`
       },
       data: {
         click_action: 'OPEN_HABIT_TRACKER'

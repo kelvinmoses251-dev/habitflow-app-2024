@@ -35,7 +35,7 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 27 | Accessibility | Visible keyboard focus ring everywhere; global `prefers-reduced-motion` support | Keyboard focus was invisible; motion-sensitive users had no relief |
 | 28 | Engagement | **Insights** card on Stats: momentum vs last week ("Up 33%"), strongest and weakest weekday, best streak ever, most consistent habit: all computed locally from the user's own data | The Stats tab was charts with no conclusions |
 | 29 | Measurement | **Privacy-first analytics**: anonymous funnel events (landing view → demo tick → sign-up → habit added/completed → share, reminders, streak-risk) with no names, emails or habit text. Honours Do Not Track / Global Privacy Control, plus an in-app "Share anonymous usage data" opt-out. SDK is lazy-imported so it can never block the app | There was no way to tell whether any of these changes helped |
-| 30 | Look & feel | **Auto emoji per habit** from its name ("Drink water" 💧, "No phone in bed" 📵, "Learn Spanish" 🎓), falling back to the category icon; word-start matching so "Start" isn't "art" | The list looked identical for every habit; zero user effort needed |
+| 30 | Look & feel | **Auto emoji per habit** from its name ("Drink water" , "No phone in bed" , "Learn Spanish" ), falling back to the category icon; word-start matching so "Start" isn't "art" | The list looked identical for every habit; zero user effort needed |
 | 31 | UX | **Undo** on removing a habit (7-second toast action) | Deleting was one tap with no obvious way back (it was buried in Profile → Recently Deleted) |
 | 32 | PWA | Home-screen **shortcuts** ("Today's habits", "My stats") in the manifest | Long-press the app icon to jump straight in |
 | 33 | Polish | Tour copy says 11 life categories (the dropdown has 11); habit names capped at 60 characters | Copy mismatch; very long names broke the layout |
@@ -46,3 +46,17 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 38 | Bug fix | Tapping a reminder notification now **opens the app** (there was no `notificationclick` handler) and the notification icon path is fixed (`/icons/icon-192.png` didn't exist) | Reminders were a dead end |
 
 _Verified against the real Firestore SDK (not the mock): the offline cache keeps working, via memory fallback, where IndexedDB is unavailable (`tests/scenarios/12-idb-fallback.js`)._
+
+### Design pass: a product, not a demo
+
+| # | Area | What changed | Why |
+|---|------|--------------|-----|
+| 39 | Design | Stylesheet rebuilt as one system: neutral warm-grey surfaces, a single muted indigo accent, flat fills, 1px borders, 8 to 12px radii. No gradients, glow shadows, backdrop blur, 3D badges or endless animation (27 gradient rules removed) | The previous look was the stock "purple gradient + glow" style that reads as generated |
+| 40 | Design | **No emoji anywhere.** 197 emoji replaced by a 30-icon line sprite and plain text; category icons that did not match their category (Mind was a dollar sign) were fixed | Requested; emoji used as icons are the biggest tell |
+| 41 | Design | Typeface changed from Plus Jakarta Sans (800 weights) to Inter 400 to 700 with tabular numbers; one consistent type scale | Calmer, more legible, better numerals in stats |
+| 42 | Design | Home summary merged from two heavy cards into one quiet block: streak, level, shield and a single progress bar; tier is a text tag instead of a 3D medal | Less visual noise, clearer hierarchy |
+| 43 | Copy | Voice rewritten to plain, specific sentence case: no exclamation marks or hype ("You're unstoppable!"); fake level "perks" that unlocked nothing removed; level titles are plain (Starter, Builder, Steady...) | Copy should describe, not cheer |
+| 44 | Copy | **Push reminders** no longer insult users ("I dare you not to complete this habit you lazy dude", "Your future self is weeping") and now read as short, useful prompts | Hostile copy sent straight to people's lock screens |
+| 45 | Design | Celebrations are quiet: no confetti (library removed), no animated 3D trophy; "All habits done" is a plain dialog. Sound effects are now opt-in | An arpeggio and confetti on every task is the opposite of calm |
+| 46 | Brand | Share story card, Open Graph preview and PWA icons redrawn flat and emoji-free, generated reproducibly by `tools/make-assets.js` | Brand assets matched the old gradient style |
+| 47 | Quality | `tests/scenarios/13-design.js` fails the build if emoji reappear in any source file or rendered screen/dialog, or if gradients, blur, glow or endless animation return | Keeps the direction from regressing |

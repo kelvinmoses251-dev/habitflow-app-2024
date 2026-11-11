@@ -42,17 +42,17 @@ function isSameMonth(ds) {
   return +y === now.getFullYear() && +(m) === now.getMonth() + 1;
 }
 
-const SASSY_MESSAGES = [
-  "I dare you not to complete this habit you lazy dude",
-  "Procrastination is the key to your destruction",
-  "Success doesn't come by skipping daily habits",
-  "Your future self is weeping right now. Get to it!",
-  "Are you really going to let your streak die like this?",
-  "Excuses don't build empires. Finish your habits!"
+// Plain, useful reminders. Short, specific and never guilt-tripping.
+const REMINDER_MESSAGES = [
+  "You still have habits to complete today.",
+  "A quick check-in: some of today's habits are still open.",
+  "Keep your streak going. Complete today's habits.",
+  "Today's habits only take a few minutes. Open Habitly to finish them.",
+  "Your habits for today are waiting."
 ];
 
 async function runReminders() {
-  console.log('🔔 Starting daily habit reminder script...');
+  console.log('Starting daily habit reminder script...');
   try {
     // 3. Fetch all users
     const usersSnap = await db.collection('users').get();
@@ -102,12 +102,12 @@ async function runReminders() {
 
       // Only send a notification if they have an uncompleted habit
       if (hasIncompleteHabit) {
-        const randomMessage = SASSY_MESSAGES[Math.floor(Math.random() * SASSY_MESSAGES.length)];
+        const randomMessage = REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
         
         const payload = {
           token: fcmToken,
           notification: {
-            title: '⏰ Habit Tracker',
+            title: 'Habitly',
             body: randomMessage,
           },
           data: {
@@ -129,9 +129,9 @@ async function runReminders() {
     // 6. Send all notifications in a batch
     const response = await messaging.sendEach(messages);
     
-    console.log(`✅ Successfully sent ${response.successCount} messages.`);
+    console.log(`Successfully sent ${response.successCount} messages.`);
     if (response.failureCount > 0) {
-      console.error(`❌ Failed to send ${response.failureCount} messages.`);
+      console.error(`Failed to send ${response.failureCount} messages.`);
       response.responses.forEach((resp, idx) => {
         if (!resp.success) {
           console.error(`Error for token ${messages[idx].token}:`, resp.error);

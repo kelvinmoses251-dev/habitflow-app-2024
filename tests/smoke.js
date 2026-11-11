@@ -129,7 +129,7 @@ function check(name, cond, detail) {
 
   for (const s of scenarios) {
     if (ONLY && !s.name.includes(ONLY)) continue;
-    current = s.name; console.log(`\n▶ ${s.name}`);
+    current = s.name; console.log(`\n> ${s.name}`);
     try { await s.fn(); await shot(s.name.replace(/[^a-z0-9]+/gi, '_')); }
     catch (e) { failed++; failures.push(`${s.name} › threw: ${e.message}`); console.log(`   ✗ threw: ${e.message}`); }
     if (args.includes('--verbose')) logs.slice(0, 12).forEach(l => console.log(`     [${l.t}] ${String(l.m).slice(0, 260)}`));

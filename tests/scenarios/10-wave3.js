@@ -66,32 +66,6 @@ module.exports = (scenario, c) => {
     check('toggle stays off after reload', (await ev(`document.getElementById('analytics-toggle').checked`)) === false);
   });
 
-  // ── Auto emoji ──
-  scenario('emoji: each habit gets a fitting icon; look-alike words do not misfire', async () => {
-    const names = { 'Drink water': '💧', 'Read 10 pages': '📖', 'Run 5k': '🏃', 'No phone in bed': '📵', 'Learn Spanish': '🎓',
-      'Plan my top 3 tasks': '🗓️', 'Meditate 5 minutes': '🧘',
-      'Start the day': '✅', 'Create content': '✅', 'Get ready': '✅', 'Water the plants': '💧' };
-    const habits = {}; Object.keys(names).forEach((n, i) => { habits['h' + i] = habit(n, 'productive', { order: i }); });
-    await boot({ seed: { ...signedIn(), mock_fb_db: { habits } } });
-    await ready();
-    await waitFor(`document.querySelectorAll('#habits .habit-item').length === ${Object.keys(names).length}`);
-    // "productive" falls back to ⚡, so compare against the expected mapping with that fallback
-    const rows = await ev(`[...document.querySelectorAll('#habits .habit-item')].map(li => [li.querySelector('.habit-name').textContent.trim(), li.querySelector('.habit-emoji').textContent])`);
-    for (const [name, emoji] of rows) {
-      const want = names[name] === '✅' ? '⚡' : names[name];
-      check(`"${name}" -> ${want}`, emoji === want, emoji);
-    }
-  });
-
-  scenario('emoji: falls back to the category icon', async () => {
-    await boot({ seed: { ...signedIn(), mock_fb_db: { habits: { h1: habit('Quarterly review thing', 'saving'), h2: habit('Zzz', 'nope') } } } });
-    await ready();
-    await waitFor(`document.querySelectorAll('#habits .habit-item').length === 2`);
-    const emojis = await ev(`[...document.querySelectorAll('#habits .habit-emoji')].map(e => e.textContent)`);
-    check('unknown category still shows a tick', emojis.includes('✅'), JSON.stringify(emojis));
-    check('emoji is decorative (aria-hidden)', (await ev(`document.querySelector('.habit-emoji').getAttribute('aria-hidden')`)) === 'true');
-  });
-
   // ── Undo delete ──
   scenario('undo: removing a habit offers Undo, which restores it', async () => {
     await boot({ seed: { ...signedIn(), mock_fb_db: { habits: { h1: habit('Floss', 'health') } } } });
@@ -112,7 +86,7 @@ module.exports = (scenario, c) => {
     const m = await ev(`fetch('/manifest.json').then(r => r.json())`);
     check('manifest has 2 shortcuts', Array.isArray(m.shortcuts) && m.shortcuts.length === 2, JSON.stringify(m.shortcuts));
     check('shortcut deep-links to #stats', m.shortcuts.some(s => /#stats$/.test(s.url)));
-    check('tour copy says 11 categories (the dropdown has 11)', (await ev(`document.body.innerHTML.includes('11 life categories')`)) === true);
+    check('tour copy says 11 categories (the dropdown has 11)', (await ev(`document.body.innerHTML.includes('11 categories')`)) === true);
     check('dropdown really has 11', (await ev(`document.querySelectorAll('#habit-category option:not([disabled])').length`)) === 11);
     check('habit name input capped at 60', (await ev(`document.getElementById('habit-input').maxLength`)) === 60);
   });

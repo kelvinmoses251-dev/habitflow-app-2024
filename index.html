@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Habitly turns daily habits into a game: streaks, XP, level-ups and shareable stories. Try it in 10 seconds, no account needed." />
-  <title>Habitly — Build Better Habits</title>
+  <meta name="description" content="Habitly is a habit tracker with streaks, levels and progress insights. Try the demo in seconds, no account needed." />
+  <title>Habitly | Habit tracker</title>
   <link rel="canonical" href="https://habit-tracker-demo-34c0a.web.app/" />
 
-  <!-- Link previews (WhatsApp, X, Slack, iMessage...): without these, a shared link is a bare URL -->
+  <!-- Link previews (WhatsApp, X, Slack, iMessage): without these a shared link is a bare URL -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Habitly" />
-  <meta property="og:title" content="Habitly: Small ticks. Big streaks." />
-  <meta property="og:description" content="Turn your daily habits into a game you'll actually want to play. Try it in 10 seconds, no account needed." />
+  <meta property="og:title" content="Habitly: build habits that last" />
+  <meta property="og:description" content="A habit tracker with streaks, levels and progress insights. Try the demo, no account needed." />
   <meta property="og:url" content="https://habit-tracker-demo-34c0a.web.app/" />
   <meta property="og:image" content="https://habit-tracker-demo-34c0a.web.app/og-image.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Habitly app showing a 12 day streak and ticked habits" />
+  <meta property="og:image:alt" content="Habitly habit tracker showing a daily checklist and a 12 day streak" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Habitly: Small ticks. Big streaks." />
-  <meta name="twitter:description" content="Turn your daily habits into a game you'll actually want to play." />
+  <meta name="twitter:title" content="Habitly: build habits that last" />
+  <meta name="twitter:description" content="A habit tracker with streaks, levels and progress insights." />
   <meta name="twitter:image" content="https://habit-tracker-demo-34c0a.web.app/og-image.png" />
 
   <!-- Apply the saved (or system) theme before first paint so dark-mode users never see a light flash -->
@@ -31,20 +31,18 @@
     } catch (e) {} })();
   </script>
 
-  <!-- Favicon & Touch Icon -->
-  <link rel="icon" type="image/png" href="favicon.png?v=3" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=3" />
+  <link rel="icon" type="image/png" href="favicon.png?v=4" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=4" />
 
-  <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#7C3AED" />
+  <meta name="theme-color" content="#4A3AB8" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
 
-  <!-- Fonts: one request (was an @import chain in style.css + an unused second family) -->
+  <!-- Fonts: one request -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Start fetching the Firebase modules app.js imports now, instead of after app.js is parsed -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
@@ -52,116 +50,85 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
 
-  <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib),
-       so first paint no longer waits on ~900KB of scripts most sessions never use. -->
+  <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=24" />
+  <link rel="stylesheet" href="style.css?v=31" />
 </head>
 <body>
 
-<!-- ══ LOADING SCREEN ══════════════════════════════════════ -->
+<!-- Icon sprite. Line icons, 24px grid, drawn with currentColor. Used as <svg class="icon"><use href="#i-name"/></svg> -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 16.5l5 5 9-10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="i-bar-chart" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-trend-up" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
+    <symbol id="i-trend-down" viewBox="0 0 24 24"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+  </defs>
+</svg>
+
+<!-- Loading -->
 <div id="loading-screen" class="loading-screen">
-  <svg class="loading-logo" width="60" height="60" viewBox="0 0 100 100" fill="none">
-    <rect width="100" height="100" rx="24" fill="url(#lg1)"/>
-    <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-    <defs>
-      <linearGradient id="lg1" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#8B5CF6"/><stop offset="1" stop-color="#6D28D9"/></linearGradient>
-    </defs>
-  </svg>
+  <svg class="loading-logo logo-mark" width="44" height="44" aria-hidden="true"><use href="#i-logo"/></svg>
   <div class="loading-spinner"></div>
 </div>
 
-<!-- ══ ONBOARDING ══════════════════════════════════════════ -->
+<!-- Welcome tour (first sign-in, and from Profile) -->
 <div id="onboarding" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Welcome tour">
   <div class="onboarding-inner">
     <div class="onboarding-slides-wrap">
 
       <div class="slide active" data-slide="0">
-        <div class="slide-illo">
-          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="110" cy="90" r="70" fill="#EDE9FF"/>
-            <rect x="62" y="58" width="96" height="14" rx="7" fill="#A78BFA"/>
-            <rect x="62" y="82" width="72" height="14" rx="7" fill="#C4B5FD"/>
-            <rect x="62" y="106" width="84" height="14" rx="7" fill="#DDD6FE"/>
-            <circle cx="48" cy="65" r="10" fill="#7C3AED"/>
-            <path d="M43 65l4 4 7-7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="48" cy="89" r="10" fill="#7C3AED"/>
-            <path d="M43 89l4 4 7-7" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="48" cy="113" r="10" fill="#E5E7EB"/>
-          </svg>
-        </div>
-        <h2>Welcome to Habitly! 👋</h2>
-        <p>Build powerful daily habits across 11 life categories. Let's take a quick tour so you can hit the ground running.</p>
+        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg></span>
+        <h2>Welcome to Habitly</h2>
+        <p>Track daily, weekly and monthly habits across 11 categories. This short tour covers the basics.</p>
       </div>
 
       <div class="slide" data-slide="1">
-        <div class="slide-illo">
-          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="30" y="40" width="160" height="130" rx="14" fill="#EDE9FF"/>
-            <rect x="48" y="62" width="124" height="16" rx="8" fill="#A78BFA"/>
-            <rect x="48" y="88" width="124" height="16" rx="8" fill="#C4B5FD"/>
-            <rect x="48" y="114" width="124" height="16" rx="8" fill="#DDD6FE"/>
-            <circle cx="48" cy="70" r="10" fill="#7C3AED"/>
-            <path d="M43 70l4 4 7-7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="48" cy="96" r="10" fill="#E5E7EB" stroke="#C4B5FD" stroke-width="2"/>
-            <circle cx="48" cy="122" r="10" fill="#E5E7EB" stroke="#C4B5FD" stroke-width="2"/>
-            <rect x="160" y="170" width="36" height="36" rx="18" fill="#7C3AED"/>
-            <text x="178" y="193" text-anchor="middle" fill="white" font-size="20">+</text>
-          </svg>
-        </div>
-        <h2>Add & Tick Habits</h2>
-        <p>Tap the <strong>+</strong> button to create a new habit. Then tick the checkbox each day you complete it. Simple!</p>
+        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
+        <h2>Add and tick habits</h2>
+        <p>Add a habit, then tick it off each day. Every completion earns XP and builds your streak.</p>
       </div>
 
       <div class="slide" data-slide="2">
-        <div class="slide-illo">
-          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="110" cy="95" r="60" fill="#EDE9FF"/>
-            <path d="M85 95 L102 112 L135 79" stroke="#7C3AED" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="158" cy="42" r="20" fill="#7C3AED"/>
-            <text x="158" y="50" text-anchor="middle" fill="white" font-size="18">🔥</text>
-            <rect x="50" y="158" width="120" height="12" rx="6" fill="#DDD6FE"/>
-            <rect x="50" y="158" width="84" height="12" rx="6" fill="#7C3AED"/>
-          </svg>
-        </div>
-        <h2>Tick Off & Celebrate!</h2>
-        <p>Complete all your habits for the day and watch a full celebration explode on screen. You earned it! 🎉</p>
+        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span>
+        <h2>Streaks, levels and shields</h2>
+        <p>Keep a streak going to move up through the tiers. A streak shield covers one missed day, then recharges after a week.</p>
       </div>
 
       <div class="slide" data-slide="3">
-        <div class="slide-illo">
-          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="20" y="120" width="28" height="60" rx="5" fill="#DDD6FE"/>
-            <rect x="60" y="90" width="28" height="90" rx="5" fill="#A78BFA"/>
-            <rect x="100" y="65" width="28" height="115" rx="5" fill="#7C3AED"/>
-            <rect x="140" y="100" width="28" height="80" rx="5" fill="#A78BFA"/>
-            <rect x="180" y="75" width="28" height="105" rx="5" fill="#7C3AED"/>
-            <path d="M34 55 Q90 20 114 38 Q158 10 194 28" stroke="#7C3AED" stroke-width="3" stroke-linecap="round" fill="none"/>
-            <circle cx="194" cy="28" r="6" fill="#7C3AED"/>
-            <circle cx="158" cy="48" r="18" fill="#F59E0B"/>
-            <text x="158" y="55" text-anchor="middle" fill="white" font-size="14">👑</text>
-          </svg>
-        </div>
-        <h2>Earn Badges & Track Stats</h2>
-        <p>Keep streaks alive to climb from 🌱 Seedling to 🌌 Legend. Check the <strong>Stats</strong> tab for detailed progress charts.</p>
-      </div>
-
-      <div class="slide" data-slide="4">
-        <div class="slide-illo">
-          <svg viewBox="0 0 220 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="60" y="30" width="100" height="130" rx="18" fill="#EDE9FF"/>
-            <rect x="75" y="52" width="70" height="10" rx="5" fill="#A78BFA"/>
-            <rect x="75" y="70" width="50" height="7" rx="3.5" fill="#DDD6FE"/>
-            <rect x="75" y="100" width="70" height="36" rx="9" fill="#7C3AED"/>
-            <text x="110" y="123" text-anchor="middle" fill="white" font-size="12" font-family="Inter" font-weight="600">Allow</text>
-            <path d="M110 22 C110 22 124 24 126 36 L128 52 H92 L94 36 C96 24 110 22 110 22Z" fill="#7C3AED"/>
-            <rect x="105" y="52" width="10" height="5" rx="2.5" fill="#5B21B6"/>
-            <circle cx="110" cy="20" r="4" fill="#7C3AED"/>
-            <text x="155" y="50" font-size="24">🔔</text>
-          </svg>
-        </div>
-        <h2>You're All Set! 🚀</h2>
-        <p>Enable notifications when prompted to get your daily motivational reminders. Now let's build some great habits!</p>
+        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-bar-chart"/></svg></span>
+        <h2>Stay on track</h2>
+        <p>Open Stats for trends and insights. Turn on reminders in Profile for one notification a day when habits are left.</p>
       </div>
 
     </div>
@@ -171,204 +138,129 @@
       <span class="dot" data-dot="1"></span>
       <span class="dot" data-dot="2"></span>
       <span class="dot" data-dot="3"></span>
-      <span class="dot" data-dot="4"></span>
     </div>
 
     <div class="onboarding-controls">
-      <button id="onboarding-skip" class="btn-ghost">Skip</button>
-      <button id="onboarding-next" class="btn-primary">Next →</button>
+      <button id="onboarding-skip" class="btn-ghost" type="button">Skip</button>
+      <button id="onboarding-next" class="btn-primary" type="button">Next</button>
     </div>
   </div>
 </div>
 
-<!-- ── ALL DONE CELEBRATION ───────────────────────────── -->
-<div id="all-done-overlay" class="all-done-overlay hidden" role="dialog" aria-modal="true" aria-label="All habits done">
-  <div class="all-done-card">
-    <div class="trophy-3d-wrapper">
-      <div class="trophy-glow-aura"></div>
-      <div class="trophy-sparkle s1">✨</div>
-      <div class="trophy-sparkle s2">⭐</div>
-      <div class="trophy-sparkle s3">✨</div>
-      <div class="trophy-sparkle s4">🌟</div>
-      <div class="trophy-3d-model">
-        <svg class="trophy-svg" viewBox="0 0 200 200" width="110" height="110" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="goldCup" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#FFE066" />
-              <stop offset="30%" stop-color="#F59E0B" />
-              <stop offset="70%" stop-color="#D97706" />
-              <stop offset="100%" stop-color="#78350F" />
-            </linearGradient>
-            <linearGradient id="goldHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#FFFBEB" stop-opacity="0.9" />
-              <stop offset="100%" stop-color="#FDE68A" stop-opacity="0.1" />
-            </linearGradient>
-            <linearGradient id="goldHandle" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#FBBF24" />
-              <stop offset="50%" stop-color="#D97706" />
-              <stop offset="100%" stop-color="#92400E" />
-            </linearGradient>
-            <linearGradient id="pedestalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#475569" />
-              <stop offset="50%" stop-color="#1E293B" />
-              <stop offset="100%" stop-color="#0F172A" />
-            </linearGradient>
-            <linearGradient id="goldBase" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#FCD34D" />
-              <stop offset="50%" stop-color="#F59E0B" />
-              <stop offset="100%" stop-color="#B45309" />
-            </linearGradient>
-            <filter id="trophyShadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#F59E0B" flood-opacity="0.4" />
-            </filter>
-          </defs>
-
-          <!-- Handles -->
-          <path d="M 55 58 C 22 58 20 102 58 106 C 56 112 50 114 42 110 C 14 96 14 48 54 48 Z" fill="url(#goldHandle)" />
-          <path d="M 145 58 C 178 58 180 102 142 106 C 144 112 150 114 158 110 C 186 96 186 48 146 48 Z" fill="url(#goldHandle)" />
-
-          <!-- Cup Body -->
-          <g filter="url(#trophyShadow)">
-            <path d="M 50 42 C 50 36 150 36 150 42 C 150 85 138 120 100 125 C 62 120 50 85 50 42 Z" fill="url(#goldCup)" />
-            <ellipse cx="100" cy="42" rx="50" ry="9" fill="#FDE68A" />
-            <ellipse cx="100" cy="42" rx="46" ry="6" fill="#D97706" />
-            <path d="M 62 48 C 62 78 72 104 100 114 C 88 104 78 82 78 48 Z" fill="url(#goldHighlight)" />
-            <path d="M 100 64 L 103.5 72.5 L 112.5 73.2 L 105.5 79 L 107.5 88 L 100 83.5 L 92.5 88 L 94.5 79 L 87.5 73.2 L 96.5 72.5 Z" fill="#FFFBEB" />
-          </g>
-
-          <!-- Stem & Pedestal Base -->
-          <path d="M 92 124 L 108 124 L 105 148 L 95 148 Z" fill="url(#goldBase)" />
-          <ellipse cx="100" cy="148" rx="16" ry="4" fill="#F59E0B" />
-          <path d="M 72 150 L 128 150 L 134 172 L 66 172 Z" fill="url(#pedestalGrad)" />
-          <rect x="76" y="156" width="48" height="10" rx="2" fill="url(#goldBase)" />
-          <line x1="82" y1="161" x2="118" y2="161" stroke="#FFFBEB" stroke-width="1.5" stroke-linecap="round" />
-          <rect x="60" y="172" width="80" height="8" rx="2" fill="#0F172A" />
-        </svg>
-      </div>
-    </div>
-    <h2>All Done!</h2>
-    <p>You crushed every habit today.<br/>You're unstoppable! 💪</p>
-    <div style="display:flex; flex-direction:column; gap:var(--sp-2); width:100%; align-items:center;">
-      <button id="all-done-close" class="btn-primary" style="width:100%; max-width:220px;">Keep it up!</button>
-      <button id="all-done-share" class="btn-ghost" style="width:100%; max-width:220px; font-weight:700; color:var(--primary); font-size:0.9rem; padding:var(--sp-2);">Share Progress 📤</button>
+<!-- All habits done -->
+<div id="all-done-overlay" class="modal all-done-overlay hidden" role="dialog" aria-modal="true" aria-label="All habits done">
+  <div class="dialog all-done-card">
+    <span class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg></span>
+    <h2 class="dialog-title">All habits done for today</h2>
+    <p class="dialog-text">You completed every daily habit. Your streak and XP are updated.</p>
+    <div class="dialog-actions">
+      <button id="all-done-share" class="btn-secondary" type="button">Share progress</button>
+      <button id="all-done-close" class="btn-primary" type="button">Close</button>
     </div>
   </div>
 </div>
 
-<!-- ══ AUTH SCREEN ═════════════════════════════════════════ -->
+<!-- Sign in / landing -->
 <div id="auth-screen" class="auth-screen hidden">
   <div class="auth-layout">
 
-    <!-- ── LANDING HERO + LIVE DEMO (new visitors only; see landing-demo.js) ── -->
+    <!-- Landing hero + live demo (new visitors only; see landing-demo.js) -->
     <section id="landing-hero" class="landing-hero" aria-label="Try Habitly">
       <div class="landing-brand">
-        <svg width="40" height="40" viewBox="0 0 100 100" fill="none" aria-hidden="true">
-          <rect width="100" height="100" rx="22" fill="url(#lg4)"/>
-          <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-          <defs><linearGradient id="lg4" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#9333EA"/><stop offset="1" stop-color="#6366F1"/></linearGradient></defs>
-        </svg>
+        <svg class="logo-mark" width="28" height="28" aria-hidden="true"><use href="#i-logo"/></svg>
         <span class="brand-name">Habitly</span>
       </div>
 
-      <h1 class="landing-title">Small ticks.<br /><span class="landing-grad">Big streaks.</span></h1>
-      <p class="landing-sub">Habitly turns your daily habits into a game you'll actually want to play. <strong>Go on, tick one below.</strong> No account needed.</p>
+      <h1 class="landing-title">Build habits that last.</h1>
+      <p class="landing-sub">Habitly tracks daily, weekly and monthly habits with streaks, levels and clear progress charts. Try the demo below. No account needed.</p>
 
       <div id="demo-card" class="demo-card">
         <div id="demo-banner" class="demo-banner" role="status" aria-live="polite"></div>
 
         <div class="demo-top">
-          <span class="demo-live"><i aria-hidden="true"></i> Live demo</span>
-          <span id="demo-streak" class="demo-streak" title="Day streak"><span class="demo-flame" aria-hidden="true">🔥</span> <b id="demo-streak-n">0</b> day streak</span>
+          <span class="demo-label">Demo</span>
+          <span id="demo-streak" class="demo-streak" title="Day streak"><svg class="icon demo-flame" aria-hidden="true"><use href="#i-flame"/></svg> <b id="demo-streak-n">0</b> day streak</span>
         </div>
 
         <div class="demo-xp">
           <div class="demo-xp-row">
-            <span id="demo-level" class="demo-level">Lv. 1 · Novice 🌱</span>
+            <span id="demo-level" class="demo-level">Level 1 · Starter</span>
             <span class="demo-xp-text"><b id="demo-xp-now">0</b> / <span id="demo-xp-next">100</span> XP</span>
           </div>
           <div class="demo-xp-track"><div id="demo-xp-fill" class="demo-xp-fill"></div></div>
         </div>
 
-        <p id="demo-hint" class="demo-hint">👆 Tap a habit to tick it off</p>
+        <p id="demo-hint" class="demo-hint">Select a habit to mark it done.</p>
         <ul id="demo-list" class="demo-list"></ul>
 
         <div id="demo-add-wrap" class="demo-add-wrap">
           <div id="demo-suggest" class="demo-suggest" aria-label="Suggested habits"></div>
           <form id="demo-add-form" class="demo-add-form" autocomplete="off">
-            <input id="demo-add-input" type="text" maxlength="48" placeholder="Or type your own habit…" aria-label="Type your own habit" />
-            <button type="submit" class="demo-add-btn" aria-label="Add habit">+</button>
+            <input id="demo-add-input" type="text" maxlength="48" placeholder="Add your own habit" aria-label="Add your own habit" />
+            <button type="submit" class="demo-add-btn" aria-label="Add habit"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
           </form>
         </div>
       </div>
 
       <ul class="landing-proof" aria-label="What you get">
-        <li>🔥 Streaks &amp; shields</li>
-        <li>⚡ XP &amp; levels</li>
-        <li>📈 Heatmaps &amp; stats</li>
-        <li>📲 Story cards to share</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg><span><strong>Streaks and shields</strong> Keep momentum, with a safety net.</span></li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-award"/></svg><span><strong>XP and levels</strong> A clear sense of progress.</span></li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-bar-chart"/></svg><span><strong>Heatmap and insights</strong> See what is and is not working.</span></li>
+        <li><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg><span><strong>Shareable progress cards</strong> Export your streak as an image.</span></li>
       </ul>
     </section>
 
-  <div class="auth-card" id="auth-card">
-    <div class="auth-logo">
-      <svg width="48" height="48" viewBox="0 0 100 100" fill="none">
-        <rect width="100" height="100" rx="22" fill="url(#lg2)"/>
-        <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-        <defs><linearGradient id="lg2" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#9333EA"/><stop offset="1" stop-color="#6366F1"/></linearGradient></defs>
-      </svg>
-      <span class="brand-name">Habitly</span>
+    <div class="auth-card" id="auth-card">
+      <div class="auth-logo">
+        <svg class="logo-mark" width="32" height="32" aria-hidden="true"><use href="#i-logo"/></svg>
+        <span class="brand-name">Habitly</span>
+      </div>
+      <h2 id="auth-heading" class="auth-heading">Sign in</h2>
+      <p id="auth-sub" class="auth-sub">Pick up where you left off.</p>
+      <button id="login-btn" class="btn-google" type="button">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="auth-divider"><span>or</span></div>
+      <form id="email-auth-form" class="email-auth-form">
+        <input type="email" id="auth-email" placeholder="Email address" required autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" />
+        <div class="pw-wrap">
+          <input type="password" id="auth-password" placeholder="Password (at least 6 characters)" minlength="6" required autocomplete="current-password" />
+          <button type="button" id="pw-toggle" class="pw-toggle" aria-label="Show password" aria-pressed="false">Show</button>
+        </div>
+        <button type="button" id="forgot-btn" class="forgot-link">Forgot password?</button>
+        <div class="auth-buttons">
+          <button type="button" id="email-signup-btn" class="btn-secondary">Sign up</button>
+          <button type="submit" id="email-signin-btn" class="btn-primary">Sign in</button>
+        </div>
+      </form>
+      <p id="auth-fine" class="auth-fine">No credit card needed</p>
     </div>
-    <h2 id="auth-heading" class="auth-heading">Welcome back</h2>
-    <p id="auth-sub" class="auth-sub">Sign in to start building better habits today</p>
-    <button id="login-btn" class="btn-google">
-      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      Continue with Google
-    </button>
-    <div class="auth-divider"><span>or</span></div>
-    <form id="email-auth-form" class="email-auth-form">
-      <input type="email" id="auth-email" placeholder="Email address" required autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" />
-      <div class="pw-wrap">
-        <input type="password" id="auth-password" placeholder="Password (min. 6 chars)" minlength="6" required autocomplete="current-password" />
-        <button type="button" id="pw-toggle" class="pw-toggle" aria-label="Show password" aria-pressed="false">Show</button>
-      </div>
-      <button type="button" id="forgot-btn" class="forgot-link">Forgot password?</button>
-      <div class="auth-buttons">
-        <button type="button" id="email-signup-btn" class="btn-ghost">Sign Up</button>
-        <button type="submit" id="email-signin-btn" class="btn-primary">Sign In</button>
-      </div>
-    </form>
-    <p id="auth-fine" class="auth-fine">Takes 10 seconds · No credit card needed</p>
-  </div>
 
   </div><!-- /.auth-layout -->
 
-  <!-- Mobile-only sticky nudge once the visitor has ticked something in the demo -->
+  <!-- Mobile-only prompt once the visitor has completed something in the demo -->
   <div id="landing-sticky" class="landing-sticky" aria-live="polite">
     <div class="ls-text">
-      <strong id="ls-title">🔥 Streak started!</strong>
-      <span id="ls-sub">Save it before it's gone</span>
+      <strong id="ls-title">Progress not saved</strong>
+      <span id="ls-sub">Create an account to keep it</span>
     </div>
-    <button type="button" id="ls-btn" class="btn-primary ls-btn">Save it →</button>
+    <button type="button" id="ls-btn" class="btn-primary ls-btn">Save</button>
   </div>
 </div>
 
-<!-- ══ MAIN APP ════════════════════════════════════════════ -->
+<!-- Main app -->
 <div id="app" class="app hidden">
 
-  <!-- Top Nav -->
   <header class="topnav">
     <div class="topnav-brand">
-      <svg width="30" height="30" viewBox="0 0 100 100" fill="none">
-        <rect width="100" height="100" rx="22" fill="url(#lg3)"/>
-        <path d="M28 52l16 16 28-32" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-        <defs><linearGradient id="lg3" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#9333EA"/><stop offset="1" stop-color="#6366F1"/></linearGradient></defs>
-      </svg>
+      <svg class="logo-mark" width="26" height="26" aria-hidden="true"><use href="#i-logo"/></svg>
       <span class="brand-name">Habitly</span>
     </div>
-    <nav class="topnav-links">
-      <a href="#home"    class="nav-link active" data-page="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Home</a>
-      <a href="#stats"   class="nav-link"        data-page="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 17v-4"/><path d="M12 17v-8"/><path d="M17 17V7"/></svg> Stats</a>
-      <a href="#profile" class="nav-link"        data-page="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+    <nav class="topnav-links" aria-label="Main">
+      <a href="#home"    class="nav-link active" data-page="home"><svg class="icon" aria-hidden="true"><use href="#i-home"/></svg> Home</a>
+      <a href="#stats"   class="nav-link"        data-page="stats"><svg class="icon" aria-hidden="true"><use href="#i-bar-chart"/></svg> Stats</a>
+      <a href="#profile" class="nav-link"        data-page="profile"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg> Profile</a>
     </nav>
     <div class="topnav-right">
       <div class="avatar-wrap">
@@ -379,72 +271,65 @@
   </header>
 
   <!-- Offline notice (shown only while the device has no connection) -->
-  <div id="offline-bar" class="offline-bar hidden" role="status">📴 You're offline. Changes are saved on this device and will sync automatically.</div>
+  <div id="offline-bar" class="offline-bar hidden" role="status"><svg class="icon" aria-hidden="true"><use href="#i-wifi-off"/></svg> You are offline. Changes are saved on this device and will sync automatically.</div>
 
-  <!-- Pages -->
   <main class="page-container">
 
-    <!-- ── HOME ───────────────────────────────────── -->
+    <!-- Home -->
     <section id="page-home" class="page active">
       <div class="page-content">
 
-        <!-- Greeting -->
-        <div class="greeting-card">
-          <div>
-            <p class="greeting-time" id="greeting-time">Good morning</p>
-            <div style="display:flex; align-items:center; gap:var(--sp-2);">
-              <h1 class="greeting-name" id="greeting-name">Loading…</h1>
-              <span id="header-badge" class="badge-icon" style="font-size: 1.5rem;" title="Current Badge"></span>
+        <section class="summary" aria-label="Your progress">
+          <div class="summary-head">
+            <div>
+              <p class="greeting-time" id="greeting-time">Good morning</p>
+              <h1 class="greeting-name" id="greeting-name">Loading</h1>
             </div>
+            <span id="header-badge" class="tier-tag" title="Current streak tier"></span>
           </div>
-          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:var(--sp-2);">
-            <div class="streak-badge" id="open-share-trigger" style="cursor:pointer;" title="Tap to Share Your Streak Card 📤">
-              <span class="streak-fire">🔥</span>
-              <span id="greeting-streak" class="streak-num">0</span>
-              <span class="streak-lbl">day streak</span>
-            </div>
-            <div id="greeting-shield-badge" class="shield-badge-pill" title="Streak Freeze Shield active">
-              🛡️ <span id="greeting-shield-count">1</span> Shield
-            </div>
-          </div>
-        </div>
 
-        <!-- 🔥 Streak-at-risk nudge (evening, streak alive, nothing ticked yet) -->
+          <div class="summary-stats">
+            <button type="button" id="open-share-trigger" class="stat-tile stat-tile-action" aria-label="Open your streak card to share">
+              <span class="tile-label"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>Streak</span>
+              <span class="tile-value" id="greeting-streak">0</span>
+              <span class="tile-sub">days</span>
+            </button>
+            <div class="stat-tile">
+              <span class="tile-label"><svg class="icon" aria-hidden="true"><use href="#i-award"/></svg>Level</span>
+              <span class="tile-value" id="user-level-badge">1</span>
+              <span class="tile-sub" id="user-level-title">Starter</span>
+            </div>
+            <div class="stat-tile" id="greeting-shield-badge" title="A streak shield covers one missed day">
+              <span class="tile-label"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Shield</span>
+              <span class="tile-value" id="greeting-shield-count">1</span>
+              <span class="tile-sub">Safety net</span>
+            </div>
+          </div>
+
+          <div class="xp">
+            <div class="xp-row">
+              <span class="xp-label">Level progress <span id="user-xp-pct" class="xp-pct">0%</span></span>
+              <span class="xp-count"><span id="user-current-xp">0</span> / <span id="user-next-xp">100</span> XP</span>
+            </div>
+            <div class="xp-track"><div class="xp-fill" id="user-xp-bar" style="width: 0%;"></div></div>
+            <p class="xp-hint">+25 XP per habit. +100 XP bonus when every daily habit is done.</p>
+          </div>
+        </section>
+
+        <!-- Streak at risk (evening, streak alive, nothing ticked yet) -->
         <button id="streak-risk" class="risk-banner hidden" type="button">
-          <span class="risk-flame" aria-hidden="true">🔥</span>
+          <svg class="icon risk-icon" aria-hidden="true"><use href="#i-flame"/></svg>
           <span class="risk-text"><strong id="risk-title"></strong><span id="risk-sub"></span></span>
-          <span class="risk-go" aria-hidden="true">→</span>
+          <svg class="icon risk-go" aria-hidden="true"><use href="#i-arrow-right"/></svg>
         </button>
 
-        <!-- 🎮 Level & XP Progression Card -->
-        <div class="xp-card">
-          <div class="xp-card-top">
-            <div class="xp-level-badge">
-              <span class="xp-level-num" id="user-level-badge">Lv. 1</span>
-              <span class="xp-level-title" id="user-level-title">Novice 🌱</span>
-            </div>
-            <div class="xp-count-text">
-              <span id="user-current-xp">0</span> / <span id="user-next-xp">100</span> <span style="color:var(--primary); font-weight:700;">XP</span>
-            </div>
-          </div>
-          <div class="xp-bar-track">
-            <div class="xp-bar-fill" id="user-xp-bar" style="width: 0%;">
-              <div class="xp-bar-shimmer"></div>
-            </div>
-          </div>
-          <div class="xp-card-bottom">
-            <span class="xp-hint">Earn +25 XP per habit, +100 XP all-done bonus!</span>
-            <span class="xp-percentage" id="user-xp-pct">0%</span>
-          </div>
-        </div>
-
-        <!-- Add Habit -->
+        <!-- Add habit -->
         <div class="card">
-          <h2 class="card-title">Add a Habit</h2>
-          <form id="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-2);">
-            <input type="text" id="habit-input" aria-label="Habit name" maxlength="60" placeholder="e.g. Drink 8 glasses of water" required autocomplete="off" />
-            <div style="display: flex; gap: var(--sp-2);">
-              <select id="habit-category" aria-label="Category" style="flex: 1;" required>
+          <h2 class="card-title">New habit</h2>
+          <form id="habit-form" class="habit-form">
+            <input type="text" id="habit-input" aria-label="Habit name" maxlength="60" placeholder="For example: Drink 2 litres of water" required autocomplete="off" />
+            <div class="form-row">
+              <select id="habit-category" aria-label="Category" required>
                 <option value="" disabled selected>Category</option>
                 <option value="health">Health</option>
                 <option value="mind">Mind</option>
@@ -458,21 +343,21 @@
                 <option value="relaxation">Relaxation</option>
                 <option value="project">Project</option>
               </select>
-              <select id="habit-frequency" aria-label="Frequency" style="flex: 1;" required>
+              <select id="habit-frequency" aria-label="Frequency" required>
                 <option value="" disabled selected>Frequency</option>
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
               </select>
             </div>
-            <button type="submit" class="btn-primary btn-full">+ Add Habit</button>
+            <button type="submit" class="btn-primary btn-full">Add habit</button>
           </form>
         </div>
 
-        <!-- Habit List -->
+        <!-- Habit list -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">Today's Habits</h2>
+            <h2 class="card-title">Today</h2>
             <span id="today-date" class="today-date"></span>
           </div>
           <div class="progress-row">
@@ -481,76 +366,51 @@
           </div>
           <ul id="habits" class="habits-list"></ul>
           <div id="empty-state" class="empty-state hidden">
-            <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
-              <circle cx="36" cy="36" r="34" fill="#EDE9FF"/>
-              <path d="M22 36h28M36 22v28" stroke="#A78BFA" stroke-width="3" stroke-linecap="round"/>
-            </svg>
-            <p>Start with a ready-made pack</p>
-            <span>One tap adds 3 habits. Edit or delete any of them later.</span>
+            <p class="empty-title">Start with a ready-made set</p>
+            <span class="empty-text">Each one adds three habits. You can edit or delete them later.</span>
             <div id="starter-packs" class="pack-grid"></div>
-            <span class="empty-or">…or add your own habit above ☝️</span>
+            <span class="empty-or">Or add your own habit above.</span>
           </div>
         </div>
 
       </div>
     </section>
 
-    <!-- ── STATS ───────────────────────────────────── -->
+    <!-- Stats -->
     <section id="page-stats" class="page">
       <div class="page-content">
         <h1 class="page-title">Statistics</h1>
 
-        <!-- Summary stat cards -->
         <div class="stats-grid">
-          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span><span class="stat-val" id="stat-today">0/0</span><span class="stat-lbl">Today</span></div>
-          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></span><span class="stat-val" id="stat-streak">0</span><span class="stat-lbl">Streak</span></div>
-          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span><span class="stat-val" id="stat-total">0</span><span class="stat-lbl">Total Done</span></div>
-          <div class="stat-card"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span><span class="stat-val" id="stat-rate">0%</span><span class="stat-lbl">This Week</span></div>
+          <div class="stat-card"><span class="stat-lbl">Today</span><span class="stat-val" id="stat-today">0/0</span></div>
+          <div class="stat-card"><span class="stat-lbl">Streak</span><span class="stat-val" id="stat-streak">0</span></div>
+          <div class="stat-card"><span class="stat-lbl">Total done</span><span class="stat-val" id="stat-total">0</span></div>
+          <div class="stat-card"><span class="stat-lbl">This week</span><span class="stat-val" id="stat-rate">0%</span></div>
         </div>
 
-        <!-- Insights: plain-language read of the user's own data -->
         <div class="card insights-card hidden" id="insights-card">
-          <h2 class="card-title">💡 Insights</h2>
+          <h2 class="card-title">Insights</h2>
           <ul class="insights-list" id="insights-list"></ul>
         </div>
 
-        <!-- Weekly Progress Report -->
         <div class="card weekly-report-card">
-          <h2 class="card-title">📋 Weekly Progress Report</h2>
-          <div class="report-grid">
-            <div class="report-item">
-              <span class="report-icon">🏆</span>
-              <span class="report-label">Best Day</span>
-              <span class="report-val" id="report-best-day">—</span>
-            </div>
-            <div class="report-item">
-              <span class="report-icon">⭐</span>
-              <span class="report-label">Top Habit</span>
-              <span class="report-val" id="report-top-habit">—</span>
-            </div>
-            <div class="report-item">
-              <span class="report-icon">🎯</span>
-              <span class="report-label">Perfect Days</span>
-              <span class="report-val" id="report-perfect-days">0</span>
-            </div>
-            <div class="report-item">
-              <span class="report-icon">📅</span>
-              <span class="report-label">Active Weeks</span>
-              <span class="report-val" id="report-active-weeks">0</span>
-            </div>
-          </div>
+          <h2 class="card-title">Weekly report</h2>
+          <dl class="report-grid">
+            <div class="report-item"><dt class="report-label">Best day</dt><dd class="report-val" id="report-best-day">-</dd></div>
+            <div class="report-item"><dt class="report-label">Top habit</dt><dd class="report-val" id="report-top-habit">-</dd></div>
+            <div class="report-item"><dt class="report-label">Perfect days</dt><dd class="report-val" id="report-perfect-days">0</dd></div>
+            <div class="report-item"><dt class="report-label">Active weeks</dt><dd class="report-val" id="report-active-weeks">0</dd></div>
+          </dl>
           <div class="report-summary" id="report-summary-text"></div>
         </div>
 
-        <!-- Weekly Completions Chart -->
         <div class="card">
-          <h2 class="card-title">Weekly Completions</h2>
+          <h2 class="card-title">Weekly completions</h2>
           <div class="chart-wrap"><canvas id="weekly-chart"></canvas></div>
         </div>
 
-        <!-- Heatmap - upgraded with labels -->
         <div class="card">
-          <h2 class="card-title">Consistency Heatmap <span class="card-subtitle">Last 16 Weeks</span></h2>
+          <h2 class="card-title">Consistency <span class="card-subtitle">Last 16 weeks</span></h2>
           <div class="heatmap-wrap">
             <div class="heatmap-day-labels">
               <span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span>
@@ -571,21 +431,19 @@
           </div>
         </div>
 
-        <!-- Habit Success Rate -->
         <div class="card">
-          <h2 class="card-title">Habit Success Rate <span class="card-subtitle">Last 30 Days</span></h2>
+          <h2 class="card-title">Success rate <span class="card-subtitle">Last 30 days</span></h2>
           <div id="success-rate-list" class="success-rate-list"></div>
         </div>
 
-        <!-- By Category -->
         <div class="card">
-          <h2 class="card-title">By Category</h2>
-          <div class="chart-wrap" style="height: 250px;"><canvas id="pie-chart"></canvas></div>
+          <h2 class="card-title">By category</h2>
+          <div class="chart-wrap chart-wrap-tall"><canvas id="pie-chart"></canvas></div>
         </div>
       </div>
     </section>
 
-    <!-- ── PROFILE ─────────────────────────────────── -->
+    <!-- Profile -->
     <section id="page-profile" class="page">
       <div class="page-content">
         <h1 class="page-title">Profile</h1>
@@ -594,164 +452,151 @@
           <div class="profile-ava-wrap" id="ava-upload-trigger">
             <img id="profile-avatar" class="profile-ava hidden" src="" alt="Profile" />
             <span id="profile-initials" class="profile-ava-initials hidden"></span>
-            <div class="ava-overlay"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+            <div class="ava-overlay"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg></div>
           </div>
           <input type="file" id="ava-upload-input" accept="image/*" class="hidden" />
-          <div style="display:flex; align-items:center; justify-content:center; gap:var(--sp-2);">
-            <h2 id="profile-name" style="margin:0;">Loading…</h2>
-            <span id="profile-badge-icon" class="badge-icon" style="font-size: 1.5rem;" title="Current Badge"></span>
+          <div class="profile-id">
+            <h2 id="profile-name">Loading</h2>
+            <p id="profile-badge-name" class="profile-tier"></p>
+            <p id="profile-email" class="profile-email"></p>
           </div>
-          <p id="profile-badge-name" style="color: var(--primary); font-weight: bold; margin-bottom: 4px; margin-top: 0;"></p>
-          <p id="profile-email" class="profile-email">…</p>
         </div>
 
         <div class="card">
           <h2 class="card-title">Settings</h2>
           <div class="settings-list">
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></span><span class="setting-label">Daily reminders</span></div>
-              <label class="toggle"><input type="checkbox" id="notif-toggle"><span class="toggle-track"></span></label>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-bell"/></svg><span class="setting-label">Daily reminders</span></div>
+              <label class="toggle"><input type="checkbox" id="notif-toggle" aria-label="Daily reminders"><span class="toggle-track"></span></label>
             </div>
-            
+
             <div class="setting-row" id="install-app-row" style="display: none;">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></span><span class="setting-label">Install App</span></div>
-              <button id="install-app-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem; color: var(--primary);">Install</button>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-download"/></svg><span class="setting-label">Install app</span></div>
+              <button id="install-app-btn" class="btn-link" type="button">Install</button>
             </div>
-            
+
             <div class="setting-row" style="display: none;">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></span><span class="setting-label">Smart Sort (Done at bottom)</span></div>
+              <div class="setting-left"><span class="setting-label">Smart sort (done at bottom)</span></div>
               <label class="toggle"><input type="checkbox" id="smart-sort-toggle" checked><span class="toggle-track"></span></label>
             </div>
-            
+
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></span><span class="setting-label">Dark Mode</span></div>
-              <label class="toggle"><input type="checkbox" id="dark-mode-toggle"><span class="toggle-track"></span></label>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-moon"/></svg><span class="setting-label">Dark mode</span></div>
+              <label class="toggle"><input type="checkbox" id="dark-mode-toggle" aria-label="Dark mode"><span class="toggle-track"></span></label>
             </div>
 
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon">🔊</span><span class="setting-label">Sound effects</span></div>
-              <label class="toggle"><input type="checkbox" id="sound-toggle" checked><span class="toggle-track"></span></label>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-volume"/></svg><span class="setting-label">Sound effects</span></div>
+              <label class="toggle"><input type="checkbox" id="sound-toggle" aria-label="Sound effects"><span class="toggle-track"></span></label>
             </div>
 
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon">📳</span><span class="setting-label">Vibration</span></div>
-              <label class="toggle"><input type="checkbox" id="haptics-toggle" checked><span class="toggle-track"></span></label>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-phone"/></svg><span class="setting-label">Vibration</span></div>
+              <label class="toggle"><input type="checkbox" id="haptics-toggle" aria-label="Vibration" checked><span class="toggle-track"></span></label>
             </div>
 
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon">📊</span><span class="setting-label">Share anonymous usage data</span></div>
-              <label class="toggle"><input type="checkbox" id="analytics-toggle" checked><span class="toggle-track"></span></label>
-            </div>
-            
-            <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><span class="setting-label">App Tutorial Guide</span></div>
-              <button id="open-tutorial-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem; color: var(--primary);">View Tour</button>
-            </div>
-            
-            <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg></span><span class="setting-label">Recently Deleted</span></div>
-              <button id="open-recovery-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem;">View</button>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-activity"/></svg><span class="setting-label">Share anonymous usage data</span></div>
+              <label class="toggle"><input type="checkbox" id="analytics-toggle" aria-label="Share anonymous usage data" checked><span class="toggle-track"></span></label>
             </div>
 
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span><span class="setting-label">Export Data</span></div>
-              <button id="export-data-btn" class="btn-ghost" style="padding: var(--sp-1) var(--sp-3); font-size: 0.85rem; color: var(--primary);">Download PDF</button>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-book"/></svg><span class="setting-label">Welcome tour</span></div>
+              <button id="open-tutorial-btn" class="btn-link" type="button">View</button>
             </div>
 
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon">🛡️</span><span class="setting-label">Streak Freeze Shields</span></div>
-              <span id="s-streak-shields" class="setting-val" style="color:#0ea5e9; font-weight:700;">1 Active</span>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-trash"/></svg><span class="setting-label">Recently deleted</span></div>
+              <button id="open-recovery-btn" class="btn-link" type="button">View</button>
             </div>
 
             <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon">⚡</span><span class="setting-label">Level & Rank</span></div>
-              <span id="s-level-rank" class="setting-val" style="color:var(--primary); font-weight:700;">Lv. 1 · Novice</span>
-            </div>
-            <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon">✨</span><span class="setting-label">Total XP Earned</span></div>
-              <span id="s-total-xp" class="setting-val">0 XP</span>
-            </div>
-
-            <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg></span><span class="setting-label">Habits created</span></div>
-              <span id="s-habit-count" class="setting-val">0</span>
-            </div>
-            <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></span><span class="setting-label">Member since</span></div>
-              <span id="s-member-since" class="setting-val">…</span>
-            </div>
-            <div class="setting-row">
-              <div class="setting-left"><span class="setting-icon" style="color:var(--danger)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></span><span class="setting-label text-danger" style="color:var(--danger)">Delete account</span></div>
-              <button id="delete-account-btn" class="btn-icon text-danger" style="color:var(--danger)" title="Delete account">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>
-              </button>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-file"/></svg><span class="setting-label">Export data</span></div>
+              <button id="export-data-btn" class="btn-link" type="button">Download PDF</button>
             </div>
           </div>
         </div>
 
-        <button id="logout-btn" class="btn-danger">Sign Out</button>
-        <p class="app-ver">Habitly v1.0.0 · Made with 💜</p>
+        <div class="card">
+          <h2 class="card-title">Account</h2>
+          <div class="settings-list">
+            <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-shield"/></svg><span class="setting-label">Streak shields</span></div>
+              <span id="s-streak-shields" class="setting-val">1 active</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-award"/></svg><span class="setting-label">Level</span></div>
+              <span id="s-level-rank" class="setting-val">Level 1 · Starter</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-trend-up"/></svg><span class="setting-label">Total XP</span></div>
+              <span id="s-total-xp" class="setting-val">0 XP</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-target"/></svg><span class="setting-label">Habits created</span></div>
+              <span id="s-habit-count" class="setting-val">0</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-calendar"/></svg><span class="setting-label">Member since</span></div>
+              <span id="s-member-since" class="setting-val"></span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon danger" aria-hidden="true"><use href="#i-alert"/></svg><span class="setting-label danger">Delete account</span></div>
+              <button id="delete-account-btn" class="btn-link danger" type="button" title="Delete account">Delete</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="logout-btn" class="btn-secondary btn-full" type="button">Sign out</button>
+        <p class="app-ver">Habitly v1.1</p>
       </div>
     </section>
 
   </main>
 
-  <!-- Bottom Nav (mobile) -->
-  <nav class="bottomnav">
-    <a href="#home"    class="bn-item active" data-page="home">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      <span>Home</span>
-    </a>
-    <a href="#stats"   class="bn-item" data-page="stats">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 17v-4"/><path d="M12 17v-8"/><path d="M17 17V7"/></svg>
-      <span>Stats</span>
-    </a>
-    <a href="#profile" class="bn-item" data-page="profile">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span>Profile</span>
-    </a>
+  <nav class="bottomnav" aria-label="Main">
+    <a href="#home"    class="bn-item active" data-page="home"><svg class="icon" aria-hidden="true"><use href="#i-home"/></svg><span>Home</span></a>
+    <a href="#stats"   class="bn-item" data-page="stats"><svg class="icon" aria-hidden="true"><use href="#i-bar-chart"/></svg><span>Stats</span></a>
+    <a href="#profile" class="bn-item" data-page="profile"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg><span>Profile</span></a>
   </nav>
 
 </div>
 
-<!-- Contextual "daily reminders" ask: shown after the first completed habit, never at login -->
+<!-- Daily reminder prompt: shown after the first completed habit, never at sign-in -->
 <div id="notif-ask" class="notif-ask hidden" role="dialog" aria-label="Daily reminders">
   <div class="notif-ask-text">
-    <strong>Never lose your streak 🔥</strong>
-    <span>One gentle reminder a day. Turn it off anytime.</span>
+    <strong>Daily reminder</strong>
+    <span>Get one notification a day when habits are left. Turn it off anytime.</span>
   </div>
   <div class="notif-ask-actions">
     <button id="notif-ask-no" class="btn-ghost" type="button">Not now</button>
-    <button id="notif-ask-yes" class="btn-primary" type="button">Remind me</button>
+    <button id="notif-ask-yes" class="btn-primary" type="button">Turn on</button>
   </div>
 </div>
 
-<!-- Toast container -->
 <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
 
-<!-- Crop Modal -->
-<div id="crop-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Crop your picture" style="z-index:9999;">
-  <div class="card" style="width: 100%; max-width: 400px;">
-    <h2 class="card-title" style="margin-bottom: var(--sp-4);">Crop your picture</h2>
-    <div style="width: 100%; height: 300px; background: #eee; margin-bottom: var(--sp-4);">
-      <img id="crop-image" src="" style="display:block; max-width: 100%;" />
-    </div>
-    <div style="display: flex; gap: var(--sp-3);">
-      <button id="crop-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
-      <button id="crop-save" class="btn-primary" style="flex: 1;">Save Picture</button>
+<!-- Crop picture -->
+<div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Crop your picture">
+  <div class="dialog">
+    <h2 class="dialog-title">Crop your picture</h2>
+    <div class="crop-box"><img id="crop-image" src="" alt="" /></div>
+    <div class="dialog-actions">
+      <button id="crop-cancel" class="btn-secondary" type="button">Cancel</button>
+      <button id="crop-save" class="btn-primary" type="button">Save picture</button>
     </div>
   </div>
 </div>
 
-<!-- Edit Habit Modal -->
-<div id="edit-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Edit habit" style="z-index:9999;">
-  <div class="card" style="width: 100%; max-width: 400px;">
-    <h2 class="card-title" style="margin-bottom: var(--sp-4);">Edit Habit</h2>
-    <form id="edit-habit-form" class="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-4);">
+<!-- Edit habit -->
+<div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Edit habit">
+  <div class="dialog">
+    <h2 class="dialog-title">Edit habit</h2>
+    <form id="edit-habit-form" class="habit-form">
       <input type="hidden" id="edit-habit-id" />
-      <input type="text" id="edit-habit-name" aria-label="Habit name" maxlength="60" class="input" placeholder="e.g. Read 10 pages" required />
-      <div style="display: flex; gap: var(--sp-2);">
-        <select id="edit-habit-category" aria-label="Category" style="flex: 1;" required>
+      <input type="text" id="edit-habit-name" aria-label="Habit name" maxlength="60" class="input" placeholder="Habit name" required />
+      <div class="form-row">
+        <select id="edit-habit-category" aria-label="Category" required>
           <option value="" disabled selected>Category</option>
           <option value="health">Health</option>
           <option value="mind">Mind</option>
@@ -765,185 +610,134 @@
           <option value="relaxation">Relaxation</option>
           <option value="project">Project</option>
         </select>
-        <select id="edit-habit-frequency" aria-label="Frequency" style="flex: 1;" required>
+        <select id="edit-habit-frequency" aria-label="Frequency" required>
           <option value="" disabled selected>Frequency</option>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="monthly">Monthly</option>
         </select>
       </div>
-      <div style="display: flex; gap: var(--sp-3); margin-top: var(--sp-2);">
-        <button type="button" id="edit-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
-        <button type="submit" id="edit-save" class="btn-primary" style="flex: 1;">Save Changes</button>
+      <div class="dialog-actions">
+        <button type="button" id="edit-cancel" class="btn-secondary">Cancel</button>
+        <button type="submit" id="edit-save" class="btn-primary">Save changes</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Recovery Modal -->
-<div id="recovery-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Recently deleted habits" style="z-index:9999;">
-  <div class="card" style="width: 100%; max-width: 400px; max-height: 80vh; display: flex; flex-direction: column;">
-    <h2 class="card-title" style="margin-bottom: var(--sp-2);">Recently Deleted</h2>
-    <p class="text-secondary" style="margin-bottom: var(--sp-4); font-size: 0.9rem;">Habits are permanently deleted after 1 hour.</p>
-    
-    <div id="deleted-habits-list" style="overflow-y: auto; flex-grow: 1; margin-bottom: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2);">
-      <!-- Rendered dynamically -->
-    </div>
-    
-    <button id="recovery-close" class="btn-ghost w-full">Close</button>
-  </div>
-</div>
-
-<!-- Timer Modal -->
-<div id="timer-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Focus timer" style="z-index:9999;">
-  <div class="card" style="width: 100%; max-width: 320px; display: flex; flex-direction: column; text-align: center; gap: var(--sp-4);">
-    <h2 class="card-title" style="margin: 0;">Focus Timer</h2>
-    <p id="timer-habit-name" class="text-secondary" style="margin: 0;">Habit Name</p>
-    
-    <div id="timer-display" style="font-size: 4rem; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums;">
-      25:00
-    </div>
-    
-    <div style="display: flex; gap: var(--sp-2); align-items: center; justify-content: center; margin-top: calc(var(--sp-2) * -1);">
-      <label for="timer-input" class="text-secondary" style="font-size: 0.9rem;">Duration (min):</label>
-      <input type="number" id="timer-input" value="25" min="1" max="120" style="width: 70px; text-align: center; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text); padding: var(--sp-1);"> 
-    </div>
-    
-    <div style="display: flex; gap: var(--sp-2);">
-      <button id="timer-close" class="btn-ghost" style="flex: 1;">Cancel</button>
-      <button id="timer-start" class="btn-primary" style="flex: 1;">Start</button>
-      <button id="timer-pause" class="btn-primary hidden" style="flex: 1;">Pause</button>
+<!-- Recently deleted -->
+<div id="recovery-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Recently deleted habits">
+  <div class="dialog dialog-scroll">
+    <h2 class="dialog-title">Recently deleted</h2>
+    <p class="dialog-text">Habits are permanently deleted after 1 hour.</p>
+    <div id="deleted-habits-list" class="deleted-list"></div>
+    <div class="dialog-actions">
+      <button id="recovery-close" class="btn-secondary" type="button">Close</button>
     </div>
   </div>
 </div>
 
-<!-- Habit Details Modal -->
-<div id="details-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Habit details" style="z-index:9999;">
-  <div class="card" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: var(--sp-3);">
-    <h2 id="details-habit-name" class="card-title" style="margin: 0; font-size: 1.25rem;">Habit Name</h2>
-    
-    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface-2); padding: var(--sp-3); border-radius: var(--r-md);">
-      <div style="text-align: center;">
-        <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">Current Streak</p>
-        <h3 id="details-current-streak" style="margin: 0; color: var(--primary);">0</h3>
-      </div>
-      <div style="text-align: center;">
-        <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">Longest Streak</p>
-        <h3 id="details-longest-streak" style="margin: 0;">0</h3>
-      </div>
-      <div style="text-align: center;">
-        <p class="text-secondary" style="font-size: 0.8rem; margin: 0;">Total Days</p>
-        <h3 id="details-total-days" style="margin: 0;">0</h3>
-      </div>
+<!-- Focus timer -->
+<div id="timer-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Focus timer">
+  <div class="dialog dialog-narrow">
+    <h2 class="dialog-title">Focus timer</h2>
+    <p id="timer-habit-name" class="dialog-text">Habit</p>
+    <div id="timer-display" class="timer-display">25:00</div>
+    <div class="timer-duration">
+      <label for="timer-input">Duration (minutes)</label>
+      <input type="number" id="timer-input" value="25" min="1" max="120">
     </div>
-
-    <div>
-      <h3 style="font-size: 1rem; margin-bottom: var(--sp-2);">Daily Journal</h3>
-      <textarea id="details-journal-input" aria-label="Journal note for today" placeholder="Add a note for today..." style="width: 100%; height: 80px; padding: var(--sp-2); border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); resize: none; margin-bottom: var(--sp-2);"></textarea>
-      <button id="details-save-journal" class="btn-primary" style="width: 100%; padding: var(--sp-2);">Save Note</button>
-    </div>
-
-    <div style="max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-2);" id="details-journal-list">
-      <!-- Notes go here -->
-    </div>
-    
-    <button id="details-close" class="btn-ghost" style="width: 100%; margin-top: var(--sp-2);">Close</button>
-  </div>
-</div>
-
-<!-- Habit Check Confirmation Modal -->
-<div id="confirm-check-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Mark habit complete" style="z-index:9999;">
-  <div class="card" style="width: 100%; max-width: 380px; text-align: center; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-6);">
-    <div style="width: 56px; height: 56px; border-radius: var(--r-full); background: rgba(124, 58, 237, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.75rem;">
-      ✅
-    </div>
-    <div>
-      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 var(--sp-2);">Mark Habit Complete?</h2>
-      <p style="font-size: 0.95rem; color: var(--text-2); line-height: 1.5; margin: 0;">
-        Did you complete <strong id="confirm-habit-name" style="color: var(--text);">this habit</strong>?
-      </p>
-      <p style="font-size: 0.8rem; color: var(--text-3); margin-top: var(--sp-2);">
-        ⏳ <em>You'll have 1 hour to undo if needed.</em>
-      </p>
-    </div>
-    <div style="display: flex; gap: var(--sp-3); width: 100%;">
-      <button id="confirm-check-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
-      <button id="confirm-check-yes" class="btn-primary" style="flex: 1;">Yes, Done! 🎉</button>
+    <div class="dialog-actions">
+      <button id="timer-close" class="btn-secondary" type="button">Cancel</button>
+      <button id="timer-start" class="btn-primary" type="button">Start</button>
+      <button id="timer-pause" class="btn-primary hidden" type="button">Pause</button>
     </div>
   </div>
 </div>
 
-<!-- Export Data Confirmation Modal -->
-<div id="confirm-export-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Export PDF report" style="z-index:9999;">
-  <div class="card" style="width: 100%; max-width: 380px; text-align: center; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-6);">
-    <div style="width: 56px; height: 56px; border-radius: var(--r-full); background: rgba(124, 58, 237, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.75rem;">
-      📄
+<!-- Habit details -->
+<div id="details-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Habit details">
+  <div class="dialog dialog-scroll">
+    <h2 id="details-habit-name" class="dialog-title">Habit</h2>
+
+    <dl class="details-stats">
+      <div><dt>Streak</dt><dd id="details-current-streak">0</dd></div>
+      <div><dt>Longest</dt><dd id="details-longest-streak">0</dd></div>
+      <div><dt>Total days</dt><dd id="details-total-days">0</dd></div>
+    </dl>
+
+    <div class="details-journal">
+      <h3>Notes</h3>
+      <textarea id="details-journal-input" aria-label="Note for today" placeholder="Add a note for today"></textarea>
+      <button id="details-save-journal" class="btn-primary btn-full" type="button">Save note</button>
     </div>
-    <div>
-      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0 0 var(--sp-2);">Export PDF Report?</h2>
-      <p style="font-size: 0.95rem; color: var(--text-2); line-height: 1.5; margin: 0;">
-        Do you want to generate and download a complete progress report of your habits and streaks as a PDF document?
-      </p>
-      <p id="export-habit-summary" style="font-size: 0.8rem; color: var(--text-3); margin-top: var(--sp-2);">
-        📊 Formatted summary with statistics and notes.
-      </p>
-    </div>
-    <div style="display: flex; gap: var(--sp-3); width: 100%;">
-      <button id="confirm-export-cancel" class="btn-ghost" style="flex: 1;">Cancel</button>
-      <button id="confirm-export-yes" class="btn-primary" style="flex: 1;">Download PDF</button>
+
+    <div id="details-journal-list" class="journal-list"></div>
+
+    <div class="dialog-actions">
+      <button id="details-close" class="btn-secondary" type="button">Close</button>
     </div>
   </div>
 </div>
 
-<!-- 🏆 Level Up Celebration Modal -->
-<div id="level-up-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Level up" style="z-index:10000;">
-  <div class="card level-up-card" style="width: 100%; max-width: 360px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-8) var(--sp-6);">
-    <div class="level-up-crown-wrapper">
-      <div class="level-up-aura"></div>
-      <div class="level-up-icon" id="level-up-icon">⚡</div>
+<!-- Confirm completion -->
+<div id="confirm-check-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Mark habit complete">
+  <div class="dialog dialog-narrow">
+    <h2 class="dialog-title">Mark as complete?</h2>
+    <p class="dialog-text">Did you complete <strong id="confirm-habit-name">this habit</strong>?</p>
+    <p class="dialog-note">You can undo this for 1 hour.</p>
+    <div class="dialog-actions">
+      <button id="confirm-check-cancel" class="btn-secondary" type="button">Cancel</button>
+      <button id="confirm-check-yes" class="btn-primary" type="button">Mark complete</button>
     </div>
-    <div>
-      <span class="level-up-pill">LEVEL UP! 🎉</span>
-      <h2 style="font-size: 1.85rem; font-weight: 800; margin: var(--sp-2) 0 2px;" id="level-up-new-level">Level 2</h2>
-      <p style="font-size: 1.15rem; font-weight: 700; color: var(--primary); margin: 0 0 var(--sp-2);" id="level-up-new-title">Apprentice</p>
-      <p style="font-size: 0.9rem; color: var(--text-2); line-height: 1.5; margin: 0;" id="level-up-perk-text">
-        Incredible dedication! You're forging unstoppable consistency.
-      </p>
-    </div>
-    <button id="level-up-claim-btn" class="btn-primary" style="width: 100%; max-width: 220px; font-weight: 700; font-size: 1rem; border-radius: var(--r-full); padding: var(--sp-3) var(--sp-6); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);">
-      Claim & Continue 🚀
-    </button>
   </div>
 </div>
 
-<!-- 📤 Share Progress Card Modal -->
-<div id="share-card-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Share progress story" style="z-index:10000;">
-  <div class="card share-modal-container">
-    <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:330px;">
-      <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text);">Share Progress Story</h3>
-      <span style="font-size:0.8rem; font-weight:700; color:var(--primary); background:rgba(124,58,237,0.12); padding:2px 8px; border-radius:var(--r-full);">9:16 HD Story</span>
+<!-- Confirm export -->
+<div id="confirm-export-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Export PDF report">
+  <div class="dialog dialog-narrow">
+    <h2 class="dialog-title">Download report</h2>
+    <p class="dialog-text">Generate a PDF with your habits, streaks and completion history.</p>
+    <p id="export-habit-summary" class="dialog-note">Includes statistics and notes.</p>
+    <div class="dialog-actions">
+      <button id="confirm-export-cancel" class="btn-secondary" type="button">Cancel</button>
+      <button id="confirm-export-yes" class="btn-primary" type="button">Download PDF</button>
     </div>
-    
-    <!-- Direct High-Res Canvas (1080x1920) -->
+  </div>
+</div>
+
+<!-- Level up -->
+<div id="level-up-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Level up">
+  <div class="dialog dialog-narrow">
+    <p class="dialog-eyebrow">Level reached</p>
+    <h2 class="dialog-title level-title" id="level-up-new-level">Level 2</h2>
+    <p class="dialog-sub" id="level-up-new-title">Builder</p>
+    <p class="dialog-text" id="level-up-perk-text">Your consistency is paying off.</p>
+    <div class="dialog-actions">
+      <button id="level-up-claim-btn" class="btn-primary btn-full" type="button">Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share progress -->
+<div id="share-card-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Share progress story">
+  <div class="dialog share-modal-container">
+    <div class="share-head">
+      <h2 class="dialog-title">Share progress</h2>
+      <span class="share-format">1080 x 1920</span>
+    </div>
     <div class="share-canvas-container">
       <canvas id="share-story-canvas" width="1080" height="1920"></canvas>
     </div>
-
-    <!-- Action Buttons -->
-    <div style="display: flex; gap: var(--sp-2); width: 100%; max-width: 330px;">
-      <button id="share-card-close" class="btn-ghost" style="flex: 1;">Close</button>
-      <button id="share-card-download" class="btn-ghost" style="flex: 1; border: 1px solid var(--border);">Save 📥</button>
-      <button id="share-card-share" class="btn-primary" style="flex: 1.2;">Share 📱</button>
+    <div class="dialog-actions share-actions">
+      <button id="share-card-close" class="btn-ghost" type="button">Close</button>
+      <button id="share-card-download" class="btn-secondary" type="button">Save</button>
+      <button id="share-card-share" class="btn-primary" type="button">Share</button>
     </div>
   </div>
 </div>
 
-
-
-<!-- Confetti Animation Library -->
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
-
-<script type="module" src="landing-demo.js?v=3"></script>
-<script type="module" src="app.js?v=29"></script>
+<script type="module" src="landing-demo.js?v=5"></script>
+<script type="module" src="app.js?v=32"></script>
 </body>
 </html>

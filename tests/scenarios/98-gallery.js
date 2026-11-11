@@ -69,13 +69,21 @@ module.exports = (scenario, c) => {
     await ready(); await waitFor(`document.querySelectorAll('#habits .habit-item').length === 6`);
     await ev(`document.querySelector('#habits [data-action="timer"]').click()`); await settle();
   });
-  run('tour-1', { seed: { ...signedIn(), mock_fb_db: db } }, async () => {
-    await ready(); await ev(`document.getElementById('open-tutorial-btn').click()`); await settle();
+  const tourAt = (name, n, opts = {}) => run(name, { seed: { ...signedIn(), mock_fb_db: db }, ...opts }, async () => {
+    await ready(); await waitFor(`document.querySelectorAll('#habits .habit-item').length === 6`);
+    await ev(`document.getElementById('help-btn').click()`); await settle(500);
+    for (let i = 0; i < n; i++) { await ev(`document.getElementById('coach-next').click()`); await settle(600); }
+    await settle(500);
   });
-  run('tour-3', { seed: { ...signedIn(), mock_fb_db: db } }, async () => {
-    await ready(); await ev(`document.getElementById('open-tutorial-btn').click()`); await settle(300);
-    await ev(`document.getElementById('onboarding-next').click(); document.getElementById('onboarding-next').click()`); await settle();
-  });
+  tourAt('tour-1-welcome', 0);
+  tourAt('tour-2-progress', 1);
+  tourAt('tour-3-add', 2);
+  tourAt('tour-4-list', 3);
+  tourAt('tour-5-stats', 4);
+  tourAt('tour-6-profile', 5);
+  tourAt('tour-7-ready', 6);
+  tourAt('tour-desktop-progress', 1, { mobile: false });
+  tourAt('tour-desktop-stats', 4, { mobile: false });
   run('share-card', { seed }, async () => {
     await ready(); await ev(`document.getElementById('open-share-trigger').click()`); await settle(1800);
   });

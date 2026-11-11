@@ -86,7 +86,6 @@ module.exports = (scenario, c) => {
     const m = await ev(`fetch('/manifest.json').then(r => r.json())`);
     check('manifest has 2 shortcuts', Array.isArray(m.shortcuts) && m.shortcuts.length === 2, JSON.stringify(m.shortcuts));
     check('shortcut deep-links to #stats', m.shortcuts.some(s => /#stats$/.test(s.url)));
-    check('tour copy says 11 categories (the dropdown has 11)', (await ev(`document.body.innerHTML.includes('11 categories')`)) === true);
     check('dropdown really has 11', (await ev(`document.querySelectorAll('#habit-category option:not([disabled])').length`)) === 11);
     check('habit name input capped at 60', (await ev(`document.getElementById('habit-input').maxLength`)) === 60);
   });

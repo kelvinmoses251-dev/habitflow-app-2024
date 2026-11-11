@@ -42,17 +42,18 @@
   <!-- Fonts: one request -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
 
   <!-- Start fetching the Firebase modules app.js imports now, instead of after app.js is parsed -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
+  <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=31" />
+  <link rel="stylesheet" href="style.css?v=32" />
 </head>
 <body>
 
@@ -93,6 +94,8 @@
     <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
     <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
   </defs>
 </svg>
 
@@ -102,57 +105,12 @@
   <div class="loading-spinner"></div>
 </div>
 
-<!-- Welcome tour (first sign-in, and from Profile) -->
-<div id="onboarding" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Welcome tour">
-  <div class="onboarding-inner">
-    <div class="onboarding-slides-wrap">
-
-      <div class="slide active" data-slide="0">
-        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg></span>
-        <h2>Welcome to Habitly</h2>
-        <p>Track daily, weekly and monthly habits across 11 categories. This short tour covers the basics.</p>
-      </div>
-
-      <div class="slide" data-slide="1">
-        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
-        <h2>Add and tick habits</h2>
-        <p>Add a habit, then tick it off each day. Every completion earns XP and builds your streak.</p>
-      </div>
-
-      <div class="slide" data-slide="2">
-        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span>
-        <h2>Streaks, levels and shields</h2>
-        <p>Keep a streak going to move up through the tiers. A streak shield covers one missed day, then recharges after a week.</p>
-      </div>
-
-      <div class="slide" data-slide="3">
-        <span class="slide-icon"><svg class="icon" aria-hidden="true"><use href="#i-bar-chart"/></svg></span>
-        <h2>Stay on track</h2>
-        <p>Open Stats for trends and insights. Turn on reminders in Profile for one notification a day when habits are left.</p>
-      </div>
-
-    </div>
-
-    <div class="onboarding-dots">
-      <span class="dot active" data-dot="0"></span>
-      <span class="dot" data-dot="1"></span>
-      <span class="dot" data-dot="2"></span>
-      <span class="dot" data-dot="3"></span>
-    </div>
-
-    <div class="onboarding-controls">
-      <button id="onboarding-skip" class="btn-ghost" type="button">Skip</button>
-      <button id="onboarding-next" class="btn-primary" type="button">Next</button>
-    </div>
-  </div>
-</div>
-
 <!-- All habits done -->
 <div id="all-done-overlay" class="modal all-done-overlay hidden" role="dialog" aria-modal="true" aria-label="All habits done">
   <div class="dialog all-done-card">
-    <span class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"/></svg></span>
+    <svg class="done-ring" viewBox="0 0 80 80" aria-hidden="true"><circle class="done-ring-bg" cx="40" cy="40" r="34"/><circle class="done-ring-fg" cx="40" cy="40" r="34"/><polyline class="done-check" points="26 41 36 51 55 30"/></svg>
     <h2 class="dialog-title">All habits done for today</h2>
-    <p class="dialog-text">You completed every daily habit. Your streak and XP are updated.</p>
+    <p class="dialog-text" id="all-done-text">You completed every daily habit.</p>
     <div class="dialog-actions">
       <button id="all-done-share" class="btn-secondary" type="button">Share progress</button>
       <button id="all-done-close" class="btn-primary" type="button">Close</button>
@@ -171,7 +129,7 @@
         <span class="brand-name">Habitly</span>
       </div>
 
-      <h1 class="landing-title">Build habits that last.</h1>
+      <h1 class="landing-title">Build habits that <em>last</em>.</h1>
       <p class="landing-sub">Habitly tracks daily, weekly and monthly habits with streaks, levels and clear progress charts. Try the demo below. No account needed.</p>
 
       <div id="demo-card" class="demo-card">
@@ -263,6 +221,7 @@
       <a href="#profile" class="nav-link"        data-page="profile"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg> Profile</a>
     </nav>
     <div class="topnav-right">
+      <button type="button" id="help-btn" class="btn-icon help-btn" aria-label="Take the guided tour" title="Guided tour"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg></button>
       <div class="avatar-wrap">
         <img id="nav-avatar" class="avatar hidden" src="" alt="You" />
         <span id="nav-initials" class="avatar-initials hidden"></span>
@@ -280,13 +239,20 @@
       <div class="page-content">
 
         <section class="summary" aria-label="Your progress">
-          <div class="summary-head">
-            <div>
+          <div class="summary-top">
+            <div class="ring" id="today-ring" role="img" aria-label="No habits yet">
+              <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="ring-bg" cx="50" cy="50" r="44"/><circle class="ring-fg" id="ring-fg" cx="50" cy="50" r="44"/></svg>
+              <div class="ring-center"><span class="ring-num" id="ring-num">0</span><span class="ring-of" id="ring-of">of 0</span></div>
+            </div>
+            <div class="summary-text">
               <p class="greeting-time" id="greeting-time">Good morning</p>
               <h1 class="greeting-name" id="greeting-name">Loading</h1>
+              <p class="summary-line" id="summary-line">No habits yet</p>
+              <span id="header-badge" class="tier-tag" title="Current streak tier"></span>
             </div>
-            <span id="header-badge" class="tier-tag" title="Current streak tier"></span>
           </div>
+
+          <div class="week" id="week-strip" aria-label="Last 7 days"></div>
 
           <div class="summary-stats">
             <button type="button" id="open-share-trigger" class="stat-tile stat-tile-action" aria-label="Open your streak card to share">
@@ -312,7 +278,6 @@
               <span class="xp-count"><span id="user-current-xp">0</span> / <span id="user-next-xp">100</span> XP</span>
             </div>
             <div class="xp-track"><div class="xp-fill" id="user-xp-bar" style="width: 0%;"></div></div>
-            <p class="xp-hint">+25 XP per habit. +100 XP bonus when every daily habit is done.</p>
           </div>
         </section>
 
@@ -324,9 +289,13 @@
         </button>
 
         <!-- Add habit -->
-        <div class="card">
-          <h2 class="card-title">New habit</h2>
-          <form id="habit-form" class="habit-form">
+        <div class="card new-habit">
+          <button type="button" id="new-habit-toggle" class="new-habit-toggle" aria-expanded="false" aria-controls="habit-form">
+            <span class="plus"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
+            <span>New habit</span>
+            <svg class="icon chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+          <form id="habit-form" class="habit-form" hidden>
             <input type="text" id="habit-input" aria-label="Habit name" maxlength="60" placeholder="For example: Drink 2 litres of water" required autocomplete="off" />
             <div class="form-row">
               <select id="habit-category" aria-label="Category" required>
@@ -359,10 +328,6 @@
           <div class="card-header">
             <h2 class="card-title">Today</h2>
             <span id="today-date" class="today-date"></span>
-          </div>
-          <div class="progress-row">
-            <div class="progress-track"><div id="progress-fill" class="progress-fill" style="width:0%"></div></div>
-            <span id="progress-label" class="progress-label">0 / 0</span>
           </div>
           <ul id="habits" class="habits-list"></ul>
           <div id="empty-state" class="empty-state hidden">
@@ -496,13 +461,18 @@
             </div>
 
             <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-check-circle"/></svg><span class="setting-label">Ask before completing</span></div>
+              <label class="toggle"><input type="checkbox" id="confirm-toggle" aria-label="Ask before completing a habit" checked><span class="toggle-track"></span></label>
+            </div>
+
+            <div class="setting-row">
               <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-activity"/></svg><span class="setting-label">Share anonymous usage data</span></div>
               <label class="toggle"><input type="checkbox" id="analytics-toggle" aria-label="Share anonymous usage data" checked><span class="toggle-track"></span></label>
             </div>
 
             <div class="setting-row">
-              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-book"/></svg><span class="setting-label">Welcome tour</span></div>
-              <button id="open-tutorial-btn" class="btn-link" type="button">View</button>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-book"/></svg><span class="setting-label">Guided tour</span></div>
+              <button id="open-tutorial-btn" class="btn-link" type="button">Start</button>
             </div>
 
             <div class="setting-row">
@@ -738,6 +708,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=5"></script>
-<script type="module" src="app.js?v=32"></script>
+<script type="module" src="app.js?v=33"></script>
 </body>
 </html>

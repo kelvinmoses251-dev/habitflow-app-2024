@@ -40,7 +40,7 @@ module.exports = (scenario, c) => {
 
     await ev(`document.getElementById('habit-input').value='Stretch';document.getElementById('habit-category').value='fitness';document.getElementById('habit-frequency').value='daily';document.getElementById('habit-form').requestSubmit()`);
     check('new habit appears', await waitFor(`document.querySelectorAll('#habits .habit-item').length === 2`, 4000));
-    check('Add button is not stuck on "Adding…"', await waitFor(`document.querySelector('#habit-form button[type=submit]').textContent.includes('Add Habit') && !document.querySelector('#habit-form button[type=submit]').disabled`, 4000), await text('#habit-form button[type=submit]'));
+    check('Add button is not stuck on "Adding…"', await waitFor(`document.querySelector('#habit-form button[type=submit]').textContent.includes('Add habit') && !document.querySelector('#habit-form button[type=submit]').disabled`, 4000), await text('#habit-form button[type=submit]'));
 
     await ev(`document.querySelector('#habits [data-action="edit"]').click()`);
     await ev(`document.getElementById('edit-habit-name').value='Floss daily'; document.getElementById('edit-habit-form').requestSubmit()`);

@@ -57,7 +57,7 @@ const check = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="
 const row = (name, done, cat) => `
   <div class="row ${done ? 'done' : ''}"><span class="box">${done ? check : ''}</span><span class="nm">${name}</span><span class="cat">${cat}</span></div>`;
 const og = `<!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{width:1200px;height:630px;overflow:hidden}
@@ -66,7 +66,8 @@ const og = `<!doctype html><html><head><meta charset="utf-8">
   .brand{display:flex;align-items:center;gap:14px;margin-bottom:44px}
   .logo{width:44px;height:44px;border-radius:10px;background:${ACCENT};display:grid;place-items:center}
   .brand b{font-size:30px;font-weight:600;letter-spacing:-.01em}
-  h1{font-size:78px;line-height:1.04;font-weight:600;letter-spacing:-.035em;margin-bottom:26px}
+  h1{font-family:'Instrument Serif',Georgia,serif;font-size:112px;line-height:.98;font-weight:400;letter-spacing:-.02em;margin-bottom:28px}
+  h1 em{font-style:italic;color:${ACCENT}}
   p{font-size:28px;line-height:1.45;color:#51515A;max-width:560px}
   .note{margin-top:34px;font-size:22px;color:#6B6B74}
   .card{flex:.9;background:#fff;border:1px solid #E2E2DC;border-radius:18px;padding:30px;box-shadow:0 1px 2px rgba(26,26,30,.05),0 24px 48px rgba(26,26,30,.08)}
@@ -79,11 +80,11 @@ const og = `<!doctype html><html><head><meta charset="utf-8">
   .row .nm{flex:1}.row .cat{font-size:15px;color:#6B6B74;font-weight:400}
   .stats{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #E2E2DC;border-radius:10px;margin-top:20px}
   .stats div{padding:14px 16px}.stats div+div{border-left:1px solid #E2E2DC}
-  .stats small{display:block;font-size:14px;color:#6B6B74}.stats strong{font-size:28px;font-weight:600;letter-spacing:-.02em}
+  .stats small{display:block;font-size:14px;color:#6B6B74}.stats strong{font-family:'Instrument Serif',Georgia,serif;font-size:36px;font-weight:400}
 </style></head><body>
   <div class="left">
     <div class="brand"><div class="logo"><svg viewBox="0 0 32 32" width="26" height="26"><path d="M9 16.5l5 5 9-10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><b>Habitly</b></div>
-    <h1>Build habits<br>that last.</h1>
+    <h1>Build habits<br>that <em>last</em>.</h1>
     <p>Track daily, weekly and monthly habits with streaks, levels and clear progress charts.</p>
     <div class="note">Try the demo. No account needed.</div>
   </div>

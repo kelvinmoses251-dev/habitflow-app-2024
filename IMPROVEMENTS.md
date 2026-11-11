@@ -60,3 +60,16 @@ _Verified against the real Firestore SDK (not the mock): the offline cache keeps
 | 45 | Design | Celebrations are quiet: no confetti (library removed), no animated 3D trophy; "All habits done" is a plain dialog. Sound effects are now opt-in | An arpeggio and confetti on every task is the opposite of calm |
 | 46 | Brand | Share story card, Open Graph preview and PWA icons redrawn flat and emoji-free, generated reproducibly by `tools/make-assets.js` | Brand assets matched the old gradient style |
 | 47 | Quality | `tests/scenarios/13-design.js` fails the build if emoji reappear in any source file or rendered screen/dialog, or if gradients, blur, glow or endless animation return | Keeps the direction from regressing |
+
+### Guided tour and a livelier interface
+
+| # | Area | What changed | Why |
+|---|------|--------------|-----|
+| 48 | Onboarding | **Interactive spotlight tour** (`coach.js`): dims the screen, cuts out the real button or area, and a card with an arrow says what it is for and what to tap, one stop at a time (7 stops). Adapts to the screen: bottom nav on mobile, top nav on desktop, starter sets instead of a habit row for an empty account. Waits for data to load, is keyboard and screen-reader operable (arrows, Tab trap, Escape), skippable, and ends by opening the New habit form for an empty account | The old tour was a text-only slide deck that never pointed at anything |
+| 49 | Discoverability | A **help button** in the header and a "Guided tour" row in Profile replay the tour any time | New users forget; they should be able to ask |
+| 50 | UI | **Progress ring** for today plus a **7-day strip** (filled = every daily habit done, tinted = some) on a tinted hero card with streak, level and shield beneath | The old two-card header was dense and static; this shows today and the week at a glance |
+| 51 | UI | **Display serif** (Instrument Serif) for headlines and big numerals; Inter stays for everything you read or tap; landing headline gets one italic accent word | Gives the product a voice and hierarchy without decoration |
+| 52 | UX | **New habit collapses to one row** once you have habits (open for an empty list, and while you build your first three), so your list is what you see first | The big form pushed the actual habits below the fold |
+| 53 | Motion | Short, one-shot motion with a purpose: ring fills, the completed row highlights, the check pops, rows and cards rise in, and the all-done check draws itself. Respects reduced motion and the design guardrails (nothing loops) | The interface should respond to what you do |
+| 54 | UX | Category-coloured accent bar on each habit row; warm colour reserved for streaks; active-tab indicator in the bottom nav | Scannability and a little warmth, used sparingly |
+| 55 | Control | **Ask before completing** setting (on by default, as before); switch it off to complete in one tap | Kept the confirmation you chose, but made it optional |

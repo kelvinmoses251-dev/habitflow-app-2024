@@ -277,7 +277,9 @@ const STARTER_PACKS = [
   { id: 'learn',   title: 'Learning', habits: [
     ['Read 10 pages', 'reading'], ['Practice a skill for 15 min', 'growth'], ['Review today\u2019s notes', 'productive'] ] },
 ];
-let nudgeFirstHabit = false;   // pulse the first checkbox right after a pack is added
+let nudgeFirstHabit = false;
+let habitsEntered = false;       // stagger the list in once, not on every snapshot
+let justCompletedId = null;      // the row that was just completed (gets a short highlight)   // pulse the first checkbox right after a pack is added
 
 // ── State ─────────────────────────────────────────────────
 let currentUser  = null;
@@ -632,7 +634,7 @@ async function renderStoryCanvas() {
   const canvas = document.getElementById('share-story-canvas');
   if (!canvas) return;
   // Canvas text only uses a web font once it has loaded; without this the card silently falls back to a system font.
-  try { await Promise.all(['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 28px Inter`))); } catch (_) { /* fall back gracefully */ }
+  try { await Promise.all([...['400', '500', '600', '700'].map(w => document.fonts.load(`${w} 28px Inter`)), document.fonts.load('400 40px "Instrument Serif"')]); } catch (_) { /* fall back gracefully */ }
 
   const ctx = canvas.getContext('2d');
   const W = 1080, H = 1920, M = 96;
@@ -680,8 +682,8 @@ async function renderStoryCanvas() {
   ctx.strokeStyle = ACCENT; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.stroke(new Path2D('M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z'));
   ctx.restore();
-  ctx.font = `700 380px ${FONT}`; ctx.fillStyle = TEXT;
-  ctx.fillText(String(maxStreak), M - 14, 1130);
+  ctx.font = '400 440px "Instrument Serif", Georgia, serif'; ctx.fillStyle = TEXT;
+  ctx.fillText(String(maxStreak), M - 10, 1140);
   ctx.font = `500 48px ${FONT}`; ctx.fillStyle = MUTED;
   ctx.fillText(maxStreak === 1 ? 'day streak' : 'day streak', M, 1210);
 
@@ -844,64 +846,32 @@ function hideLoading() {
 }
 
 // ── Onboarding ────────────────────────────────────────────
+let tourRunning = false;
 function initOnboarding(force = false) {
   if (!currentUser && !force) return;
   const userKey = currentUser ? 'habitly_seen_' + currentUser.uid : 'habitly_seen';
   if (!force && localStorage.getItem(userKey)) return;
+  runGuidedTour(userKey);
+}
 
-  // Visitors who already played the landing demo have effectively done the tour
-  // (add + tick + XP), so go straight to their habits instead of 5 more slides.
-  if (!force && currentUser) {
-    const demo = readLandingDemo();
-    if (demo && demo.habits.some(h => h.done)) {
-      localStorage.setItem(userKey, '1');
-      return;
-    }
-  }
-
-  const ob = document.getElementById('onboarding');
-  if (!ob) return;
-  ob.classList.remove('hidden');
-  ob.style.opacity = '1';
-  const slides = [...ob.querySelectorAll('.slide')];
-  const dots   = [...ob.querySelectorAll('.dot')];
-  const next   = document.getElementById('onboarding-next');
-  const skip   = document.getElementById('onboarding-skip');
-  let cur      = 0;
-
-  // Reset to first slide
-  slides.forEach((s, idx) => s.classList.toggle('active', idx === 0));
-  dots.forEach((d, idx) => d.classList.toggle('active', idx === 0));
-  if (next) next.textContent = slides.length === 1 ? 'Get started' : 'Next';
-
-  function go(i) {
-    if (slides[cur]) slides[cur].classList.remove('active');
-    if (dots[cur]) dots[cur].classList.remove('active');
-    cur = i;
-    if (slides[cur]) slides[cur].classList.add('active');
-    if (dots[cur]) dots[cur].classList.add('active');
-    if (next) next.textContent = cur === slides.length - 1 ? 'Get started' : 'Next';
-    // Haptic pulse on slide change
-    buzz(30);
-  }
-
-  dots.forEach(d => {
-    d.onclick = () => go(+d.dataset.dot);
-  });
-  if (next) next.onclick = () => (cur < slides.length - 1 ? go(cur + 1) : done());
-  if (skip) skip.onclick = done;
-
-  function done() {
-    if (currentUser) {
-      localStorage.setItem('habitly_seen_' + currentUser.uid, '1');
-    } else {
-      localStorage.setItem('habitly_seen', '1');
-    }
-    ob.style.transition = 'opacity .35s ease';
-    ob.style.opacity = '0';
-    setTimeout(() => ob.classList.add('hidden'), 380);
+// Spotlight tour that points at the real interface (see coach.js). Loaded on demand.
+async function runGuidedTour(userKey) {
+  if (tourRunning) return;
+  tourRunning = true;
+  try {
+    const { startTour } = await import('./coach.js?v=1');
+    track('tour_started');
+    const { completed, step } = await startTour();
+    try { localStorage.setItem(userKey, '1'); } catch (_) { /* storage unavailable */ }
+    track(completed ? 'tour_completed' : 'tour_skipped', { step });
+    if (completed && !allHabits.length) setNewHabitOpen(true, { focus: true });   // the tour ends on the first action to take
+  } catch (err) {
+    console.warn('Guided tour unavailable:', err);
+  } finally {
+    tourRunning = false;
   }
 }
+document.getElementById('help-btn')?.addEventListener('click', () => initOnboarding(true));
 
 // ── All-Done Celebration ──────────────────────────────────
 let isCelebrating = false;
@@ -931,6 +901,9 @@ function checkAllDone(justCompletedId = null) {
   setTimeout(async () => {
     playChime();
     const overlay = document.getElementById('all-done-overlay');
+    const n = Math.max(calcStreak(allHabits), 1);
+    const line = document.getElementById('all-done-text');
+    if (line) line.textContent = `You completed every daily habit. Your streak is ${n} day${n === 1 ? '' : 's'}.`;
     if (overlay) overlay.classList.remove('hidden');
     if (userAllDoneBonusDate !== today) {
       userAllDoneBonusDate = today;
@@ -988,7 +961,7 @@ const ESC_CLOSERS = [   // ordered top of the stack first
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['details-modal', 'details-close'],
   ['edit-modal', 'edit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
-  ['notif-ask', 'notif-ask-no'], ['onboarding', 'onboarding-skip'],
+  ['notif-ask', 'notif-ask-no'],
 ];
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
@@ -1503,6 +1476,7 @@ function renderHabits() {
   const empty = document.getElementById('empty-state');
   const t     = todayStr();
 
+  if (!userSetNewHabit) setNewHabitOpen(!allHabits.length);   // open for an empty list, one tidy row otherwise
   list.innerHTML = '';
 
   if (!allHabits.length) {
@@ -1528,7 +1502,8 @@ function renderHabits() {
   });
 
   let done = 0;
-  sorted.forEach(h => {
+  const animateRows = !habitsEntered;
+  sorted.forEach((h, rowIdx) => {
     let isDone = false;
     let completedDateForToggle = t;
     const freq = h.frequency || 'daily';
@@ -1565,8 +1540,10 @@ function renderHabits() {
     const habitStreak = calcHabitStreak(h);
     
     const li = document.createElement('li');
-    li.className = 'habit-item';
+    li.className = 'habit-item' + (animateRows ? ' enter' : '') + (h.id === justCompletedId ? ' just-done' : '');
     li.dataset.id = h.id;
+    li.style.setProperty('--cat', cat.color);
+    li.style.setProperty('--i', rowIdx);
     li.innerHTML = `
       <div class="habit-label">
         <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" aria-label="Mark ${escHtml(h.name)} complete" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} />
@@ -1596,6 +1573,7 @@ function renderHabits() {
     list.appendChild(li);
   });
 
+  habitsEntered = true;
   if (nudgeFirstHabit && done === 0) {
     const first = list.querySelector('.habit-check:not(:checked)');
     if (first) first.classList.add('nudge');
@@ -1674,10 +1652,42 @@ document.getElementById('starter-packs')?.addEventListener('click', e => {
   if (card) addStarterPack(card.dataset.pack, card);
 });
 
+const RING_LEN = 2 * Math.PI * 44;
 function updateProgress(done, total) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  document.getElementById('progress-fill').style.width  = pct + '%';
-  document.getElementById('progress-label').textContent = `${done} / ${total}`;
+  const ring = document.getElementById('today-ring');
+  const fg = document.getElementById('ring-fg');
+  const frac = total > 0 ? done / total : 0;
+  if (fg) fg.style.strokeDashoffset = String(RING_LEN * (1 - frac));
+  if (ring) {
+    ring.classList.toggle('complete', total > 0 && done === total);
+    ring.setAttribute('aria-label', total ? `${done} of ${total} habits done today` : 'No habits yet');
+  }
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('ring-num', done);
+  set('ring-of', `of ${total}`);
+  set('summary-line', total === 0 ? 'No habits yet' : done === total ? 'All done for today' : `${total - done} left today`);
+  renderWeekStrip();
+}
+
+// The last 7 days at a glance: filled = every daily habit done, tinted = some done.
+function renderWeekStrip() {
+  const el = document.getElementById('week-strip');
+  if (!el) return;
+  const now = new Date(); now.setHours(12, 0, 0, 0);
+  const cells = [];
+  for (let n = 6; n >= 0; n--) {
+    const d = new Date(now); d.setDate(d.getDate() - n);
+    const key = dayKey(d);
+    const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999);
+    const daily = allHabits.filter(h => (!h.frequency || h.frequency === 'daily') && (!h.createdAt || new Date(h.createdAt) <= dayEnd));
+    const doneDaily = daily.filter(h => (h.completedDates || []).includes(key)).length;
+    const anyDone = allHabits.some(h => (h.completedDates || []).includes(key));
+    const state = daily.length && doneDaily === daily.length ? 'full' : anyDone ? 'some' : 'none';
+    const label = d.toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'short' });
+    const what = state === 'full' ? 'all habits done' : state === 'some' ? 'some habits done' : 'no habits done';
+    cells.push(`<div class="wk-day ${state}${n === 0 ? ' is-today' : ''}" role="img" aria-label="${escHtml(label)}: ${what}"><span class="wk-dot">${state === 'full' ? '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>' : ''}</span><span class="wk-lbl">${d.toLocaleDateString('en', { weekday: 'narrow' })}</span></div>`);
+  }
+  el.innerHTML = cells.join('');
 }
 
 let previousMaxStreak = null;
@@ -1688,6 +1698,8 @@ function updateStreak() {
   const badge = getUserBadge(maxStreak);
 
   if (previousMaxStreak !== null && maxStreak > previousMaxStreak) {
+    const tile = document.getElementById('open-share-trigger');
+    if (tile) { tile.classList.remove('pulse'); void tile.offsetWidth; tile.classList.add('pulse'); setTimeout(() => tile.classList.remove('pulse'), 700); }
     const oldBadge = getUserBadge(previousMaxStreak);
     if (badge.name !== oldBadge.name) {
       toast(`New streak tier: ${badge.name}`, 'success', 5000);
@@ -1707,6 +1719,18 @@ function escHtml(s) {
 }
 
 // ── Habit Form ────────────────────────────────────────────
+// New habit stays a single row once the list has items, so the list is what you see first.
+const newHabitToggle = document.getElementById('new-habit-toggle');
+const habitFormEl = document.getElementById('habit-form');
+let userSetNewHabit = false;
+function setNewHabitOpen(open, { focus = false } = {}) {
+  if (!newHabitToggle || !habitFormEl) return;
+  newHabitToggle.setAttribute('aria-expanded', String(open));
+  habitFormEl.hidden = !open;
+  if (open && focus) document.getElementById('habit-input').focus();
+}
+newHabitToggle?.addEventListener('click', () => { userSetNewHabit = true; setNewHabitOpen(habitFormEl.hidden, { focus: true }); });
+
 document.getElementById('habit-form').addEventListener('submit', async e => {
   e.preventDefault();
   const name     = document.getElementById('habit-input').value.trim();
@@ -1722,10 +1746,12 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
     track('habit_added', { category, frequency, source: 'form' });
     document.getElementById('habit-input').value = '';
     toast('Habit added', 'success');
+    userSetNewHabit = true;
+    setNewHabitOpen(allHabits.length + 1 < 3, { focus: true });   // stay open while someone is still building their first few
   } catch (err) {
     toast('Failed to add habit: ' + err.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = '+ Add Habit';
+    btn.disabled = false; btn.textContent = 'Add habit';
   }
 });
 
@@ -1804,27 +1830,32 @@ if (confirmModal) {
 
   const yesBtn = document.getElementById('confirm-check-yes');
   if (yesBtn) {
-    yesBtn.addEventListener('click', async () => {
+    yesBtn.addEventListener('click', () => {
       if (!pendingHabitCheck) return;
       const { id, dateToRm, checkboxEl } = pendingHabitCheck;
       pendingHabitCheck = null;
       confirmModal.classList.add('hidden');
-
-      if (checkboxEl) checkboxEl.checked = true;
-      nudgeFirstHabit = false;
-      playPop();
-      buzz([40, 20, 40]);
-
-      setTimeout(async () => {
-        await toggleHabit(id, false, dateToRm);
-        await addXP(XP_PER_HABIT, checkboxEl);
-        toast('Habit completed. +25 XP', 'success');
-        track('habit_completed');
-        checkAllDone(id);
-        maybeAskForReminders();
-      }, 300);
+      completeHabit(id, dateToRm, checkboxEl);
     });
   }
+}
+
+// Complete a habit: after confirmation, or straight away when "Ask before completing" is switched off.
+function completeHabit(id, dateToRm, checkboxEl) {
+  if (checkboxEl) checkboxEl.checked = true;
+  nudgeFirstHabit = false;
+  justCompletedId = id;
+  setTimeout(() => { if (justCompletedId === id) justCompletedId = null; }, 1600);
+  playPop();
+  buzz([40, 20, 40]);
+  setTimeout(async () => {
+    await toggleHabit(id, false, dateToRm);
+    await addXP(XP_PER_HABIT, checkboxEl);
+    toast('Habit completed. +25 XP', 'success');
+    track('habit_completed');
+    checkAllDone(id);
+    maybeAskForReminders();
+  }, 300);
 }
 
 // ── Checkbox Click Handler with Confirmation ──────────────
@@ -1840,9 +1871,9 @@ document.getElementById('habits').addEventListener('change', async e => {
   if (!h) return;
 
   if (isDone) {
-    // Always ask for confirmation before checking
-    cb.checked = false; // Revert until user confirms in modal
-    openConfirmCheckModal(h, dateToRm, cb);
+    cb.checked = false;
+    if (localStorage.getItem('habitly_confirm') === 'off') completeHabit(id, dateToRm, cb);   // the user switched confirmation off
+    else openConfirmCheckModal(h, dateToRm, cb);                                               // default: ask first
     return;
   }
 
@@ -2370,6 +2401,11 @@ if (soundToggle) {
     localStorage.setItem('habitly_sound', e.target.checked ? 'on' : 'off');
     if (e.target.checked) playPop();
   });
+}
+const confirmToggle = document.getElementById('confirm-toggle');
+if (confirmToggle) {
+  confirmToggle.checked = localStorage.getItem('habitly_confirm') !== 'off';
+  confirmToggle.addEventListener('change', e => localStorage.setItem('habitly_confirm', e.target.checked ? 'on' : 'off'));
 }
 const analyticsToggle = document.getElementById('analytics-toggle');
 if (analyticsToggle) {

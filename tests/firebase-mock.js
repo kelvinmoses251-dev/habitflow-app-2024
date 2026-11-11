@@ -56,6 +56,12 @@ function applyUpdate(target, data) {
 
 // ── References / queries ────────────────────────────────
 export const getFirestore = () => ({ __db: true });
+export const initializeFirestore = () => ({ __db: true });
+export const persistentLocalCache = () => ({});
+export const persistentMultipleTabManager = () => ({});
+// While "offline", real Firestore applies a write locally at once but the returned promise only resolves on
+// server acknowledgement. Tests flip window.__mockOffline to reproduce that (a promise that never settles).
+const ack = v => (W.__mockOffline ? new Promise(() => {}) : v);
 export const collection = (_db, name) => ({ kind: 'col', name });
 export const doc = (_db, name, id) => ({ kind: 'doc', name, id });
 export const where = (f, op, v) => ({ f, op, v });
@@ -97,7 +103,7 @@ export async function addDoc(c, data) {
   col(c.name)[id] = d;
   writes.push({ op: 'add', col: c.name, id, data: clone(d) });
   notify(c.name);
-  return { id };
+  return ack({ id });
 }
 export async function setDoc(ref, data, opts) {
   const c = col(ref.name);
@@ -105,6 +111,7 @@ export async function setDoc(ref, data, opts) {
   else { c[ref.id] = {}; applyUpdate(c[ref.id], data); }
   writes.push({ op: 'set', col: ref.name, id: ref.id, data: clone(data) });
   notify(ref.name);
+  return ack(undefined);
 }
 export async function updateDoc(ref, data) {
   const d = col(ref.name)[ref.id];
@@ -112,6 +119,7 @@ export async function updateDoc(ref, data) {
   applyUpdate(d, data);
   writes.push({ op: 'update', col: ref.name, id: ref.id, data: clone(data) });
   notify(ref.name);
+  return ack(undefined);
 }
 export async function deleteDoc(ref) { delete col(ref.name)[ref.id]; writes.push({ op: 'delete', col: ref.name, id: ref.id }); notify(ref.name); }
 export async function getDoc(ref) { return mkDocSnap(ref.name, ref.id); }

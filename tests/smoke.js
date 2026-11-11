@@ -100,6 +100,7 @@ function check(name, cond, detail) {
   // Load the origin, wipe + seed storage, reload. `seed` is a map of localStorage keys.
   let initScriptId = null;
   async function boot({ seed = {}, mobile = true, tz = 'Africa/Lagos', hash = '', colorScheme = 'light', initScript = null } = {}) {
+    await send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });   // a previous scenario may have gone offline
     if (initScriptId) { await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: initScriptId }); initScriptId = null; }
     if (initScript) initScriptId = (await send('Page.addScriptToEvaluateOnNewDocument', { source: initScript })).result.identifier;
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: colorScheme }] });

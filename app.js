@@ -6,7 +6,8 @@ import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, query, where,
+  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, addDoc, query, where,
   onSnapshot, deleteDoc, doc, setDoc, updateDoc, getDoc,
   arrayUnion, arrayRemove, getDocs, orderBy, limit, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -206,7 +207,26 @@ function playChime() {
   }
 }
 
-const db          = getFirestore(firebaseApp);
+// Offline-first: keep a persistent local copy of the user's data (IndexedDB, shared across tabs). Reads work with
+// no connection and writes are applied locally at once, then synced. Falls back to the in-memory cache if
+// IndexedDB is unavailable (private browsing, blocked storage).
+let db;
+try {
+  db = initializeFirestore(firebaseApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+} catch (err) {
+  console.warn('Offline cache unavailable, using memory cache:', err);
+  db = getFirestore(firebaseApp);
+}
+
+// A Firestore write promise only resolves on SERVER acknowledgement, which never happens while offline, yet the
+// local cache has already applied the change and fired snapshots. So UI flows must not `await` writes:
+// hand them to this helper, which reports a real failure (e.g. permission denied) without blocking anything.
+function backgroundWrite(promise, what = 'save your changes', quiet = false) {
+  Promise.resolve(promise).catch(err => {
+    console.warn(`Could not ${what}:`, err);
+    if (!quiet) toast(`Couldn't ${what}. ${err && err.code === 'permission-denied' ? 'You may need to sign in again.' : 'It will retry when you are back online.'}`, 'error', 5000);
+  });
+}
 let   messaging;
 try { messaging = getMessaging(firebaseApp); } catch (_) { /* not supported */ }
 
@@ -585,13 +605,8 @@ async function addXP(amount, targetEl = null) {
 
   updateXPUI();
 
-  // Save to Firestore
-  try {
-    const userRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userRef, { xp: currentUserXP }, { merge: true });
-  } catch (err) {
-    console.warn("Failed to persist XP:", err);
-  }
+  // Save to Firestore (not awaited: see backgroundWrite)
+  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { xp: currentUserXP }, { merge: true }), 'save your XP', true);
 
   // Check Level-Up
   if (amount > 0 && newInfo.level > prevInfo.level) {
@@ -634,10 +649,8 @@ async function checkAndApplyStreakShield() {
     const usedAt = userShieldUsedAt || lastFrozen;
     if (Date.now() - usedAt >= SHIELD_RECHARGE_MS) {
       userStreakShields = 1;
-      try {
-        await setDoc(doc(db, 'users', currentUser.uid), { streakShields: 1 }, { merge: true });
-        toast('🛡️ Your Streak Shield has recharged!', 'success', 4500);
-      } catch (e) { console.warn('Shield recharge failed:', e); }
+      backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { streakShields: 1 }, { merge: true }), 'recharge your shield', true);
+      toast('🛡️ Your Streak Shield has recharged!', 'success', 4500);
       updateStreakShieldUI();
     }
   }
@@ -659,16 +672,12 @@ async function checkAndApplyStreakShield() {
   updateStreakShieldUI();
   renderHabits();
   updateStreak();
-  try {
-    await setDoc(doc(db, 'users', currentUser.uid), {
-      streakShields: userStreakShields,
-      frozenDates: userFrozenDates,
-      shieldUsedAt: userShieldUsedAt
-    }, { merge: true });
-    toast('🛡️ Streak Freeze activated! Your daily streak was protected.', 'info', 5000);
-  } catch (e) {
-    console.warn('Error updating streak shield:', e);
-  }
+  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), {
+    streakShields: userStreakShields,
+    frozenDates: userFrozenDates,
+    shieldUsedAt: userShieldUsedAt
+  }, { merge: true }), 'save your streak shield', true);
+  toast('🛡️ Streak Freeze activated! Your daily streak was protected.', 'info', 5000);
 }
 
 // ── Shareable 9:16 Story Progress Canvas ─────────────────
@@ -1459,7 +1468,23 @@ onAuthStateChanged(auth, async user => {
   }
 });
 
+// ── Connectivity ──────────────────────────────────────────
+// Firebase's push SDK tries to register an installation as soon as it loads; offline that rejects with
+// installations/app-offline. It is harmless (it retries online), so don't let it surface as an error.
+window.addEventListener('unhandledrejection', e => {
+  if (e.reason && e.reason.code === 'installations/app-offline') e.preventDefault();
+});
+
+function updateOnlineStatus(announce = false) {
+  const offline = navigator.onLine === false;
+  document.getElementById('offline-bar')?.classList.toggle('hidden', !offline);
+  if (announce && !offline) toast('Back online. Syncing your changes ✅', 'success');
+}
+window.addEventListener('offline', () => updateOnlineStatus());
+window.addEventListener('online', () => updateOnlineStatus(true));
+
 function showApp() {
+  updateOnlineStatus();
   if (!riskTimer) riskTimer = setInterval(updateStreakRisk, 60000);   // keep the countdown fresh
   // Warm up Chart.js when the browser is idle so the Stats tab opens instantly
   (window.requestIdleCallback || (cb => setTimeout(cb, 4000)))(() => ensureLib('chart').catch(() => {}));
@@ -1646,7 +1671,7 @@ document.getElementById('crop-save').addEventListener('click', async () => {
     
     // Bypass Firebase Storage and Auth Limits and save directly to Firestore
     const userRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userRef, { avatar: dataUrl }, { merge: true });
+    backgroundWrite(setDoc(userRef, { avatar: dataUrl }, { merge: true }), 'save your photo');
     
     toast('Profile picture updated!', 'success');
     
@@ -1662,9 +1687,9 @@ document.getElementById('crop-save').addEventListener('click', async () => {
 
 
 // ── Firestore CRUD ────────────────────────────────────────
-async function addHabit(name, category, frequency) {
-  if (!currentUser) return;
-  await addDoc(collection(db, 'habits'), {
+function addHabit(name, category, frequency) {
+  if (!currentUser) return Promise.resolve();
+  return addDoc(collection(db, 'habits'), {
     userId:         currentUser.uid,
     name,
     category,
@@ -1675,16 +1700,12 @@ async function addHabit(name, category, frequency) {
   });
 }
 
-async function deleteHabit(id) {
-  await updateDoc(doc(db, 'habits', id), {
-    deletedAt: Date.now()
-  });
+function deleteHabit(id) {
+  return updateDoc(doc(db, 'habits', id), { deletedAt: Date.now() });
 }
 
-async function restoreHabit(id) {
-  await updateDoc(doc(db, 'habits', id), {
-    deletedAt: null
-  });
+function restoreHabit(id) {
+  return updateDoc(doc(db, 'habits', id), { deletedAt: null });
 }
 
 async function toggleHabit(id, currentlyDone, dateToRemove) {
@@ -1713,13 +1734,13 @@ async function toggleHabit(id, currentlyDone, dateToRemove) {
     if (h && h.completedTimestamps && h.completedTimestamps[d]) {
       updatePayload[`completedTimestamps.${d}`] = deleteField();
     }
-    await updateDoc(habitRef, updatePayload);
+    backgroundWrite(updateDoc(habitRef, updatePayload), 'update your habit');
   } else {
     // Checking the habit
-    await updateDoc(habitRef, {
+    backgroundWrite(updateDoc(habitRef, {
       completedDates: arrayUnion(d),
       [`completedTimestamps.${d}`]: now
-    });
+    }), 'save your check-in');
   }
   return true;
 }
@@ -1943,10 +1964,10 @@ async function addStarterPack(id, btn) {
   document.querySelectorAll('.pack-card').forEach(b => { b.disabled = true; });   // no double-adds
   const base = Date.now();
   try {
-    await Promise.all(pack.habits.map(([name, category], i) => addDoc(collection(db, 'habits'), {
+    pack.habits.forEach(([name, category], i) => backgroundWrite(addDoc(collection(db, 'habits'), {
       userId: currentUser.uid, name, category, frequency: 'daily',
       completedDates: [], createdAt: new Date().toISOString(), order: base + i
-    })));
+    }), 'add the pack'));
     nudgeFirstHabit = true;
     track('starter_pack_added', { pack: pack.id });
     toast(`${pack.emoji} ${pack.title} added. Tick your first habit!`, 'success');
@@ -2029,7 +2050,7 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   btn.disabled = true; btn.textContent = 'Adding…';
   
   try {
-    await addHabit(name, category, frequency);
+    backgroundWrite(addHabit(name, category, frequency), 'add the habit');
     track('habit_added', { category, frequency, source: 'form' });
     document.getElementById('habit-input').value = '';
     toast('Habit added! 💪', 'success');
@@ -2046,13 +2067,10 @@ document.getElementById('habits').addEventListener('click', async e => {
   const del = e.target.closest('[data-action="delete"]');
   if (del) {
     const delId = del.dataset.id;
-    await deleteHabit(delId);
+    backgroundWrite(deleteHabit(delId), 'remove the habit');
     toast('Habit removed', 'warning', 7000, {
       label: 'Undo',
-      onClick: async () => {
-        try { await restoreHabit(delId); toast('Habit restored', 'success'); }
-        catch (err) { toast('Could not restore: ' + err.message, 'error'); }
-      }
+      onClick: () => { backgroundWrite(restoreHabit(delId), 'restore the habit'); toast('Habit restored', 'success'); }
     });
     return;
   }
@@ -2206,7 +2224,7 @@ document.getElementById('edit-habit-form').addEventListener('submit', async e =>
   btn.disabled = true; btn.textContent = 'Saving...';
   
   try {
-    await updateDoc(doc(db, 'habits', id), { name, category, frequency });
+    backgroundWrite(updateDoc(doc(db, 'habits', id), { name, category, frequency }), 'update the habit');
     document.getElementById('edit-modal').classList.add('hidden');
     toast('Habit updated!', 'success');
   } catch (err) {
@@ -2263,7 +2281,7 @@ document.getElementById('deleted-habits-list').addEventListener('click', async e
     btn.disabled = true;
     btn.textContent = 'Restoring...';
     try {
-      await restoreHabit(id);
+      backgroundWrite(restoreHabit(id), 'restore the habit');
       toast('Habit restored!', 'success');
     } catch (err) {
       toast('Failed to restore: ' + err.message, 'error');
@@ -3087,7 +3105,7 @@ document.getElementById('details-save-journal').addEventListener('click', async 
     text: note
   });
   
-  await updateDoc(doc(db, 'habits', h.id), { journals });
+  backgroundWrite(updateDoc(doc(db, 'habits', h.id), { journals }), 'save your note');
   document.getElementById('details-journal-input').value = '';
 });
 
@@ -3128,7 +3146,7 @@ document.getElementById('details-journal-list').addEventListener('click', async 
     const newJournals = h.journals.filter(j => j.date !== dateToRemove);
     
     try {
-      await updateDoc(doc(db, 'habits', h.id), { journals: newJournals });
+      backgroundWrite(updateDoc(doc(db, 'habits', h.id), { journals: newJournals }), 'delete the note');
       toast('Journal entry deleted', 'success');
     } catch (err) {
       toast('Failed to delete journal: ' + err.message, 'error');

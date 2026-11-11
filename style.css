@@ -1092,6 +1092,15 @@ select { cursor: pointer; }
 .notif-ask-actions { display: flex; gap: var(--sp-2); margin-left: auto; }
 .notif-ask-actions button { padding: .5rem .95rem; font-size: .85rem; }
 
+/* Offline notice */
+.offline-bar {
+  position: sticky; top: var(--topnav-h); z-index: 90; text-align: center;
+  font-size: .8rem; font-weight: 600; padding: 7px 14px;
+  background: #FEF3C7; color: #92400E; border-bottom: 1px solid #FCD34D;
+}
+.offline-bar.hidden { display: none !important; }
+[data-theme="dark"] .offline-bar { background: #3A2A07; color: #FCD34D; border-color: #6B4E0A; }
+
 /* Habit emoji + toast actions */
 .habit-emoji { font-size: 1.35rem; line-height: 1; flex: none; }
 .toast.has-action { display: flex; align-items: center; gap: var(--sp-3); }

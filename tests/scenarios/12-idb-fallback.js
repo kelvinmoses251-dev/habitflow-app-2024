@@ -15,7 +15,7 @@ module.exports = (scenario, c) => {
   scenario('idb: persistent cache works with IndexedDB and degrades gracefully without it (real SDK)', async () => {
     await boot();
     // The probe page lives in tests/ and is never deployed, so this only runs against the local server.
-    if (!/^http://localhost/.test(await ev('location.origin'))) { console.log('   (skipped: probe page is only served locally)'); return; }
+    if (!(await ev('location.origin')).startsWith('http://localhost')) { console.log('   (skipped: probe page is only served locally)'); return; }
     await send('Fetch.disable');
     try {
       const withIdb = await probe();

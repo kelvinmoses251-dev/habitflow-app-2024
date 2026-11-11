@@ -16,7 +16,7 @@
   --primary-mid: #A78BFA;
   --text:        #1A1535;
   --text-2:      #4B4680;
-  --muted:       #9E9BC0;
+  --muted:       #6F6B96;   /* was #9E9BC0 (2.7:1); now 5:1 on white, WCAG AA */
   --border:      #E8E5FF;
   --success:     #16A34A;
   --danger:      #EF4444;
@@ -60,7 +60,7 @@
   --surface-2:   #1E1E1E;
   --text:        #E0E0E0;
   --text-2:      #A0A0A0;
-  --muted:       #666666;
+  --muted:       #8A8A8A;   /* was #666666 (3.1:1 on #121212) */
   --border:      #2A2A2A;
   --primary-lt:  #1A1A1A;
   --danger-lt:   #301010;
@@ -1532,3 +1532,23 @@ select { cursor: pointer; }
 .success-rate-bar-fill.low   { background: linear-gradient(90deg, #dc2626, #f87171); }
 .success-rate-meta { font-size: 0.75rem; color: var(--text-2); }
 
+
+
+/* ═══════════════════════════════════════════════════════
+   ACCESSIBILITY
+═══════════════════════════════════════════════════════ */
+/* Keyboard users get a visible focus ring everywhere (mouse users don't, thanks to :focus-visible) */
+a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible,
+input:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--primary-mid); outline-offset: 2px;
+}
+.habit-check:focus-visible { outline: 3px solid var(--primary-mid); outline-offset: 3px; }
+.toggle input:focus-visible + .toggle-track { outline: 3px solid var(--primary-mid); outline-offset: 2px; }
+
+/* Respect the OS "reduce motion" setting for every animation and transition */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}

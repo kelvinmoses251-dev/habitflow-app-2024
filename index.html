@@ -55,7 +55,7 @@
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib),
        so first paint no longer waits on ~900KB of scripts most sessions never use. -->
 
-  <link rel="stylesheet" href="style.css?v=20" />
+  <link rel="stylesheet" href="style.css?v=21" />
 </head>
 <body>
 
@@ -72,7 +72,7 @@
 </div>
 
 <!-- ══ ONBOARDING ══════════════════════════════════════════ -->
-<div id="onboarding" class="onboarding hidden">
+<div id="onboarding" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Welcome tour">
   <div class="onboarding-inner">
     <div class="onboarding-slides-wrap">
 
@@ -182,7 +182,7 @@
 </div>
 
 <!-- ── ALL DONE CELEBRATION ───────────────────────────── -->
-<div id="all-done-overlay" class="all-done-overlay hidden">
+<div id="all-done-overlay" class="all-done-overlay hidden" role="dialog" aria-modal="true" aria-label="All habits done">
   <div class="all-done-card">
     <div class="trophy-3d-wrapper">
       <div class="trophy-glow-aura"></div>
@@ -439,9 +439,9 @@
         <div class="card">
           <h2 class="card-title">Add a Habit</h2>
           <form id="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-2);">
-            <input type="text" id="habit-input" placeholder="e.g. Drink 8 glasses of water" required autocomplete="off" />
+            <input type="text" id="habit-input" aria-label="Habit name" placeholder="e.g. Drink 8 glasses of water" required autocomplete="off" />
             <div style="display: flex; gap: var(--sp-2);">
-              <select id="habit-category" style="flex: 1;" required>
+              <select id="habit-category" aria-label="Category" style="flex: 1;" required>
                 <option value="" disabled selected>Category</option>
                 <option value="health">Health</option>
                 <option value="mind">Mind</option>
@@ -455,7 +455,7 @@
                 <option value="relaxation">Relaxation</option>
                 <option value="project">Project</option>
               </select>
-              <select id="habit-frequency" style="flex: 1;" required>
+              <select id="habit-frequency" aria-label="Frequency" style="flex: 1;" required>
                 <option value="" disabled selected>Frequency</option>
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -713,10 +713,10 @@
 </div>
 
 <!-- Toast container -->
-<div id="toast-container" class="toast-container"></div>
+<div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
 
 <!-- Crop Modal -->
-<div id="crop-modal" class="onboarding hidden" style="z-index:9999;">
+<div id="crop-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Crop your picture" style="z-index:9999;">
   <div class="card" style="width: 100%; max-width: 400px;">
     <h2 class="card-title" style="margin-bottom: var(--sp-4);">Crop your picture</h2>
     <div style="width: 100%; height: 300px; background: #eee; margin-bottom: var(--sp-4);">
@@ -730,14 +730,14 @@
 </div>
 
 <!-- Edit Habit Modal -->
-<div id="edit-modal" class="onboarding hidden" style="z-index:9999;">
+<div id="edit-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Edit habit" style="z-index:9999;">
   <div class="card" style="width: 100%; max-width: 400px;">
     <h2 class="card-title" style="margin-bottom: var(--sp-4);">Edit Habit</h2>
     <form id="edit-habit-form" class="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-4);">
       <input type="hidden" id="edit-habit-id" />
-      <input type="text" id="edit-habit-name" class="input" placeholder="e.g. Read 10 pages" required />
+      <input type="text" id="edit-habit-name" aria-label="Habit name" class="input" placeholder="e.g. Read 10 pages" required />
       <div style="display: flex; gap: var(--sp-2);">
-        <select id="edit-habit-category" style="flex: 1;" required>
+        <select id="edit-habit-category" aria-label="Category" style="flex: 1;" required>
           <option value="" disabled selected>Category</option>
           <option value="health">Health</option>
           <option value="mind">Mind</option>
@@ -751,7 +751,7 @@
           <option value="relaxation">Relaxation</option>
           <option value="project">Project</option>
         </select>
-        <select id="edit-habit-frequency" style="flex: 1;" required>
+        <select id="edit-habit-frequency" aria-label="Frequency" style="flex: 1;" required>
           <option value="" disabled selected>Frequency</option>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
@@ -767,7 +767,7 @@
 </div>
 
 <!-- Recovery Modal -->
-<div id="recovery-modal" class="onboarding hidden" style="z-index:9999;">
+<div id="recovery-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Recently deleted habits" style="z-index:9999;">
   <div class="card" style="width: 100%; max-width: 400px; max-height: 80vh; display: flex; flex-direction: column;">
     <h2 class="card-title" style="margin-bottom: var(--sp-2);">Recently Deleted</h2>
     <p class="text-secondary" style="margin-bottom: var(--sp-4); font-size: 0.9rem;">Habits are permanently deleted after 1 hour.</p>
@@ -781,7 +781,7 @@
 </div>
 
 <!-- Timer Modal -->
-<div id="timer-modal" class="onboarding hidden" style="z-index:9999;">
+<div id="timer-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Focus timer" style="z-index:9999;">
   <div class="card" style="width: 100%; max-width: 320px; display: flex; flex-direction: column; text-align: center; gap: var(--sp-4);">
     <h2 class="card-title" style="margin: 0;">Focus Timer</h2>
     <p id="timer-habit-name" class="text-secondary" style="margin: 0;">Habit Name</p>
@@ -804,7 +804,7 @@
 </div>
 
 <!-- Habit Details Modal -->
-<div id="details-modal" class="onboarding hidden" style="z-index:9999;">
+<div id="details-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Habit details" style="z-index:9999;">
   <div class="card" style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: var(--sp-3);">
     <h2 id="details-habit-name" class="card-title" style="margin: 0; font-size: 1.25rem;">Habit Name</h2>
     
@@ -825,7 +825,7 @@
 
     <div>
       <h3 style="font-size: 1rem; margin-bottom: var(--sp-2);">Daily Journal</h3>
-      <textarea id="details-journal-input" placeholder="Add a note for today..." style="width: 100%; height: 80px; padding: var(--sp-2); border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); resize: none; margin-bottom: var(--sp-2);"></textarea>
+      <textarea id="details-journal-input" aria-label="Journal note for today" placeholder="Add a note for today..." style="width: 100%; height: 80px; padding: var(--sp-2); border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); resize: none; margin-bottom: var(--sp-2);"></textarea>
       <button id="details-save-journal" class="btn-primary" style="width: 100%; padding: var(--sp-2);">Save Note</button>
     </div>
 
@@ -838,7 +838,7 @@
 </div>
 
 <!-- Habit Check Confirmation Modal -->
-<div id="confirm-check-modal" class="onboarding hidden" style="z-index:9999;">
+<div id="confirm-check-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Mark habit complete" style="z-index:9999;">
   <div class="card" style="width: 100%; max-width: 380px; text-align: center; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-6);">
     <div style="width: 56px; height: 56px; border-radius: var(--r-full); background: rgba(124, 58, 237, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.75rem;">
       ✅
@@ -860,7 +860,7 @@
 </div>
 
 <!-- Export Data Confirmation Modal -->
-<div id="confirm-export-modal" class="onboarding hidden" style="z-index:9999;">
+<div id="confirm-export-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Export PDF report" style="z-index:9999;">
   <div class="card" style="width: 100%; max-width: 380px; text-align: center; display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-6);">
     <div style="width: 56px; height: 56px; border-radius: var(--r-full); background: rgba(124, 58, 237, 0.12); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 1.75rem;">
       📄
@@ -882,7 +882,7 @@
 </div>
 
 <!-- 🏆 Level Up Celebration Modal -->
-<div id="level-up-modal" class="onboarding hidden" style="z-index:10000;">
+<div id="level-up-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Level up" style="z-index:10000;">
   <div class="card level-up-card" style="width: 100%; max-width: 360px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); padding: var(--sp-8) var(--sp-6);">
     <div class="level-up-crown-wrapper">
       <div class="level-up-aura"></div>
@@ -903,7 +903,7 @@
 </div>
 
 <!-- 📤 Share Progress Card Modal -->
-<div id="share-card-modal" class="onboarding hidden" style="z-index:10000;">
+<div id="share-card-modal" class="onboarding hidden" role="dialog" aria-modal="true" aria-label="Share progress story" style="z-index:10000;">
   <div class="card share-modal-container">
     <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:330px;">
       <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text);">Share Progress Story</h3>
@@ -930,6 +930,6 @@
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 
 <script type="module" src="landing-demo.js?v=2"></script>
-<script type="module" src="app.js?v=25"></script>
+<script type="module" src="app.js?v=26"></script>
 </body>
 </html>

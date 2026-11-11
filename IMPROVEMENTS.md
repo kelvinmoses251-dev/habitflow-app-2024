@@ -29,3 +29,7 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 21 | Growth | **Link previews**: Open Graph + Twitter card tags and a designed 1200×630 `og-image.png` (source: `tools/og-image.html`). Pasting the app link into WhatsApp / X / Slack now shows a rich card instead of a bare URL | The only way people discover the app is someone pasting the link |
 | 22 | Growth | The shareable story card now prints the app URL in its footer pill | The 9:16 story was the best growth asset and carried no link back |
 | 23 | Growth | Share text includes the streak count and the link in every share path (the file-share path dropped the link), and cancelling the share sheet no longer logs an error | A share with no link can't convert |
+| 24 | Accessibility | Every habit control has an accessible name that includes the habit ("Mark Evening Run complete", "Edit Evening Run"…); all 9 modals are real dialogs (`role=dialog`, `aria-modal`, label); toasts are announced; form fields are labelled; nav marks `aria-current` | Screen readers heard unlabeled icon buttons and unnamed checkboxes |
+| 25 | Accessibility | **Escape closes** the top-most modal/overlay | Keyboard users were trapped in dialogs |
+| 26 | Accessibility | Muted text raised to WCAG AA contrast (2.7:1 → 5:1 light, 3.1:1 → 5.4:1 dark) | Helper text was hard to read, especially outdoors |
+| 27 | Accessibility | Visible keyboard focus ring everywhere; global `prefers-reduced-motion` support | Keyboard focus was invisible; motion-sensitive users had no relief |

@@ -11,9 +11,6 @@ import {
   arrayUnion, arrayRemove, getDocs, orderBy, limit, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getStorage, ref, uploadString, getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
@@ -21,6 +18,41 @@ import { firebaseConfig } from "./firebase-config.js";
 // ── Firebase Init ────────────────────────────────────────
 const firebaseApp = initializeApp(firebaseConfig);
 const auth        = getAuth(firebaseApp);
+
+// ── Lazy third-party libraries ────────────────────────────
+// Chart.js, jsPDF(+AutoTable) and Cropper used to load synchronously in <head> on every visit.
+// They are only needed on the Stats page, PDF export and avatar upload, so load them on demand.
+const LIBS = {
+  chart:   { js: ['https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'], ready: () => !!window.Chart },
+  pdf:     { js: ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+                  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'],
+             ready: () => !!(window.jspdf && window.jspdf.jsPDF) },
+  cropper: { css: ['https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css'],
+             js: ['https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js'], ready: () => !!window.Cropper },
+};
+const libPromises = {};
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src; el.async = false;
+    el.onload = resolve;
+    el.onerror = () => reject(new Error('Failed to load ' + src));
+    document.head.appendChild(el);
+  });
+}
+function ensureLib(name) {
+  const lib = LIBS[name];
+  if (lib.ready()) return Promise.resolve();
+  if (!libPromises[name]) {
+    libPromises[name] = (async () => {
+      (lib.css || []).forEach(href => {
+        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href; document.head.appendChild(l);
+      });
+      for (const src of lib.js) await loadScript(src);   // sequential: AutoTable needs jsPDF first
+    })().catch(err => { delete libPromises[name]; throw err; });
+  }
+  return libPromises[name];
+}
 
 // ── Dark Mode Init ───────────────────────────────────────
 if (localStorage.getItem('theme') === 'dark') {
@@ -125,8 +157,6 @@ function playChime() {
 }
 
 const db          = getFirestore(firebaseApp);
-const storage     = getStorage(firebaseApp);
-storage.maxUploadRetryTime = 5000;
 let   messaging;
 try { messaging = getMessaging(firebaseApp); } catch (_) { /* not supported */ }
 
@@ -571,6 +601,10 @@ function drawRoundRect(ctx, x, y, width, height, radius, fillStyle = null, strok
 async function renderStoryCanvas() {
   const canvas = document.getElementById('share-story-canvas');
   if (!canvas) return;
+  // Canvas text only uses a web font once it has loaded; without this the card silently falls back to a system font.
+  try {
+    await Promise.all(['500', '700', '800'].map(w => document.fonts.load(`${w} 28px "Plus Jakarta Sans"`)));
+  } catch (_) { /* fall back gracefully */ }
   const ctx = canvas.getContext('2d');
   const W = 1080;
   const H = 1920;
@@ -632,14 +666,14 @@ async function renderStoryCanvas() {
   ctx.stroke();
 
   // Brand Name
-  ctx.font = '900 28px Inter, sans-serif';
+  ctx.font = '900 28px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'left';
   ctx.fillText('HABITLY', 176, 184);
 
   // Date
   const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
-  ctx.font = '700 26px Inter, sans-serif';
+  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#CBD5E1';
   ctx.textAlign = 'right';
   ctx.fillText(dateStr, 980, 184);
@@ -690,7 +724,7 @@ async function renderStoryCanvas() {
 
   if (!imgLoaded) {
     const initials = name[0]?.toUpperCase() || '?';
-    ctx.font = '900 68px Inter, sans-serif';
+    ctx.font = '900 68px "Plus Jakarta Sans", sans-serif';
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -699,14 +733,14 @@ async function renderStoryCanvas() {
   }
 
   // User Name
-  ctx.font = '900 52px Inter, sans-serif';
+  ctx.font = '900 52px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
   ctx.fillText(name, W / 2, 500);
 
   // Level Pill
   const levelText = `Lv. ${levelInfo.level} · ${levelInfo.title} ${levelInfo.icon}`;
-  ctx.font = '700 28px Inter, sans-serif';
+  ctx.font = '700 28px "Plus Jakarta Sans", sans-serif';
   const levelWidth = ctx.measureText(levelText).width + 60;
   drawRoundRect(ctx, W / 2 - levelWidth / 2, 530, levelWidth, 58, 29, 'rgba(168, 85, 247, 0.3)', 'rgba(192, 132, 252, 0.5)', 2);
   ctx.fillStyle = '#F3E8FF';
@@ -774,7 +808,7 @@ async function renderStoryCanvas() {
   ctx.restore();
 
   // Giant Streak Number (Y: 1040)
-  ctx.font = '900 150px Inter, system-ui, sans-serif';
+  ctx.font = '900 150px "Plus Jakarta Sans", system-ui, sans-serif';
   ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
   ctx.shadowColor = 'rgba(255, 150, 0, 0.7)';
@@ -783,7 +817,7 @@ async function renderStoryCanvas() {
   ctx.shadowBlur = 0;
 
   // Streak Subtitle (Y: 1140)
-  ctx.font = '900 36px Inter, sans-serif';
+  ctx.font = '900 36px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#FBBF24';
   ctx.fillText('DAY STREAK CRUSHED 🔥', W / 2, 1135);
 
@@ -797,42 +831,42 @@ async function renderStoryCanvas() {
 
   // Col 1: Habits
   drawRoundRect(ctx, col1X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
-  ctx.font = '900 58px Inter, sans-serif';
+  ctx.font = '900 58px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
   ctx.fillText(String(allHabits.length), col1X + statCardW / 2, statCardY + 95);
-  ctx.font = '700 26px Inter, sans-serif';
+  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#CBD5E1';
   ctx.fillText('🎯 Habits', col1X + statCardW / 2, statCardY + 155);
 
   // Col 2: Check-ins
   drawRoundRect(ctx, col2X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
-  ctx.font = '900 58px Inter, sans-serif';
+  ctx.font = '900 58px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(String(totalDone), col2X + statCardW / 2, statCardY + 95);
-  ctx.font = '700 26px Inter, sans-serif';
+  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#CBD5E1';
   ctx.fillText('✅ Check-ins', col2X + statCardW / 2, statCardY + 155);
 
   // Col 3: Shields
   drawRoundRect(ctx, col3X, statCardY, statCardW, statCardH, 28, 'rgba(0, 0, 0, 0.4)', 'rgba(255, 255, 255, 0.12)', 2);
-  ctx.font = '900 58px Inter, sans-serif';
+  ctx.font = '900 58px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#FFFFFF';
   ctx.fillText(String(shieldCount), col3X + statCardW / 2, statCardY + 95);
-  ctx.font = '700 26px Inter, sans-serif';
+  ctx.font = '700 26px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#CBD5E1';
   ctx.fillText('🛡️ Shields', col3X + statCardW / 2, statCardY + 155);
 
   // 7. BOTTOM SAFE ZONE (Y: 1570 to 1750)
   // Quote
-  ctx.font = 'italic 600 32px Inter, sans-serif';
+  ctx.font = 'italic 600 32px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#F1F5F9';
   ctx.textAlign = 'center';
   ctx.fillText('"Small daily habits compound into massive victories" 🚀', W / 2, 1600);
 
   // Footer Branding Pill
   drawRoundRect(ctx, W / 2 - 200, 1660, 400, 68, 34, 'rgba(124, 58, 237, 0.3)', 'rgba(168, 85, 247, 0.5)', 2);
-  ctx.font = '800 28px Inter, sans-serif';
+  ctx.font = '800 28px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#E9D5FF';
   ctx.fillText('✨ Habitly Tracker App', W / 2, 1704);
 }
@@ -1228,6 +1262,8 @@ onAuthStateChanged(auth, async user => {
 });
 
 function showApp() {
+  // Warm up Chart.js when the browser is idle so the Stats tab opens instantly
+  (window.requestIdleCallback || (cb => setTimeout(cb, 4000)))(() => ensureLib('chart').catch(() => {}));
   document.getElementById('auth-screen').classList.add('hidden');
   const appEl = document.getElementById('app');
   appEl.classList.remove('hidden');
@@ -1365,9 +1401,15 @@ document.getElementById('ava-upload-input').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     cropImg.src = e.target.result;
     cropModal.classList.remove('hidden');
+    try { await ensureLib('cropper'); }
+    catch (_) {
+      cropModal.classList.add('hidden');
+      toast('Could not load the photo editor. Check your connection and try again.', 'error');
+      return;
+    }
     if (cropper) cropper.destroy();
     cropper = new Cropper(cropImg, {
       aspectRatio: 1,
@@ -1959,11 +2001,14 @@ function renderStats() {
   animCount('stat-total',  total);
   document.getElementById('stat-rate').textContent   = rate + '%';
 
-  renderChart(labels, counts);
-  renderCatBreakdown();
   renderHeatmap();
   renderWeeklyReport();
   renderSuccessRate();
+  ensureLib('chart').then(() => {
+    if (location.hash !== '#stats') return;      // user navigated away while it loaded
+    renderChart(labels, counts);
+    renderCatBreakdown();
+  }).catch(() => {});
 }
 
 function animCount(id, target) {
@@ -2005,11 +2050,11 @@ function renderChart(labels, counts) {
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, color: isDark ? '#A0A0A0' : '#9E9BC0', font: { family: 'Inter' } },
+          ticks: { stepSize: 1, color: isDark ? '#A0A0A0' : '#9E9BC0', font: { family: 'Plus Jakarta Sans' } },
           grid:  { color: isDark ? '#2A2A2A' : '#F3F0FF' }
         },
         x: {
-          ticks: { color: isDark ? '#A0A0A0' : '#9E9BC0', font: { family: 'Inter' } },
+          ticks: { color: isDark ? '#A0A0A0' : '#9E9BC0', font: { family: 'Plus Jakarta Sans' } },
           grid:  { display: false }
         }
       }
@@ -2049,7 +2094,7 @@ function renderCatBreakdown() {
       maintainAspectRatio: false,
       cutout: '65%',
       plugins: {
-        legend: { position: 'right', labels: { color: isDark ? '#A0A0A0' : '#4B4680', font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' } }
+        legend: { position: 'right', labels: { color: isDark ? '#A0A0A0' : '#4B4680', font: { family: 'Plus Jakarta Sans', size: 12 }, usePointStyle: true, pointStyle: 'circle' } }
       }
     }
   });
@@ -2329,7 +2374,7 @@ function closeExportConfirmModal() {
   if (confirmExportModal) confirmExportModal.classList.add('hidden');
 }
 
-function executeDataExport() {
+async function executeDataExport() {
   closeExportConfirmModal();
   if (!allHabits || allHabits.length === 0) {
     toast('No habits to export', 'warning');
@@ -2337,10 +2382,9 @@ function executeDataExport() {
   }
 
   try {
-    if (!window.jspdf || !window.jspdf.jsPDF) {
-      toast('PDF generator loading, please try again in a second', 'warning');
-      return;
-    }
+    toast('Preparing your report…', 'info', 1500);
+    try { await ensureLib('pdf'); }
+    catch (_) { toast('Could not load the PDF generator. Check your connection and try again.', 'error'); return; }
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();

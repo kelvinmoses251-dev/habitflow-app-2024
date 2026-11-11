@@ -13,3 +13,8 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 5 | Integrity | Un-ticking refunds the 25 XP and the +100 Daily Master bonus is once per day | Tick/untick/re-tick farmed unlimited XP and levels |
 | 6 | Integrity | Per-account state (XP, shields, frozen days) is reset when the signed-in user changes | Signing into a second account in one tab showed, and could write, the first user's XP |
 | 7 | Security | Habit names are HTML-escaped in "Recently Deleted" | A habit named `<img onerror=...>` executed script |
+| 8 | Security | Firestore: `users/{uid}` docs (email + push token) are owner-only; a habit's `userId` can't be reassigned | Any signed-in user could read every user's email and FCM token |
+| 9 | Speed | HTTP caching: `no-store` on everything became revalidate-with-ETag for code and 1 week for images; deploy ignore-list added | Returning visitors re-downloaded ~200KB on every visit |
+| 10 | Speed | Removed ~900KB of JS from first load: dead html2canvas, never-used `Sortable@latest`, unused Firebase Storage; Chart.js / jsPDF / Cropper now load on demand | Render-blocking scripts most sessions never use |
+| 11 | Speed | One font request instead of an `@import` chain + an unused family; Firebase SDK `modulepreload`; Chart.js warmed at idle so Stats opens instantly | Shorter critical path on mobile data |
+| 12 | Look & feel | Share story card and charts render in the brand font (the old "Inter" was never actually downloaded, so they fell back to a system font) | Shared cards looked inconsistent with the app |

@@ -1,17 +1,24 @@
 {
   "hosting": {
     "public": ".",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json", "**/.*", "**/node_modules/**",
+      "tests/**", "tools/**", "scripts/**", "functions/**", "social_memes/**",
+      "meme_studio.html", "*.md", "*.rules", "package*.json"
+    ],
     "rewrites": [{ "source": "**", "destination": "/index.html" }],
     "headers": [
       {
-        "source": "/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          }
-        ]
+        "source": "**/*.@(png|svg|jpg|jpeg|webp|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }]
+      },
+      {
+        "source": "**/*.@(html|js|css|json)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "/",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
   },

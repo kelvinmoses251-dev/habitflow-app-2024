@@ -73,3 +73,16 @@ _Verified against the real Firestore SDK (not the mock): the offline cache keeps
 | 53 | Motion | Short, one-shot motion with a purpose: ring fills, the completed row highlights, the check pops, rows and cards rise in, and the all-done check draws itself. Respects reduced motion and the design guardrails (nothing loops) | The interface should respond to what you do |
 | 54 | UX | Category-coloured accent bar on each habit row; warm colour reserved for streaks; active-tab indicator in the bottom nav | Scannability and a little warmth, used sparingly |
 | 55 | Control | **Ask before completing** setting (on by default, as before); switch it off to complete in one tap | Kept the confirmation you chose, but made it optional |
+
+### Professional layout pass
+
+| # | Area | What changed | Why |
+|---|------|--------------|-----|
+| 56 | Layout | **Desktop dashboard.** From 1024px, Home is two columns: today's list on the left, the progress summary pinned on the right. Stats puts Insights and the weekly report side by side and gives the charts the full width. Below 1024px everything stacks as before | A single 600px column on a 1280px screen read as a phone app stretched out |
+| 57 | UI | **One dark focal block per screen.** The summary is now a flat ink card (deep indigo in dark theme) with the ring, week strip, serif numerals and level bar on it; the nested white stats box is gone, replaced by hairline dividers | Clear hierarchy: your day first, everything else second. Flat colour, no gradient or glow |
+| 58 | UI | **Habit rows are lighter.** Hairline-separated rows instead of a bordered box per habit, round check circles, category shown as a tinted icon chip, streak in the warm accent, "Locked" reduced to an icon (words kept for screen readers). Timer, edit and delete appear on hover or keyboard focus with a mouse and stay visible on touch | Less visual weight per row, so six or twelve habits scan quickly |
+| 59 | Navigation | Segmented top navigation (active tab raised), a primary **New habit** button in the top bar and an **N** shortcut (ignored while typing, in dialogs, with modifier keys, or during the tour) | A power-user path to the most common action |
+| 60 | Landing | Restructured: top bar with Sign in, full-width serif headline, sign-up card beside the demo on a tinted stage, feature row with icon tiles beneath. On phones the order is unchanged (demo first, account card last) | The old two-column page had misaligned tops and a weak first screen |
+| 61 | Charts | Weekly bars are rounded and solid with today in the full accent, quiet grid with no axis lines, readable tooltip; the category chart has separated segments | The outlined pale bars looked like a default chart |
+| 62 | Tour | The spotlight cut-out follows each target's own corner radius | The rounder summary card exposed a square cut-out |
+| 63 | Quality | `tests/scenarios/16-layout.js`: no horizontal scroll from 320 to 1536px on landing, home, stats and profile; dashboard columns and the stacking breakpoint; ink summary in both themes; quick add by button and key; hover/focus reveal; landing structure | Layout regressions are invisible to the other tests |

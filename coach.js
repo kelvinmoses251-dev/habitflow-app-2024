@@ -36,7 +36,7 @@ const STEPS = [
     target: () => pick('#habits .habit-item', '#starter-packs'),
     title: () => $('#habits .habit-item') ? 'Complete habits here' : 'Start with a ready-made set',
     text: () => $('#habits .habit-item')
-      ? 'Tick the box when you have done a habit to earn 25 XP. Tap its name for notes and history, the clock starts a focus timer, and the bin removes it (you can undo).'
+      ? 'Tick the box when you have done a habit to earn 25 XP. Tap its name for notes and history. Hover a row, or look to its right on a phone, for a focus timer and remove (you can undo).'
       : 'You have no habits yet. Pick one of these sets to add three habits in one tap, or use New habit above to write your own.',
   },
   {
@@ -137,7 +137,8 @@ export async function startTour() {
     // Targets inside the fixed bars get a tight cut-out so the page scrolling behind them isn't revealed
     const pad = target.closest('.bottomnav, .topnav') ? 2 : 8;
     const s = { l: r.left - pad, t: r.top - pad, w: r.width + pad * 2, h: r.height + pad * 2 };
-    spot.style.cssText = `left:${s.l}px;top:${s.t}px;width:${s.w}px;height:${s.h}px;`;
+    const br = parseFloat(getComputedStyle(target).borderTopLeftRadius) || 0;      // cut-out follows the element's own corners
+    spot.style.cssText = `left:${s.l}px;top:${s.t}px;width:${s.w}px;height:${s.h}px;border-radius:${Math.max(10, br + pad)}px;`;
 
     const ch = card.offsetHeight;
     const below = vh - (s.t + s.h) - margin, above = s.t - margin;

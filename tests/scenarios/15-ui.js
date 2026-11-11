@@ -76,7 +76,7 @@ module.exports = (scenario, c) => {
   scenario('completion moment: the row is highlighted, the ring and week strip update, and each row carries its category colour', async () => {
     await boot({ seed: seed({ a: habit('A'), b: habit('B') }) });
     await ready(2);
-    check('rows carry a category accent', (await ev(`getComputedStyle(document.querySelector('#habits .habit-item')).borderLeftWidth`)) === '3px');
+    check('rows carry a category colour on a tinted icon chip', (await ev(`(() => { const r = document.querySelector('#habits .habit-item'); const chip = r.querySelector('.cat-ico'); return !!getComputedStyle(r).getPropertyValue('--cat').trim() && !!chip && getComputedStyle(chip).width === '18px'; })()`)) === true);
     await ev(`document.querySelector('#habits .habit-check').click()`);
     await waitFor(`!document.getElementById('confirm-check-modal').classList.contains('hidden')`);
     await ev(`document.getElementById('confirm-check-yes').click()`);

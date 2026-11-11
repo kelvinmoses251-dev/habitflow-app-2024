@@ -363,6 +363,11 @@ function init() {
   el.stickyBtn.addEventListener('click', () => {
     el.authCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
+  // Top-bar "Sign in": bring the account card into view and put the cursor in the email field
+  document.getElementById('landing-signin')?.addEventListener('click', () => {
+    el.authCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('auth-email')?.focus({ preventScroll: true }), 350);
+  });
 
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(entries => {

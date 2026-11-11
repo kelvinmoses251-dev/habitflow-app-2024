@@ -53,7 +53,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=32" />
+  <link rel="stylesheet" href="style.css?v=33" />
 </head>
 <body>
 
@@ -122,16 +122,23 @@
 <div id="auth-screen" class="auth-screen hidden">
   <div class="auth-layout">
 
-    <!-- Landing hero + live demo (new visitors only; see landing-demo.js) -->
-    <section id="landing-hero" class="landing-hero" aria-label="Try Habitly">
+    <header class="landing-bar">
       <div class="landing-brand">
         <svg class="logo-mark" width="28" height="28" aria-hidden="true"><use href="#i-logo"/></svg>
         <span class="brand-name">Habitly</span>
       </div>
+      <button type="button" id="landing-signin" class="btn-secondary landing-signin">Sign in</button>
+    </header>
 
+    <div class="landing-copy">
+      <p class="landing-eyebrow">Habit tracker</p>
       <h1 class="landing-title">Build habits that <em>last</em>.</h1>
-      <p class="landing-sub">Habitly tracks daily, weekly and monthly habits with streaks, levels and clear progress charts. Try the demo below. No account needed.</p>
+      <p class="landing-sub">Habitly tracks daily, weekly and monthly habits with streaks, levels and clear progress charts. Try the demo. No account needed.</p>
+    </div>
 
+    <!-- Live demo (new visitors only; see landing-demo.js) -->
+    <section id="landing-hero" class="landing-hero" aria-label="Try Habitly">
+      <div class="demo-stage">
       <div id="demo-card" class="demo-card">
         <div id="demo-banner" class="demo-banner" role="status" aria-live="polite"></div>
 
@@ -159,14 +166,15 @@
           </form>
         </div>
       </div>
-
-      <ul class="landing-proof" aria-label="What you get">
-        <li><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg><span><strong>Streaks and shields</strong> Keep momentum, with a safety net.</span></li>
-        <li><svg class="icon" aria-hidden="true"><use href="#i-award"/></svg><span><strong>XP and levels</strong> A clear sense of progress.</span></li>
-        <li><svg class="icon" aria-hidden="true"><use href="#i-bar-chart"/></svg><span><strong>Heatmap and insights</strong> See what is and is not working.</span></li>
-        <li><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg><span><strong>Shareable progress cards</strong> Export your streak as an image.</span></li>
-      </ul>
+      </div>
     </section>
+
+    <ul class="landing-proof" aria-label="What you get">
+      <li><span class="proof-ic"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg></span><span><strong>Streaks and shields</strong> Keep momentum, with a safety net.</span></li>
+      <li><span class="proof-ic"><svg class="icon" aria-hidden="true"><use href="#i-award"/></svg></span><span><strong>XP and levels</strong> A clear sense of progress.</span></li>
+      <li><span class="proof-ic"><svg class="icon" aria-hidden="true"><use href="#i-bar-chart"/></svg></span><span><strong>Heatmap and insights</strong> See what is and is not working.</span></li>
+      <li><span class="proof-ic"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg></span><span><strong>Shareable progress cards</strong> Export your streak as an image.</span></li>
+    </ul>
 
     <div class="auth-card" id="auth-card">
       <div class="auth-logo">
@@ -221,6 +229,7 @@
       <a href="#profile" class="nav-link"        data-page="profile"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg> Profile</a>
     </nav>
     <div class="topnav-right">
+      <button type="button" id="topnav-new" class="btn-primary topnav-new" aria-label="New habit (press N)"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>New habit</span><kbd aria-hidden="true">N</kbd></button>
       <button type="button" id="help-btn" class="btn-icon help-btn" aria-label="Take the guided tour" title="Guided tour"><svg class="icon" aria-hidden="true"><use href="#i-help"/></svg></button>
       <div class="avatar-wrap">
         <img id="nav-avatar" class="avatar hidden" src="" alt="You" />
@@ -326,7 +335,7 @@
         <!-- Habit list -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">Today</h2>
+            <h2 class="card-title section-title">Today</h2>
             <span id="today-date" class="today-date"></span>
           </div>
           <ul id="habits" class="habits-list"></ul>
@@ -369,12 +378,12 @@
           <div class="report-summary" id="report-summary-text"></div>
         </div>
 
-        <div class="card">
+        <div class="card card-wide">
           <h2 class="card-title">Weekly completions</h2>
           <div class="chart-wrap"><canvas id="weekly-chart"></canvas></div>
         </div>
 
-        <div class="card">
+        <div class="card card-wide">
           <h2 class="card-title">Consistency <span class="card-subtitle">Last 16 weeks</span></h2>
           <div class="heatmap-wrap">
             <div class="heatmap-day-labels">
@@ -707,7 +716,7 @@
   </div>
 </div>
 
-<script type="module" src="landing-demo.js?v=5"></script>
-<script type="module" src="app.js?v=33"></script>
+<script type="module" src="landing-demo.js?v=6"></script>
+<script type="module" src="app.js?v=34"></script>
 </body>
 </html>

@@ -1553,7 +1553,7 @@ function renderHabits() {
             <span class="cat-badge"><span class="cat-ico" style="color:${cat.color}">${cat.emoji}</span>${cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + habitStreak + '</span>' : ''}
-            ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>Locked</span>' : ''}
+            ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
           </div>
         </div>
       </div>
@@ -1730,6 +1730,29 @@ function setNewHabitOpen(open, { focus = false } = {}) {
   if (open && focus) document.getElementById('habit-input').focus();
 }
 newHabitToggle?.addEventListener('click', () => { userSetNewHabit = true; setNewHabitOpen(habitFormEl.hidden, { focus: true }); });
+
+// Quick add: the top-bar button and the N key take you home and open the form with the cursor in it.
+function quickAddHabit() {
+  const open = () => {
+    userSetNewHabit = true;
+    setNewHabitOpen(true, { focus: true });
+    document.getElementById('new-habit-toggle')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  };
+  if (!location.hash || location.hash === '#home') return open();      // already on Home (no hash means Home)
+  location.hash = '#home';
+  setTimeout(open, 60);                         // the page is hidden until the route change lands, and hidden fields cannot take focus
+}
+document.getElementById('topnav-new')?.addEventListener('click', quickAddHabit);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'n' && e.key !== 'N') return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.defaultPrevented) return;
+  const el = document.activeElement, tag = el && el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el && el.isContentEditable)) return;
+  if (document.getElementById('app')?.classList.contains('hidden')) return;
+  if (document.querySelector('.modal:not(.hidden), #coach, .all-done-overlay:not(.hidden)')) return;
+  e.preventDefault();
+  quickAddHabit();
+});
 
 document.getElementById('habit-form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -2044,24 +2067,30 @@ function renderChart(labels, counts) {
       datasets: [{
         label: 'Habits done',
         data: counts,
-        backgroundColor: isDark ? 'rgba(102,87,219,.45)' : 'rgba(74,58,184,.16)',
-        borderColor:     isDark ? '#AFA7F6' : '#4A3AB8',
-        borderWidth: 2,
-        borderRadius: 4,
+        // Earlier days in a soft tint, today in the full accent
+        backgroundColor: counts.map((_, i) => i === counts.length - 1 ? (isDark ? '#8173EE' : '#4A3AB8') : (isDark ? '#3A3470' : '#CBC6EC')),
+        borderWidth: 0,
+        borderRadius: 8,
         borderSkipped: false,
+        maxBarThickness: 36,
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: isDark ? '#EDEDF0' : '#1A1A1E', titleColor: isDark ? '#1A1A1E' : '#fff', bodyColor: isDark ? '#1A1A1E' : '#fff', padding: 10, cornerRadius: 8, displayColors: false, titleFont: { family: 'Inter', weight: '600' }, bodyFont: { family: 'Inter' } }
+      },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 1, color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter' } },
-          grid:  { color: isDark ? '#2B2B30' : '#ECECE7' }
+          border: { display: false },
+          ticks: { stepSize: 1, precision: 0, color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter', size: 11 }, padding: 8 },
+          grid:  { color: isDark ? '#26262B' : '#EEEEE9' }
         },
         x: {
-          ticks: { color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter' } },
+          border: { display: false },
+          ticks: { color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter', size: 11 } },
           grid:  { display: false }
         }
       }
@@ -2092,14 +2121,15 @@ function renderCatBreakdown() {
       datasets: [{
         data: catCounts.map(c => c.count),
         backgroundColor: catCounts.map(c => c.cat.color),
-        borderWidth: 0,
+        borderColor: isDark ? '#171719' : '#FFFFFF',
+        borderWidth: 3,
         hoverOffset: 4
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '65%',
+      cutout: '68%',
       plugins: {
         legend: { position: 'right', labels: { color: isDark ? '#ABABB4' : '#51515A', font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' } }
       }

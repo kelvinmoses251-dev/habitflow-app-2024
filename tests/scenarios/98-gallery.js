@@ -51,6 +51,24 @@ module.exports = (scenario, c) => {
   run('desktop-landing', { mobile: false }, async () => { await settle(); });
   run('desktop-home', { mobile: false, seed }, async () => { await ready(); await waitFor(`document.querySelectorAll('#habits .habit-item').length === 6`); await settle(); });
   run('desktop-stats', { mobile: false, seed }, async () => { await ready(); await ev(`location.hash='#stats'`); await settle(1800); });
+  const darkSeed = { ...seed, theme: 'dark' };
+  const size = (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+  run('desktop-home-dark', { mobile: false, seed: darkSeed }, async () => { await ready(); await waitFor(`document.querySelectorAll('#habits .habit-item').length === 6`); await settle(); });
+  run('desktop-landing-dark', { mobile: false, colorScheme: 'dark', seed: { theme: 'dark' } }, async () => { await settle(); });
+  run('desktop-profile', { mobile: false, seed }, async () => { await ready(); await ev(`location.hash='#profile'`); await settle(); });
+  run('desktop-stats-lower', { mobile: false, seed }, async () => {
+    await ready(); await ev(`location.hash='#stats'`); await settle(1800);
+    await ev(`document.querySelector('.card-wide:nth-of-type(2)') && window.scrollTo(0, 900)`); await settle();
+  });
+  run('tablet-home', { mobile: false, seed }, async () => { await ready(); await size(820, 1100); await waitFor(`document.querySelectorAll('#habits .habit-item').length === 6`); await settle(); });
+  run('tablet-landing', { mobile: false }, async () => { await size(820, 1100); await settle(); });
+  run('wide-landing', { mobile: false }, async () => { await size(1440, 900); await settle(); });
+  run('wide-home', { mobile: false, seed }, async () => { await ready(); await size(1600, 900); await waitFor(`document.querySelectorAll('#habits .habit-item').length === 6`); await settle(); });
+  run('desktop-row-hover', { mobile: false, seed }, async () => {
+    await ready(); await waitFor(`document.querySelectorAll('#habits .habit-item').length === 6`); await settle();
+    const p = await ev(`(() => { const b = document.querySelectorAll('#habits .habit-item')[2].getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p.x, y: p.y }); await settle(400);
+  });
 
   run('modal-all-done', { seed }, async () => { await ready(); await ev(`document.getElementById('all-done-overlay').classList.remove('hidden')`); await settle(); });
   run('modal-level-up', { seed }, async () => {

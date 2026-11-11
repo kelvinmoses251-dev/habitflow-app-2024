@@ -54,6 +54,35 @@ function ensureLib(name) {
   return libPromises[name];
 }
 
+// ── Analytics (privacy-first) ─────────────────────────────
+// Anonymous product events only: never names, emails or habit text. Honours Do Not Track / Global Privacy
+// Control and an in-app opt-out. The SDK is imported lazily so it can never block or break the app.
+const analyticsAllowed = () => {
+  try {
+    if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return false;
+    return localStorage.getItem('habitly_analytics') !== 'off';
+  } catch (_) { return false; }
+};
+let analyticsReady = null;
+function track(name, params = {}) {
+  if (!analyticsAllowed()) return;
+  try {
+    if (!analyticsReady) {
+      analyticsReady = import('https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js')
+        .then(async m => (await m.isSupported()) ? { m, a: m.getAnalytics(firebaseApp) } : null)
+        .catch(() => null);
+    }
+    analyticsReady.then(x => { if (x) x.m.logEvent(x.a, name, params); });
+  } catch (_) { /* analytics must never affect the app */ }
+}
+function drainTrackQueue() {
+  const q = window.__habitlyQ || [];
+  window.__habitlyQ = [];
+  q.forEach(e => track(e.name, e.params));
+}
+window.addEventListener('habitly:track', drainTrackQueue);
+drainTrackQueue();   // events the landing demo queued before this module loaded
+
 // ── Theme: saved choice wins, otherwise follow the system (a head script applies it before first paint) ──
 const systemDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
 function isDarkTheme() {
@@ -210,6 +239,40 @@ const CATS = {
   relaxation: { label: 'Relaxation', emoji: icons.relaxation, color: '#7E22CE', bg: '#FAF5FF' },
   project:    { label: 'Project',    emoji: icons.project, color: '#475569', bg: '#F1F5F9' },
 };
+
+// ── Auto emoji: every habit gets a fitting icon from its name (falls back to its category) ──
+const EMOJI_RULES = [   // every pattern is anchored to a word START so "start" is not "art" and "create" is not "eat"
+  [/\b(?:phone|screen ?time|social media|scroll)/i, '📵'],
+  [/\b(?:water|hydrat|drink)/i, '💧'],
+  [/\b(?:vitamin|supplement|medic|pill)/i, '💊'],
+  [/\b(?:read(?!y)|book|page|novel)/i, '📖'],
+  [/\b(?:run|jog|sprint|cardio)/i, '🏃'],
+  [/\b(?:walk|steps|hike)/i, '🚶'],
+  [/\b(?:gym|workout|lift|weights|exercise|push-?ups?|squat)/i, '🏋️'],
+  [/\b(?:stretch|yoga|mobility)/i, '🤸'],
+  [/\bswim/i, '🏊'], [/\b(?:cycl|bike)/i, '🚴'],
+  [/\b(?:medit|mindful|breath)/i, '🧘'],
+  [/\b(?:pray|bible|church|devotion|quran|worship)/i, '🙏'],
+  [/\b(?:sleep|bed ?time|nap|wake)/i, '😴'],
+  [/\b(?:journal|diary|gratitude|writ)/i, '✍️'],
+  [/\b(?:code|coding|program|leetcode|develop)/i, '💻'],
+  [/\b(?:study|learn|course|lesson|homework|revise|review|practi[cs]e|language)/i, '🎓'],
+  [/\b(?:sav(?:e|ing)|budget|invest|money|spend)/i, '💰'],
+  [/\b(?:protein|meal|eat|veg|fruit|diet|cook|breakfast|lunch|dinner|salad)/i, '🥗'],
+  [/\b(?:clean|tidy|laundry|dish|declutter|chore)/i, '🧹'],
+  [/\b(?:call|text|friend|family|mum|mom|dad|parent|partner)/i, '📞'],
+  [/\b(?:music|guitar|piano|sing|instrument)/i, '🎵'],
+  [/\b(?:draw|paint|art|sketch|design)/i, '🎨'],
+  [/\b(?:plan(?!t)|todo|to-do|task|inbox|email|organi[sz]e)/i, '🗓️'],
+  [/\b(?:floss|brush|teeth|skincare|shower|bath)/i, '🪥'],
+  [/\b(?:outside|nature|garden|plant|sun)/i, '🌿'],
+];
+const CATEGORY_EMOJI = { health: '❤️', mind: '🧠', social: '👥', growth: '🌱', productive: '⚡', nutrition: '🥗', fitness: '💪',
+  reading: '📖', saving: '💰', relaxation: '🧘', project: '🛠️' };
+function habitEmoji(h) {
+  const hit = EMOJI_RULES.find(([re]) => re.test(h.name || ''));
+  return hit ? hit[1] : (CATEGORY_EMOJI[h.category] || '✅');
+}
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
@@ -912,6 +975,7 @@ async function renderStoryCanvas() {
 
 async function openShareCardModal() {
   if (!currentUser) return;
+  track('story_opened');
   
   const modal = document.getElementById('share-card-modal');
   if (modal) {
@@ -973,6 +1037,7 @@ document.getElementById('share-card-download')?.addEventListener('click', () => 
 document.getElementById('share-card-share')?.addEventListener('click', () => {
   const canvas = document.getElementById('share-story-canvas');
   if (!canvas) return;
+  track('story_share_clicked');
 
   try {
     toast('Opening share...', 'info');
@@ -1015,11 +1080,20 @@ function getWeeklyData(habits) {
 }
 
 // ── Toast ─────────────────────────────────────────────────
-function toast(msg, type = 'info', ms = 3500) {
+function toast(msg, type = 'info', ms = 3500, action = null) {
   const tc = document.getElementById('toast-container');
   const t  = document.createElement('div');
   t.className = `toast ${type}`;
-  t.textContent = msg;
+  const label = document.createElement('span');
+  label.textContent = msg;
+  t.appendChild(label);
+  if (action) {                                   // e.g. { label: 'Undo', onClick }
+    t.classList.add('has-action');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'toast-action'; b.textContent = action.label;
+    b.addEventListener('click', () => { t.remove(); action.onClick(); });
+    t.appendChild(b);
+  }
   tc.appendChild(t);
   setTimeout(() => {
     t.classList.add('out');
@@ -1129,6 +1203,7 @@ function checkAllDone(justCompletedId = null) {
       await addXP(XP_DAILY_BONUS);
       setDoc(doc(db, 'users', currentUser.uid), { allDoneBonusDate: today }, { merge: true }).catch(console.warn);
       toast('🎉 Daily Master Bonus: +100 XP!', 'success');
+      track('all_done_bonus');
     } else {
       toast('🎉 All done again! (Daily bonus already claimed)', 'info');
     }
@@ -1138,8 +1213,8 @@ function checkAllDone(justCompletedId = null) {
       const end = Date.now() + 2500;
       const colors = ['#7c3aed', '#a78bfa', '#f59e0b', '#10b981', '#3b82f6', '#ec4899'];
       (function frame() {
-        window.confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors });
-        window.confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors });
+        window.confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors, disableForReducedMotion: true });
+        window.confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors, disableForReducedMotion: true });
         if (Date.now() < end) requestAnimationFrame(frame);
       }());
     }
@@ -1211,6 +1286,7 @@ function fireConfetti() {
       particleCount: 120,
       spread: 70,
       origin: { y: 0.6 },
+      disableForReducedMotion: true,
       colors: ['#8b5cf6', '#a78bfa', '#d8b4fe', '#fbcfe8'] // Brand colors
     });
   }
@@ -1257,6 +1333,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
   try {
     const cred = await signInWithPopup(auth, provider);
     const details = getAdditionalUserInfo(cred);
+    track(details && details.isNewUser ? 'sign_up' : 'login', { method: 'google' });
     if (details && details.isNewUser) {
       fireConfetti();
     }
@@ -1289,6 +1366,7 @@ emailForm.addEventListener('submit', async (e) => {
   signinBtn.disabled = true; signinBtn.textContent = 'Signing in...';
   try {
     await signInWithEmailAndPassword(auth, email, pass);
+    track('login', { method: 'email' });
     emailForm.reset();
   } catch (e) {
     toast(authErrorMessage(e), 'error');
@@ -1314,6 +1392,7 @@ signupBtn.addEventListener('click', async () => {
     await updateProfile(cred.user, { displayName: name });
     emailForm.reset();
     toast('Account created successfully! 🎉', 'success');
+    track('sign_up', { method: 'email' });
     fireConfetti();
   } catch (e) {
     toast(authErrorMessage(e), 'error');
@@ -1342,6 +1421,7 @@ document.getElementById('forgot-btn').addEventListener('click', async e => {
       return;
     }
   }
+  track('password_reset_requested');
   toast(`If ${email} has an account, a reset link is on its way. Check your spam folder too.`, 'success', 7000);
   btn.disabled = false;
 });
@@ -1444,6 +1524,7 @@ async function seedHabitsFromLandingDemo() {
         order:          base + i
       });
     }
+    track('demo_carried_over', { habits: demo.habits.length, ticked });
     toast(ticked
       ? `🎉 Your demo streak is saved. ${ticked} habit${ticked === 1 ? '' : 's'} already ticked!`
       : '🎉 Your demo habits are ready to go!', 'success', 5000);
@@ -1774,6 +1855,7 @@ function renderHabits() {
     li.innerHTML = `
       <div class="habit-label">
         <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" aria-label="Mark ${escHtml(h.name)} complete" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} />
+        <span class="habit-emoji" aria-hidden="true">${habitEmoji(h)}</span>
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name ${isDone ? 'done' : ''}">${escHtml(h.name)}</span>
           <div class="badges-row">
@@ -1829,9 +1911,11 @@ function updateStreakRisk() {
     ? 'Tick it now and keep your 🛡️ shield.'
     : 'Tick it before midnight to keep it alive.';
   el.dataset.habit = top.id;
+  if (el.classList.contains('hidden')) track('streak_risk_shown', { streak: calcHabitStreak(top) });
   el.classList.remove('hidden');
 }
 document.getElementById('streak-risk')?.addEventListener('click', e => {
+  track('streak_risk_tapped');
   const cb = document.querySelector(`.habit-item[data-id="${CSS.escape(e.currentTarget.dataset.habit || '')}"] .habit-check`);
   if (!cb) return;
   cb.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1864,6 +1948,7 @@ async function addStarterPack(id, btn) {
       completedDates: [], createdAt: new Date().toISOString(), order: base + i
     })));
     nudgeFirstHabit = true;
+    track('starter_pack_added', { pack: pack.id });
     toast(`${pack.emoji} ${pack.title} added. Tick your first habit!`, 'success');
     buzz(25);
   } catch (err) {
@@ -1945,6 +2030,7 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   
   try {
     await addHabit(name, category, frequency);
+    track('habit_added', { category, frequency, source: 'form' });
     document.getElementById('habit-input').value = '';
     toast('Habit added! 💪', 'success');
   } catch (err) {
@@ -1959,8 +2045,15 @@ document.getElementById('habits').addEventListener('click', async e => {
   // Delete
   const del = e.target.closest('[data-action="delete"]');
   if (del) {
-    await deleteHabit(del.dataset.id);
-    toast('Habit removed', 'warning');
+    const delId = del.dataset.id;
+    await deleteHabit(delId);
+    toast('Habit removed', 'warning', 7000, {
+      label: 'Undo',
+      onClick: async () => {
+        try { await restoreHabit(delId); toast('Habit restored', 'success'); }
+        catch (err) { toast('Could not restore: ' + err.message, 'error'); }
+      }
+    });
     return;
   }
   // Edit
@@ -2041,6 +2134,7 @@ if (confirmModal) {
         await addXP(XP_PER_HABIT, checkboxEl);
         toast('Great job! Habit completed 🎉 (+25 XP)', 'success');
         fireConfetti();
+        track('habit_completed');
         checkAllDone(id);
         maybeAskForReminders();
       }, 300);
@@ -2592,6 +2686,14 @@ if (soundToggle) {
     if (e.target.checked) playPop();
   });
 }
+const analyticsToggle = document.getElementById('analytics-toggle');
+if (analyticsToggle) {
+  analyticsToggle.checked = localStorage.getItem('habitly_analytics') !== 'off';
+  analyticsToggle.addEventListener('change', e => {
+    localStorage.setItem('habitly_analytics', e.target.checked ? 'on' : 'off');
+    toast(e.target.checked ? 'Thanks! Anonymous usage data helps us improve Habitly.' : 'Usage data sharing is off.', 'info');
+  });
+}
 const hapticsToggle = document.getElementById('haptics-toggle');
 if (hapticsToggle) {
   hapticsToggle.checked = hapticsOn();
@@ -2856,14 +2958,15 @@ function maybeAskForReminders() {
     if (!messaging || typeof Notification === 'undefined' || Notification.permission !== 'default') return;
     if (Date.now() - (+localStorage.getItem(NOTIF_ASKED_KEY) || 0) < 7 * 864e5) return;   // at most weekly
   } catch (_) { return; }
-  setTimeout(() => document.getElementById('notif-ask')?.classList.remove('hidden'), 1800);
+  setTimeout(() => { document.getElementById('notif-ask')?.classList.remove('hidden'); track('reminder_ask_shown'); }, 1800);
 }
 function closeReminderAsk() {
   document.getElementById('notif-ask')?.classList.add('hidden');
   try { localStorage.setItem(NOTIF_ASKED_KEY, String(Date.now())); } catch (_) {}
 }
-document.getElementById('notif-ask-no')?.addEventListener('click', closeReminderAsk);
+document.getElementById('notif-ask-no')?.addEventListener('click', () => { track('reminder_ask_dismissed'); closeReminderAsk(); });
 document.getElementById('notif-ask-yes')?.addEventListener('click', async () => {
+  track('reminder_ask_accepted');
   closeReminderAsk();
   await requestNotificationPermission();
 });

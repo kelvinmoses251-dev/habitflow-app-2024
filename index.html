@@ -55,7 +55,7 @@
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib),
        so first paint no longer waits on ~900KB of scripts most sessions never use. -->
 
-  <link rel="stylesheet" href="style.css?v=22" />
+  <link rel="stylesheet" href="style.css?v=23" />
 </head>
 <body>
 
@@ -91,7 +91,7 @@
           </svg>
         </div>
         <h2>Welcome to Habitly! 👋</h2>
-        <p>Build powerful daily habits across 10 life categories. Let's take a quick tour so you can hit the ground running.</p>
+        <p>Build powerful daily habits across 11 life categories. Let's take a quick tour so you can hit the ground running.</p>
       </div>
 
       <div class="slide" data-slide="1">
@@ -439,7 +439,7 @@
         <div class="card">
           <h2 class="card-title">Add a Habit</h2>
           <form id="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-2);">
-            <input type="text" id="habit-input" aria-label="Habit name" placeholder="e.g. Drink 8 glasses of water" required autocomplete="off" />
+            <input type="text" id="habit-input" aria-label="Habit name" maxlength="60" placeholder="e.g. Drink 8 glasses of water" required autocomplete="off" />
             <div style="display: flex; gap: var(--sp-2);">
               <select id="habit-category" aria-label="Category" style="flex: 1;" required>
                 <option value="" disabled selected>Category</option>
@@ -634,6 +634,11 @@
               <div class="setting-left"><span class="setting-icon">📳</span><span class="setting-label">Vibration</span></div>
               <label class="toggle"><input type="checkbox" id="haptics-toggle" checked><span class="toggle-track"></span></label>
             </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><span class="setting-icon">📊</span><span class="setting-label">Share anonymous usage data</span></div>
+              <label class="toggle"><input type="checkbox" id="analytics-toggle" checked><span class="toggle-track"></span></label>
+            </div>
             
             <div class="setting-row">
               <div class="setting-left"><span class="setting-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><span class="setting-label">App Tutorial Guide</span></div>
@@ -741,7 +746,7 @@
     <h2 class="card-title" style="margin-bottom: var(--sp-4);">Edit Habit</h2>
     <form id="edit-habit-form" class="habit-form" style="display:flex; flex-direction:column; gap:var(--sp-3); margin-bottom:var(--sp-4);">
       <input type="hidden" id="edit-habit-id" />
-      <input type="text" id="edit-habit-name" aria-label="Habit name" class="input" placeholder="e.g. Read 10 pages" required />
+      <input type="text" id="edit-habit-name" aria-label="Habit name" maxlength="60" class="input" placeholder="e.g. Read 10 pages" required />
       <div style="display: flex; gap: var(--sp-2);">
         <select id="edit-habit-category" aria-label="Category" style="flex: 1;" required>
           <option value="" disabled selected>Category</option>
@@ -935,7 +940,7 @@
 <!-- Confetti Animation Library -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 
-<script type="module" src="landing-demo.js?v=2"></script>
-<script type="module" src="app.js?v=27"></script>
+<script type="module" src="landing-demo.js?v=3"></script>
+<script type="module" src="app.js?v=28"></script>
 </body>
 </html>

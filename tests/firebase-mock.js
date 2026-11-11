@@ -148,6 +148,11 @@ export async function signOut() { setUser(null); }
 export async function deleteUser() { setUser(null); }
 export const getAdditionalUserInfo = cred => ({ isNewUser: !!(cred && cred.__new) });
 
+// ── Analytics: record events so tests can assert on them ──
+export const isSupported = async () => true;
+export const getAnalytics = () => ({});
+export const logEvent = (_a, name, params) => { (W.__mockEvents ||= []).push({ name, params: params || {} }); };
+
 // ── Storage / Messaging (inert) ─────────────────────────
 export const getStorage = () => ({});
 export const ref = () => ({});

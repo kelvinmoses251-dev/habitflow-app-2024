@@ -34,3 +34,9 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 26 | Accessibility | Muted text raised to WCAG AA contrast (2.7:1 → 5:1 light, 3.1:1 → 5.4:1 dark) | Helper text was hard to read, especially outdoors |
 | 27 | Accessibility | Visible keyboard focus ring everywhere; global `prefers-reduced-motion` support | Keyboard focus was invisible; motion-sensitive users had no relief |
 | 28 | Engagement | **Insights** card on Stats: momentum vs last week ("Up 33%"), strongest and weakest weekday, best streak ever, most consistent habit: all computed locally from the user's own data | The Stats tab was charts with no conclusions |
+| 29 | Measurement | **Privacy-first analytics**: anonymous funnel events (landing view → demo tick → sign-up → habit added/completed → share, reminders, streak-risk) with no names, emails or habit text. Honours Do Not Track / Global Privacy Control, plus an in-app "Share anonymous usage data" opt-out. SDK is lazy-imported so it can never block the app | There was no way to tell whether any of these changes helped |
+| 30 | Look & feel | **Auto emoji per habit** from its name ("Drink water" 💧, "No phone in bed" 📵, "Learn Spanish" 🎓), falling back to the category icon; word-start matching so "Start" isn't "art" | The list looked identical for every habit; zero user effort needed |
+| 31 | UX | **Undo** on removing a habit (7-second toast action) | Deleting was one tap with no obvious way back (it was buried in Profile → Recently Deleted) |
+| 32 | PWA | Home-screen **shortcuts** ("Today's habits", "My stats") in the manifest | Long-press the app icon to jump straight in |
+| 33 | Polish | Tour copy says 11 life categories (the dropdown has 11); habit names capped at 60 characters | Copy mismatch; very long names broke the layout |
+| 34 | Accessibility | Confetti respects `prefers-reduced-motion` | Motion-sensitive users still got full-screen confetti |

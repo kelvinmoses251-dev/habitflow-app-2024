@@ -41,6 +41,13 @@ const EMOJI = {
   growth: '✍️', mind: '🧠', productive: '⚡',
 };
 
+// Analytics hand-off: app.js owns the (consent-aware) tracker; we queue events and poke it.
+function emit(name, params) {
+  window.__habitlyQ = window.__habitlyQ || [];
+  window.__habitlyQ.push({ name, params });
+  window.dispatchEvent(new CustomEvent('habitly:track'));
+}
+
 const $ = id => document.getElementById(id);
 const screenEl = $('auth-screen');
 const heroEl   = $('landing-hero');
@@ -330,6 +337,7 @@ function init() {
     if (!h) return;
     state.touched = true;
     h.done = !h.done;
+    const firstTickEver = h.done && doneCount() === 1;
 
     const allDone = state.habits.length > 0 && state.habits.every(x => x.done);
     const hadBonus = state.bonus;
@@ -349,8 +357,9 @@ function init() {
       const rowBtn = el.list.querySelector(`[data-id="${id}"]`);
       if (rowBtn) floatXP(rowBtn, '+' + XP_PER_HABIT + ' XP');
       if (doneCount() === 1) { burst(false); pulseCTA(); }
+      if (firstTickEver) emit('demo_first_tick');
       if (state.bonus && !hadBonus) {
-        chime(); burst(true);
+        chime(); burst(true); emit('demo_perfect_day');
         setTimeout(() => floatXP(el.xpFill.parentElement, '+' + XP_ALL_DONE + ' XP bonus!'), 250);
       }
       if (lvl.level > lastLevel) showBanner(`${lvl.icon} Level ${lvl.level} unlocked: ${lvl.title}!`);
@@ -363,6 +372,7 @@ function init() {
     if (!name || state.habits.length >= MAX_HABITS) return;
     if (state.habits.some(h => h.name.toLowerCase() === name.toLowerCase())) return;
     state.touched = true;
+    emit('demo_habit_added', { custom: category === 'productive' });
     // A new habit means the day isn't "perfect" anymore, but XP already earned stays.
     state.habits.push({ id: newId(), name, category: category || 'productive', done: false });
     save();
@@ -402,4 +412,5 @@ function init() {
   renderSuggestions();
   renderMeter(false);
   applyMode();
+  if (!isReturning()) emit('landing_view');
 }

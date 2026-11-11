@@ -1092,6 +1092,15 @@ select { cursor: pointer; }
 .notif-ask-actions { display: flex; gap: var(--sp-2); margin-left: auto; }
 .notif-ask-actions button { padding: .5rem .95rem; font-size: .85rem; }
 
+/* Habit emoji + toast actions */
+.habit-emoji { font-size: 1.35rem; line-height: 1; flex: none; }
+.toast.has-action { display: flex; align-items: center; gap: var(--sp-3); }
+.toast-action {
+  flex: none; background: none; border: none; cursor: pointer;
+  color: var(--primary); font-weight: 800; font-size: .85rem; padding: 4px 8px; border-radius: var(--r-sm);
+}
+.toast-action:hover { background: var(--primary-lt); }
+
 /* Insights */
 .insights-card.hidden { display: none !important; }
 .insights-list { list-style: none; display: flex; flex-direction: column; gap: var(--sp-3); }

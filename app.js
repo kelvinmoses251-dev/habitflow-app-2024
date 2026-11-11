@@ -924,6 +924,16 @@ function initOnboarding(force = false) {
   const userKey = currentUser ? 'habitly_seen_' + currentUser.uid : 'habitly_seen';
   if (!force && localStorage.getItem(userKey)) return;
 
+  // Visitors who already played the landing demo have effectively done the tour
+  // (add + tick + XP), so go straight to their habits instead of 5 more slides.
+  if (!force && currentUser) {
+    const demo = readLandingDemo();
+    if (demo && demo.habits.some(h => h.done)) {
+      localStorage.setItem(userKey, '1');
+      return;
+    }
+  }
+
   const ob = document.getElementById('onboarding');
   if (!ob) return;
   ob.classList.remove('hidden');
@@ -1159,6 +1169,7 @@ onAuthStateChanged(auth, async user => {
   hideLoading();
   if (user) {
     currentUser = user;
+    try { localStorage.setItem('habitly_returning', '1'); } catch (_) {}
     showApp();
     updateAvatars(user);
     subscribeToHabits();
@@ -1187,6 +1198,57 @@ function showApp() {
 function showAuth() {
   document.getElementById('app').classList.add('hidden');
   document.getElementById('auth-screen').classList.remove('hidden');
+  // Lets landing-demo.js refresh the hero / returning-user state
+  window.dispatchEvent(new Event('habitly:auth-shown'));
+}
+
+// ── Landing demo carry-over ───────────────────────────────
+// landing-demo.js lets visitors play with habits before signing up and parks
+// the result in localStorage. For a brand-new account (zero habits) we turn
+// that into real habits, including today's ticks, so nothing they did is lost.
+const LANDING_DEMO_KEY = 'habitly_demo';
+
+function readLandingDemo() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LANDING_DEMO_KEY));
+    if (d && Array.isArray(d.habits) && d.habits.length) return d;
+  } catch (_) { /* ignore */ }
+  return null;
+}
+
+async function seedHabitsFromLandingDemo() {
+  const demo = readLandingDemo();
+  if (!demo || !currentUser) return;
+  // Clear first so a second snapshot / tab can never seed twice
+  try { localStorage.removeItem(LANDING_DEMO_KEY); } catch (_) {}
+
+  const today = todayStr();
+  const carryTicks = demo.day === today;
+  const base = Date.now();
+  let ticked = 0;
+  try {
+    for (const [i, h] of demo.habits.slice(0, 5).entries()) {
+      const name = String(h.name || '').trim().slice(0, 60);
+      if (!name) continue;
+      const done = carryTicks && !!h.done;
+      if (done) ticked++;
+      await addDoc(collection(db, 'habits'), {
+        userId:         currentUser.uid,
+        name,
+        category:       CATS[h.category] ? h.category : 'productive',
+        frequency:      'daily',
+        completedDates: done ? [today] : [],
+        ...(done ? { completedTimestamps: { [today]: base + i } } : {}),
+        createdAt:      new Date().toISOString(),
+        order:          base + i
+      });
+    }
+    toast(ticked
+      ? `🎉 Your demo streak is saved. ${ticked} habit${ticked === 1 ? '' : 's'} already ticked!`
+      : '🎉 Your demo habits are ready to go!', 'success', 5000);
+  } catch (e) {
+    console.warn('Could not carry over demo habits:', e);
+  }
 }
 
 let userProfileUnsubscribe = null;
@@ -1370,11 +1432,21 @@ async function toggleHabit(id, currentlyDone, dateToRemove) {
 
 let deletedHabits = []; // Stores soft-deleted habits
 
+let landingDemoChecked = false;
+
 function subscribeToHabits() {
   if (unsubHabits) unsubHabits();
+  landingDemoChecked = false;
   const q = query(collection(db, 'habits'), where('userId', '==', currentUser.uid));
   unsubHabits = onSnapshot(q, snap => {
     const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // First authoritative snapshot only: brand-new account => adopt the landing demo
+    if (!landingDemoChecked && !snap.metadata.fromCache) {
+      landingDemoChecked = true;
+      if (all.length === 0) seedHabitsFromLandingDemo();
+      else { try { localStorage.removeItem(LANDING_DEMO_KEY); } catch (_) {} }
+    }
     allHabits = [];
     deletedHabits = [];
     const now = Date.now();

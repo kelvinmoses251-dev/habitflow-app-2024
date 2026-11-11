@@ -4,6 +4,7 @@
 //   node tests/smoke.js                 run everything
 //   node tests/smoke.js --only demo     run scenarios whose name contains "demo"
 //   node tests/smoke.js --shots out/    also save a screenshot per scenario
+//   node tests/smoke.js --origin https://habit-tracker-demo-34c0a.web.app   test the deployed site
 //   EDGE_PATH=... to point at a different Chromium-based browser
 //
 // Requires Node 22+ (global WebSocket/fetch). No npm dependencies.
@@ -30,7 +31,9 @@ const BROWSER = BROWSERS.find(p => fs.existsSync(p));
 if (!BROWSER) { console.error('No Chromium-based browser found. Set EDGE_PATH.'); process.exit(2); }
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml' };
-const PORT = 8137, DEBUG_PORT = 9447, ORIGIN = `http://localhost:${PORT}`;
+const PORT = 8137, DEBUG_PORT = 9447;
+// --origin https://... runs the same suite against a deployed site (real files, mocked Firebase backend)
+const ORIGIN = (argVal('--origin') || `http://localhost:${PORT}`).replace(/\/+$/, '');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const server = http.createServer((req, res) => {

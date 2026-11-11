@@ -18,3 +18,6 @@ Deploy with `node tools/deploy.js` (add `--rules` for Firestore rules).
 | 10 | Speed | Removed ~900KB of JS from first load: dead html2canvas, never-used `Sortable@latest`, unused Firebase Storage; Chart.js / jsPDF / Cropper now load on demand | Render-blocking scripts most sessions never use |
 | 11 | Speed | One font request instead of an `@import` chain + an unused family; Firebase SDK `modulepreload`; Chart.js warmed at idle so Stats opens instantly | Shorter critical path on mobile data |
 | 12 | Look & feel | Share story card and charts render in the brand font (the old "Inter" was never actually downloaded, so they fell back to a system font) | Shared cards looked inconsistent with the app |
+| 13 | Activation | Empty account shows 4 one-tap **starter packs** (Morning Reset, Get Fit, Calm Mind, Learn Daily); the first habit's checkbox pulses until ticked | A new user faced a blank list plus a blank form |
+| 14 | Retention | **Forgot password?** flow (there was none: forgetting a password meant being locked out for good) | Account recovery |
+| 15 | Conversion | Human-readable auth errors ("That email and password don't match. New here? Tap Sign Up.") instead of `Firebase: Error (auth/invalid-credential).`; show/hide password; autofill hints so password managers work | Raw errors and missing autofill are top reasons people bounce off sign-up |

@@ -3,7 +3,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, updateProfile,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, query, where,
@@ -189,6 +189,19 @@ const CATS = {
   relaxation: { label: 'Relaxation', emoji: icons.relaxation, color: '#7E22CE', bg: '#FAF5FF' },
   project:    { label: 'Project',    emoji: icons.project, color: '#475569', bg: '#F1F5F9' },
 };
+
+// ── Starter packs (one-tap activation for empty accounts) ─
+const STARTER_PACKS = [
+  { id: 'morning', emoji: '🌅', title: 'Morning Reset', habits: [
+    ['Drink a glass of water', 'health'], ['5-minute stretch', 'fitness'], ['Plan my top 3 tasks', 'productive'] ] },
+  { id: 'fit',     emoji: '💪', title: 'Get Fit', habits: [
+    ['Workout 20 minutes', 'fitness'], ['Walk 8,000 steps', 'health'], ['Protein with every meal', 'nutrition'] ] },
+  { id: 'calm',    emoji: '🧘', title: 'Calm Mind', habits: [
+    ['Meditate 5 minutes', 'relaxation'], ['Write 3 lines in a journal', 'mind'], ['No phone in bed', 'mind'] ] },
+  { id: 'learn',   emoji: '📚', title: 'Learn Daily', habits: [
+    ['Read 10 pages', 'reading'], ['Practice a skill for 15 min', 'growth'], ['Review today\u2019s notes', 'productive'] ] },
+];
+let nudgeFirstHabit = false;   // pulse the first checkbox right after a pack is added
 
 // ── State ─────────────────────────────────────────────────
 let currentUser  = null;
@@ -1152,6 +1165,27 @@ function fireConfetti() {
 }
 
 // ── Auth ──────────────────────────────────────────────────
+// Turn Firebase's raw error ("Firebase: Error (auth/invalid-credential).") into something a person can act on.
+function authErrorMessage(err) {
+  const code = (err && err.code) || '';
+  const noMatch = "That email and password don't match. New here? Tap Sign Up.";
+  const map = {
+    'auth/invalid-credential': noMatch,
+    'auth/invalid-login-credentials': noMatch,
+    'auth/wrong-password': noMatch,
+    'auth/user-not-found': noMatch,
+    'auth/email-already-in-use': 'That email already has an account. Tap Sign In, or use "Forgot password?".',
+    'auth/weak-password': 'Please choose a password with at least 6 characters.',
+    'auth/invalid-email': "That email address doesn't look right.",
+    'auth/too-many-requests': 'Too many attempts. Please wait a minute, or reset your password.',
+    'auth/network-request-failed': 'You seem to be offline. Check your connection and try again.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/unauthorized-domain': 'Sign-in is not enabled for this web address.',
+  };
+  if (map[code]) return map[code];
+  console.warn('Auth error:', err);
+  return 'Something went wrong. Please try again.';
+}
 // Handle redirect sign-in result (if user was redirected on mobile/webview)
 getRedirectResult(auth).then(cred => {
   if (cred) {
@@ -1180,10 +1214,10 @@ document.getElementById('login-btn').addEventListener('click', async () => {
       try {
         await signInWithRedirect(auth, provider);
       } catch (redirectErr) {
-        toast('Sign-in failed: ' + redirectErr.message, 'error');
+        toast(authErrorMessage(redirectErr), 'error');
       }
     } else {
-      toast('Sign-in failed: ' + e.message, 'error');
+      toast(authErrorMessage(e), 'error');
     }
   }
 });
@@ -1205,7 +1239,7 @@ emailForm.addEventListener('submit', async (e) => {
     await signInWithEmailAndPassword(auth, email, pass);
     emailForm.reset();
   } catch (e) {
-    toast('Sign-in failed: ' + e.message, 'error');
+    toast(authErrorMessage(e), 'error');
   } finally {
     signinBtn.disabled = false; signinBtn.textContent = 'Sign In';
   }
@@ -1230,10 +1264,42 @@ signupBtn.addEventListener('click', async () => {
     toast('Account created successfully! 🎉', 'success');
     fireConfetti();
   } catch (e) {
-    toast('Sign-up failed: ' + e.message, 'error');
+    toast(authErrorMessage(e), 'error');
   } finally {
     signupBtn.disabled = false; signupBtn.textContent = 'Sign Up';
   }
+});
+
+// Password reset: previously there was no way back in after forgetting a password.
+document.getElementById('forgot-btn').addEventListener('click', async e => {
+  const email = emailInput.value.trim();
+  if (!email || !emailInput.checkValidity()) {
+    toast('Type your email above first, then tap "Forgot password?".', 'warning');
+    emailInput.focus();
+    return;
+  }
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (err) {
+    // Surface only errors that don't reveal whether an account exists
+    if (['auth/invalid-email', 'auth/network-request-failed', 'auth/too-many-requests'].includes(err.code)) {
+      toast(authErrorMessage(err), 'error');
+      btn.disabled = false;
+      return;
+    }
+  }
+  toast(`If ${email} has an account, a reset link is on its way. Check your spam folder too.`, 'success', 7000);
+  btn.disabled = false;
+});
+
+document.getElementById('pw-toggle').addEventListener('click', e => {
+  const show = passInput.type === 'password';
+  passInput.type = show ? 'text' : 'password';
+  e.currentTarget.textContent = show ? 'Hide' : 'Show';
+  e.currentTarget.setAttribute('aria-pressed', String(show));
+  e.currentTarget.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
 });
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -1592,6 +1658,7 @@ function renderHabits() {
 
   if (!allHabits.length) {
     empty.classList.remove('hidden');
+    renderStarterPacks();
     updateProgress(0, 0);
     return;
   }
@@ -1679,8 +1746,49 @@ function renderHabits() {
     list.appendChild(li);
   });
 
+  if (nudgeFirstHabit && done === 0) {
+    const first = list.querySelector('.habit-check:not(:checked)');
+    if (first) first.classList.add('nudge');
+  }
   updateProgress(done, allHabits.length);
 }
+
+function renderStarterPacks() {
+  const grid = document.getElementById('starter-packs');
+  if (!grid || grid.childElementCount) return;          // render once
+  STARTER_PACKS.forEach(p => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pack-card'; b.dataset.pack = p.id;
+    b.innerHTML = `<span class="pack-emoji" aria-hidden="true">${p.emoji}</span>
+      <span class="pack-title">${escHtml(p.title)}</span>
+      <ul class="pack-list">${p.habits.map(([n]) => `<li>${escHtml(n)}</li>`).join('')}</ul>
+      <span class="pack-add">+ Add all 3</span>`;
+    grid.appendChild(b);
+  });
+}
+
+async function addStarterPack(id, btn) {
+  const pack = STARTER_PACKS.find(p => p.id === id);
+  if (!pack || !currentUser) return;
+  document.querySelectorAll('.pack-card').forEach(b => { b.disabled = true; });   // no double-adds
+  const base = Date.now();
+  try {
+    await Promise.all(pack.habits.map(([name, category], i) => addDoc(collection(db, 'habits'), {
+      userId: currentUser.uid, name, category, frequency: 'daily',
+      completedDates: [], createdAt: new Date().toISOString(), order: base + i
+    })));
+    nudgeFirstHabit = true;
+    toast(`${pack.emoji} ${pack.title} added. Tick your first habit!`, 'success');
+    if (navigator.vibrate) navigator.vibrate(25);
+  } catch (err) {
+    toast('Could not add the pack: ' + err.message, 'error');
+    document.querySelectorAll('.pack-card').forEach(b => { b.disabled = false; });
+  }
+}
+document.getElementById('starter-packs')?.addEventListener('click', e => {
+  const card = e.target.closest('.pack-card');
+  if (card) addStarterPack(card.dataset.pack, card);
+});
 
 function updateProgress(done, total) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -1838,6 +1946,7 @@ if (confirmModal) {
       confirmModal.classList.add('hidden');
 
       if (checkboxEl) checkboxEl.checked = true;
+      nudgeFirstHabit = false;
       playPop();
       if (navigator.vibrate) navigator.vibrate([40, 20, 40]);
 

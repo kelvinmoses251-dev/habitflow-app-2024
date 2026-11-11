@@ -301,8 +301,12 @@
     </button>
     <div class="auth-divider"><span>or</span></div>
     <form id="email-auth-form" class="email-auth-form">
-      <input type="email" id="auth-email" placeholder="Email address" required />
-      <input type="password" id="auth-password" placeholder="Password (min. 6 chars)" minlength="6" required />
+      <input type="email" id="auth-email" placeholder="Email address" required autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" />
+      <div class="pw-wrap">
+        <input type="password" id="auth-password" placeholder="Password (min. 6 chars)" minlength="6" required autocomplete="current-password" />
+        <button type="button" id="pw-toggle" class="pw-toggle" aria-label="Show password" aria-pressed="false">Show</button>
+      </div>
+      <button type="button" id="forgot-btn" class="forgot-link">Forgot password?</button>
       <div class="auth-buttons">
         <button type="button" id="email-signup-btn" class="btn-ghost">Sign Up</button>
         <button type="submit" id="email-signin-btn" class="btn-primary">Sign In</button>
@@ -446,8 +450,10 @@
               <circle cx="36" cy="36" r="34" fill="#EDE9FF"/>
               <path d="M22 36h28M36 22v28" stroke="#A78BFA" stroke-width="3" stroke-linecap="round"/>
             </svg>
-            <p>No habits yet</p>
-            <span>Add your first habit above to get started 🌱</span>
+            <p>Start with a ready-made pack</p>
+            <span>One tap adds 3 habits. Edit or delete any of them later.</span>
+            <div id="starter-packs" class="pack-grid"></div>
+            <span class="empty-or">…or add your own habit above ☝️</span>
           </div>
         </div>
 

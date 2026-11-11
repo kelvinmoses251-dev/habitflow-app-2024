@@ -134,8 +134,10 @@ export const onAuthStateChanged = (_a, cb) => { authListeners.add(cb); setTimeou
 export async function signInWithPopup() { const u = mkUser(); setUser(u); return { user: u, __new: !localStorage.getItem('mock_seen_google') }; }
 export const signInWithRedirect = signInWithPopup;
 export const getRedirectResult = async () => null;
-export async function signInWithEmailAndPassword(_a, email) { const u = mkUser({ email, displayName: email.split('@')[0] }); setUser(u); return { user: u }; }
-export async function createUserWithEmailAndPassword(_a, email) { const u = mkUser({ email, displayName: null }); setUser(u); return { user: u, __new: true }; }
+export async function sendPasswordResetEmail(_a, email) { (W.__mockResets ||= []).push(email); }
+const fail = code => { throw Object.assign(new Error('Firebase: Error (' + code + ').'), { code }); };
+export async function signInWithEmailAndPassword(_a, email) { if (email.startsWith('wrong@')) fail('auth/invalid-credential'); const u = mkUser({ email, displayName: email.split('@')[0] }); setUser(u); return { user: u }; }
+export async function createUserWithEmailAndPassword(_a, email) { if (email.startsWith('taken@')) fail('auth/email-already-in-use'); const u = mkUser({ email, displayName: null }); setUser(u); return { user: u, __new: true }; }
 export async function updateProfile(u, p) { Object.assign(u, p); setUser(u); }
 export async function signOut() { setUser(null); }
 export async function deleteUser() { setUser(null); }

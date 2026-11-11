@@ -903,10 +903,11 @@ async function renderStoryCanvas() {
   ctx.fillText('"Small daily habits compound into massive victories" 🚀', W / 2, 1600);
 
   // Footer Branding Pill
-  drawRoundRect(ctx, W / 2 - 200, 1660, 400, 68, 34, 'rgba(124, 58, 237, 0.3)', 'rgba(168, 85, 247, 0.5)', 2);
-  ctx.font = '800 28px "Plus Jakarta Sans", sans-serif';
+  // Footer pill carries the URL so the story itself brings people back to the app
+  drawRoundRect(ctx, W / 2 - 380, 1660, 760, 68, 34, 'rgba(124, 58, 237, 0.3)', 'rgba(168, 85, 247, 0.5)', 2);
+  ctx.font = '800 30px "Plus Jakarta Sans", sans-serif';
   ctx.fillStyle = '#E9D5FF';
-  ctx.fillText('✨ Habitly Tracker App', W / 2, 1704);
+  ctx.fillText('✨ ' + SHARE_URL.replace('https://', ''), W / 2, 1704);
 }
 
 async function openShareCardModal() {
@@ -942,6 +943,15 @@ if (shareModalEl) {
   });
 }
 
+// The link every shared story points back to (also printed on the card itself)
+const SHARE_URL = 'https://habit-tracker-demo-34c0a.web.app';
+function shareMessage() {
+  const n = calcStreak(allHabits);
+  return n > 0
+    ? `I'm on a ${n}-day streak on Habitly 🔥 Think you can beat it? ${SHARE_URL}`
+    : `I'm building better habits on Habitly 🔥 Join me: ${SHARE_URL}`;
+}
+
 // Download Card as PNG directly from Canvas
 document.getElementById('share-card-download')?.addEventListener('click', () => {
   const canvas = document.getElementById('share-story-canvas');
@@ -969,16 +979,13 @@ document.getElementById('share-card-share')?.addEventListener('click', () => {
     canvas.toBlob(async (blob) => {
       if (blob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'streak.png', { type: 'image/png' })] })) {
         const file = new File([blob], 'habitly-streak-story.png', { type: 'image/png' });
-        await navigator.share({
-          title: 'My Habitly Streak',
-          text: `Check out my daily consistency on Habitly! 🔥`,
-          files: [file]
-        });
+        try {
+          await navigator.share({ title: 'My Habitly Streak', text: shareMessage(), files: [file] });
+        } catch (e) { if (e.name !== 'AbortError') console.warn('Share failed:', e); }
       } else if (navigator.share) {
-        await navigator.share({
-          title: 'My Habitly Streak',
-          text: `Check out my daily consistency on Habitly! 🔥 https://habit-tracker-demo-34c0a.web.app`
-        });
+        try {
+          await navigator.share({ title: 'My Habitly Streak', text: shareMessage(), url: SHARE_URL });
+        } catch (e) { if (e.name !== 'AbortError') console.warn('Share failed:', e); }
       } else {
         const link = document.createElement('a');
         link.download = `habitly-streak-story-${dayKey()}.png`;

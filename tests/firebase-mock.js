@@ -182,5 +182,5 @@ export const ref = () => ({});
 export const uploadString = async () => ({});
 export const getDownloadURL = async () => '';
 export const getMessaging = () => ({});
-export const getToken = async () => null;
+export const getToken = async () => W.__mockFcmToken || null;   // tests set window.__mockFcmToken to act as an opted-in device
 export const onMessage = () => {};

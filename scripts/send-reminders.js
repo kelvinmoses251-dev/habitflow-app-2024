@@ -1,149 +1,83 @@
-const admin = require('firebase-admin');
+// Sends habit reminders. Run hourly by .github/workflows/daily-reminders.yml.
+//
+//   node send-reminders.js          send
+//   node send-reminders.js --dry    show who would be reminded, send nothing
+//
+// Each user is reminded in their OWN morning (from 08:00) and evening (from 20:00), at most once per window,
+// and only if a habit is still open on their local day. The decisions live in reminder-logic.js (tested).
 
-// 1. Parse the Service Account Key from the Environment Variable
+const admin = require('firebase-admin');
+const { localParts, reminderSlot, dueSlot, buildMessage } = require('./reminder-logic');
+
+const DRY = process.argv.includes('--dry');
+
 const serviceAccountKeyJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 if (!serviceAccountKeyJson) {
-  console.error("FATAL ERROR: FIREBASE_SERVICE_ACCOUNT environment variable is not set.");
+  console.error('FATAL ERROR: FIREBASE_SERVICE_ACCOUNT environment variable is not set.');
   process.exit(1);
 }
-
 let serviceAccount;
 try {
   serviceAccount = JSON.parse(serviceAccountKeyJson);
 } catch (err) {
-  console.error("FATAL ERROR: Could not parse FIREBASE_SERVICE_ACCOUNT as JSON.", err);
+  console.error('FATAL ERROR: Could not parse FIREBASE_SERVICE_ACCOUNT as JSON.');
   process.exit(1);
 }
 
-// 2. Initialize Firebase Admin
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 const messaging = admin.messaging();
 
-// Date Helpers
-const todayStr = () => new Date().toISOString().split('T')[0];
-
-function isSameWeek(ds) {
-  const [y, m, d] = ds.split('-');
-  const date = new Date(y, m - 1, d);
-  const now = new Date(); now.setHours(0,0,0,0);
-  const day = now.getDay() || 7;
-  const start = new Date(now); start.setDate(start.getDate() - day + 1);
-  const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23,59,59,999);
-  return date >= start && date <= end;
-}
-
-function isSameMonth(ds) {
-  const [y, m] = ds.split('-');
-  const now = new Date();
-  return +y === now.getFullYear() && +(m) === now.getMonth() + 1;
-}
-
 // Plain, useful reminders. Short, specific and never guilt-tripping.
 const REMINDER_MESSAGES = [
-  "You still have habits to complete today.",
+  'You still have habits to complete today.',
   "A quick check-in: some of today's habits are still open.",
   "Keep your streak going. Complete today's habits.",
   "Today's habits only take a few minutes. Open Habitly to finish them.",
-  "Your habits for today are waiting."
+  'Your habits for today are waiting.',
 ];
 
+// Tokens that will never work again: the browser unsubscribed or the app data was cleared.
+const DEAD_TOKEN = new Set(['messaging/registration-token-not-registered', 'messaging/invalid-registration-token', 'messaging/invalid-argument']);
+
 async function runReminders() {
-  console.log('Starting daily habit reminder script...');
-  try {
-    // 3. Fetch all users
-    const usersSnap = await db.collection('users').get();
-    
-    if (usersSnap.empty) {
-      console.log('No users found in database.');
-      return;
-    }
+  const now = new Date();
+  // Only users who switched reminders on have a token.
+  const usersSnap = await db.collection('users').where('fcmToken', '>', '').get();
+  console.log(`${usersSnap.size} user(s) with reminders on.`);
 
-    const messages = [];
-    const t = todayStr();
-
-    // 4. Fetch all habits to check completion status
-    const habitsSnap = await db.collection('habits').get();
-    const allHabits = habitsSnap.docs.map(d => d.data()).filter(h => !h.deletedAt);
-
-    // 5. Loop through users and build notifications
-    usersSnap.forEach(userDoc => {
-      const fcmToken = userDoc.get('fcmToken');
-      const uid = userDoc.id;
-      
-      // Skip if the user hasn't opted into notifications
-      if (!fcmToken) return;
-
-      // Find user's habits
-      const userHabits = allHabits.filter(h => h.userId === uid);
-      
-      let hasIncompleteHabit = false;
-      
-      for (const h of userHabits) {
-        let isDone = false;
-        const freq = h.frequency || 'daily';
-        
-        if (freq === 'weekly') {
-          isDone = (h.completedDates || []).some(isSameWeek);
-        } else if (freq === 'monthly') {
-          isDone = (h.completedDates || []).some(isSameMonth);
-        } else {
-          isDone = (h.completedDates || []).includes(t);
-        }
-
-        if (!isDone) {
-          hasIncompleteHabit = true;
-          break;
-        }
-      }
-
-      // Only send a notification if they have an uncompleted habit
-      if (hasIncompleteHabit) {
-        const randomMessage = REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)];
-        
-        const payload = {
-          token: fcmToken,
-          notification: {
-            title: 'Habitly',
-            body: randomMessage,
-          },
-          data: {
-            click_action: 'FLUTTER_NOTIFICATION_CLICK' 
-          }
-        };
-
-        messages.push(payload);
-      }
-    });
-
-    if (messages.length === 0) {
-      console.log('No users have push notifications enabled with incomplete habits.');
-      return;
-    }
-
-    console.log(`Sending ${messages.length} notifications...`);
-    
-    // 6. Send all notifications in a batch
-    const response = await messaging.sendEach(messages);
-    
-    console.log(`Successfully sent ${response.successCount} messages.`);
-    if (response.failureCount > 0) {
-      console.error(`Failed to send ${response.failureCount} messages.`);
-      response.responses.forEach((resp, idx) => {
-        if (!resp.success) {
-          console.error(`Error for token ${messages[idx].token}:`, resp.error);
-        }
-      });
-    }
-
-  } catch (err) {
-    console.error("Error during reminder script:", err);
-    process.exit(1);
+  const due = [];
+  for (const userDoc of usersSnap.docs) {
+    const user = userDoc.data();
+    // Cheap check first, so habits are only read for users who are inside a reminder window right now
+    if (!reminderSlot(localParts(now, user.tz).hour)) continue;
+    const habitsSnap = await db.collection('habits').where('userId', '==', userDoc.id).get();
+    const slot = dueSlot(user, habitsSnap.docs.map(d => d.data()), now);
+    if (slot) due.push({ ref: userDoc.ref, token: user.fcmToken, slot });
   }
+
+  if (!due.length) { console.log('Nobody is due a reminder this hour.'); return; }
+  console.log(`${due.length} reminder(s) due.`);
+  if (DRY) { due.forEach(d => console.log(`  would remind ${d.ref.id} for ${d.slot}`)); return; }
+
+  const messages = due.map(d => buildMessage(d.token, REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)]));
+  let sent = 0, failed = 0, removed = 0;
+  for (let i = 0; i < messages.length; i += 500) {                       // sendEach accepts at most 500
+    const res = await messaging.sendEach(messages.slice(i, i + 500));
+    await Promise.all(res.responses.map((r, j) => {
+      const d = due[i + j];
+      if (r.success) { sent++; return d.ref.set({ lastReminder: d.slot }, { merge: true }); }
+      failed++;
+      const code = r.error && r.error.code;
+      console.error(`  failed for ${d.ref.id}: ${code}`);                 // never log the token itself
+      if (DEAD_TOKEN.has(code)) { removed++; return d.ref.update({ fcmToken: admin.firestore.FieldValue.delete() }); }
+      return null;
+    }));
+  }
+  console.log(`Sent ${sent}, failed ${failed}, dead tokens removed ${removed}.`);
 }
 
-// Run the script
-runReminders();
+runReminders().catch(err => {
+  console.error('Error during reminder script:', err);
+  process.exit(1);
+});

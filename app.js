@@ -350,6 +350,8 @@ function resetUserState() {
   userShieldUsedAt = 0;
   userAllDoneBonusDate = null;
   userDocLoaded = false;
+  profilePushToken = null;
+  devicePushToken = null;
   profileHasXP = true;
   habitsLoaded = false;
   previousMaxStreak = null;
@@ -1119,6 +1121,9 @@ document.getElementById('pw-toggle').addEventListener('click', e => {
 });
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
+  // A signed-out device must not keep getting this person's reminders. Wait briefly (the write needs the
+  // signed-in session), but never let a slow or offline network block signing out.
+  await Promise.race([removePushToken().catch(() => {}), new Promise(r => setTimeout(r, 1500))]);
   if (unsubHabits) { unsubHabits(); unsubHabits = null; }
   allHabits = []; routerReady = false; resetUserState();
   await signOut(auth);
@@ -1251,6 +1256,7 @@ function updateAvatars(user) {
 
   userProfileUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
     let photoURL = user.photoURL;
+    profilePushToken = (docSnap.exists() && docSnap.data().fcmToken) || null;
     if (docSnap.exists()) {
       const uData = docSnap.data();
       if (uData.avatar) photoURL = uData.avatar;
@@ -2430,8 +2436,13 @@ function renderProfile() {
 
 // Settings events
 document.getElementById('notif-toggle').addEventListener('change', async e => {
+  setRemindersWanted(e.target.checked);
   if (e.target.checked) await requestNotificationPermission();
-  else toast('Daily reminders turned off', 'info');
+  else {
+    // Really switch them off: without this the saved token kept receiving reminders
+    backgroundWrite(removePushToken(), 'turn off reminders');
+    toast('Daily reminders turned off', 'info');
+  }
 });
 
 const darkModeToggle = document.getElementById('dark-mode-toggle');
@@ -2744,8 +2755,25 @@ const VAPID_KEY = "BE5rwPAdz5SJaPh4ML2Mqb8L-Ecdqj6lBjxpmMEt8T8VCkhvx3IjJuJ2GV5pa
 // habit (maybeAskForReminders) or via the Settings toggle.
 async function initNotifications() {
   if (!messaging || typeof Notification === 'undefined') return;
-  if (Notification.permission === 'granted') await requestNotificationPermission();
+  if (Notification.permission === 'granted' && remindersWanted()) await requestNotificationPermission();
   else { const t = document.getElementById('notif-toggle'); if (t) t.checked = false; }
+}
+
+// The switch in Settings is remembered per device. (Browser permission alone used to decide, so reminders
+// that had been switched off came straight back on the next visit.)
+const REMINDERS_KEY = 'habitly_reminders';
+function remindersWanted() { try { return localStorage.getItem(REMINDERS_KEY) !== 'off'; } catch (_) { return true; } }
+function setRemindersWanted(on) { try { localStorage.setItem(REMINDERS_KEY, on ? 'on' : 'off'); } catch (_) {} }
+
+let devicePushToken = null;    // this browser's push token, once registered in this session
+let profilePushToken = null;   // the token saved on the profile (may belong to another device)
+const userTimeZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (_) { return null; } };
+
+// Stop reminders to this device. Only removes the saved token if it is this device's own.
+function removePushToken() {
+  if (!currentUser || !devicePushToken || profilePushToken !== devicePushToken) return Promise.resolve();
+  devicePushToken = null;
+  return updateDoc(doc(db, 'users', currentUser.uid), { fcmToken: deleteField() });
 }
 
 const NOTIF_ASKED_KEY = 'habitly_notif_asked';
@@ -2763,6 +2791,7 @@ function closeReminderAsk() {
 document.getElementById('notif-ask-no')?.addEventListener('click', () => { track('reminder_ask_dismissed'); closeReminderAsk(); });
 document.getElementById('notif-ask-yes')?.addEventListener('click', async () => {
   track('reminder_ask_accepted');
+  setRemindersWanted(true);
   closeReminderAsk();
   await requestNotificationPermission();
 });
@@ -2778,19 +2807,23 @@ async function requestNotificationPermission() {
     }
     document.getElementById('notif-toggle').checked = true;
     const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-    if (!token) return;
-    await setDoc(doc(db, 'users', currentUser.uid),
-      { fcmToken: token, email: currentUser.email },
+    if (!token || !currentUser) return;
+    devicePushToken = token;
+    // tz lets the reminder job work in the user's own day and send at their morning / evening
+    backgroundWrite(setDoc(doc(db, 'users', currentUser.uid),
+      { fcmToken: token, email: currentUser.email, tz: userTimeZone() },
       { merge: true }
-    );
+    ), 'turn on reminders', true);
   } catch (err) {
     console.warn('Notification setup:', err.message);
   }
 }
 
 if (messaging) {
-  onMessage(messaging, ({ notification }) => {
-    if (notification?.title) toast(`${notification.title}: ${notification.body}`, 'info', 6000);
+  // App is open: show the reminder as a toast. Reminders are data-only (see scripts/reminder-logic.js).
+  onMessage(messaging, ({ notification, data }) => {
+    const body = (data && data.body) || notification?.body;
+    if (body) toast(body, 'info', 6000);
   });
 }
 
@@ -2817,6 +2850,7 @@ async function syncUserStats() {
       email: currentUser.email,
       totalStreak: totalStreak,
       totalBadges: badgesCount,
+      tz: userTimeZone(),
       lastActive: new Date().toISOString()
     }, { merge: true });
   } catch (err) {

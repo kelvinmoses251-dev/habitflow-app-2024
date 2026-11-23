@@ -2,9 +2,9 @@ name: Daily Habit Reminders
 
 on:
   schedule:
-    # Runs at 08:00 and 21:00 (9 PM) UTC every day.
-    # Note: GitHub Actions cron scheduling is in UTC.
-    - cron: '0 8,21 * * *'
+    # Runs every hour (GitHub cron is UTC). The script itself decides who is due: each user is reminded
+    # in their own morning and evening, so the job has to look in on every timezone.
+    - cron: '7 * * * *'
   # Allows you to trigger this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -23,7 +23,11 @@ jobs:
 
       - name: Install Dependencies
         working-directory: ./scripts
-        run: npm install
+        run: npm ci
+
+      - name: Test Reminder Logic
+        working-directory: ./scripts
+        run: node --test reminder-logic.test.js
 
       - name: Run Reminder Script
         working-directory: ./scripts

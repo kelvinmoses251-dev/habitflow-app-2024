@@ -25,14 +25,17 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+// Reminders are sent data-only (scripts/reminder-logic.js) and shown here, once. A message that carries a
+// `notification` block has already been displayed by the Firebase SDK, so showing it again made two.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || 'Habitly';
-  self.registration.showNotification(title, {
-    body: payload.notification?.body || 'You still have habits to complete today.',
+  if (payload.notification) return;
+  const data = payload.data || {};
+  return self.registration.showNotification(data.title || 'Habitly', {
+    body: data.body || 'You still have habits to complete today.',
     icon: '/icon-192.png',          // was '/icons/icon-192.png', which does not exist
     badge: '/icon-192.png',
     tag: 'habitly-reminder',        // one reminder at a time, not a pile
-    data: { url: '/' }
+    data: { url: data.url || '/' }
   });
 });
 

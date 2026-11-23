@@ -1,0 +1,50 @@
+name: Tests
+
+# Runs the whole suite on every push and pull request, so a broken change is caught before it is deployed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch makes the older run pointless
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # The browser tests need Node 22+ (built-in WebSocket and fetch). They have no npm dependencies.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Newer Ubuntu runners stop Chrome from starting its sandbox unless this restriction is lifted
+      - name: Allow Chrome to start its sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+
+      - name: Logic tests (reminders, notifications)
+        run: node --test scripts/reminder-logic.test.js tests/sw-push.test.js
+
+      # Drives the real app in headless Chrome (already installed on the runner) against an in-memory Firebase
+      - name: Browser tests
+        run: node tests/smoke.js --shots test-screenshots
+
+      - name: Keep screenshots when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-screenshots
+          path: test-screenshots
+          retention-days: 7

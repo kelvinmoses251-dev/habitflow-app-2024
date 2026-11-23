@@ -154,11 +154,13 @@ export const initializeApp = () => ({});
 export const getAuth = () => auth;
 export class GoogleAuthProvider {}
 export const onAuthStateChanged = (_a, cb) => { authListeners.add(cb); setTimeout(() => cb(live(auth.currentUser)), 0); return () => authListeners.delete(cb); };
-export async function signInWithPopup() { const u = mkUser(); setUser(u); return { user: u, __new: !localStorage.getItem('mock_seen_google') }; }
-export const signInWithRedirect = signInWithPopup;
+const fail = code => { throw Object.assign(new Error('Firebase: Error (' + code + ').'), { code }); };
+// window.__mockPopupError = an auth error code makes the popup fail that way (closed, blocked...).
+const googleSignIn = () => { const u = mkUser(); setUser(u); return { user: u, __new: !localStorage.getItem('mock_seen_google') }; };
+export async function signInWithPopup() { if (W.__mockPopupError) fail(W.__mockPopupError); return googleSignIn(); }
+export async function signInWithRedirect() { W.__mockRedirects = (W.__mockRedirects || 0) + 1; return googleSignIn(); }
 export const getRedirectResult = async () => null;
 export async function sendPasswordResetEmail(_a, email) { (W.__mockResets ||= []).push(email); }
-const fail = code => { throw Object.assign(new Error('Firebase: Error (' + code + ').'), { code }); };
 export async function signInWithEmailAndPassword(_a, email) { if (email.startsWith('wrong@')) fail('auth/invalid-credential'); const u = mkUser({ email, displayName: email.split('@')[0] }); setUser(u); return { user: u }; }
 export async function createUserWithEmailAndPassword(_a, email) { if (email.startsWith('taken@')) fail('auth/email-already-in-use'); const u = mkUser({ email, displayName: null }); setUser(u); return { user: u, __new: true }; }
 export async function updateProfile(u, p) { Object.assign(u, p); setUser(u); }

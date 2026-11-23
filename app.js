@@ -357,46 +357,45 @@ function resetUserState() {
   previousMaxStreak = null;
 }
 
+// A streak is counted in the habit's own period: days for daily habits, weeks for weekly, months for monthly.
+// (Weekly and monthly habits used to be counted in days, so four weeks in a row showed as a 1-day streak.)
+const habitFreq = h => (h.frequency === 'weekly' || h.frequency === 'monthly') ? h.frequency : 'daily';
+function periodIndex(dayStr, freq) {
+  const [y, m, d] = dayStr.split('-').map(Number);
+  if (freq === 'monthly') return y * 12 + (m - 1);
+  const n = Math.round(Date.UTC(y, m - 1, d) / 86400000);     // calendar day number (1970-01-01 was a Thursday)
+  return freq === 'weekly' ? Math.floor((n + 3) / 7) : n;     // weeks run Monday to Sunday, as in isSameWeek
+}
+function streakPeriods(habit) {
+  const freq = habitFreq(habit);
+  const set = new Set((habit.completedDates || []).map(ds => periodIndex(ds, freq)));
+  if (freq === 'daily') (userFrozenDates || []).forEach(ds => set.add(periodIndex(ds, freq)));   // shields cover days
+  return { freq, set };
+}
+const streakUnit = (habit, n) => ({ daily: 'day', weekly: 'week', monthly: 'month' })[habitFreq(habit)] + (n === 1 ? '' : 's');
+const streakShort = (habit, n) => ({ daily: String(n), weekly: n + ' wk', monthly: n + ' mo' })[habitFreq(habit)];
+
+// The headline streak on Home, the share card and the tiers are in DAYS, so only daily habits count towards it.
 function calcStreak(habits) {
-  // Global max streak across all individual habits
-  if (!habits || !habits.length) return 0;
-  return Math.max(...habits.map(calcHabitStreak));
+  const daily = (habits || []).filter(h => habitFreq(h) === 'daily');
+  if (!daily.length) return 0;
+  return Math.max(...daily.map(calcHabitStreak));
 }
 
 function calcHabitStreak(habit) {
-  const dates = new Set(habit.completedDates || []);
-  const frozen = new Set(userFrozenDates || []);
+  const { freq, set } = streakPeriods(habit);
+  let p = periodIndex(todayStr(), freq);
+  if (!set.has(p)) p--;                    // the current period is still open: the streak is alive until it ends
   let streak = 0;
-  const d = new Date();
-  
-  if (!dates.has(todayStr()) && !frozen.has(todayStr())) d.setDate(d.getDate() - 1);
-  while (true) {
-    const ds = dayKey(d);
-    if (dates.has(ds) || frozen.has(ds)) { 
-      streak++; 
-      d.setDate(d.getDate() - 1); 
-    } else {
-      break;
-    }
-  }
+  while (set.has(p)) { streak++; p--; }
   return streak;
 }
 
 function calcLongestStreak(habit) {
-  const dates = habit.completedDates || [];
-  if (!dates.length) return 0;
-  const sortedDates = [...dates].sort();
-  let longest = 1;
-  let tempStreak = 1;
-  for (let i = 1; i < sortedDates.length; i++) {
-    const diff = new Date(sortedDates[i]) - new Date(sortedDates[i-1]);
-    if (diff <= 86400000 * 1.5) {
-      tempStreak++;
-      if (tempStreak > longest) longest = tempStreak;
-    } else {
-      tempStreak = 1;
-    }
-  }
+  const { freq } = streakPeriods(habit);
+  const periods = [...new Set((habit.completedDates || []).map(ds => periodIndex(ds, freq)))].sort((a, b) => a - b);
+  let longest = 0, run = 0;
+  periods.forEach((p, i) => { run = i > 0 && p === periods[i - 1] + 1 ? run + 1 : 1; if (run > longest) longest = run; });
   return Math.max(calcHabitStreak(habit), longest);
 }
 
@@ -1025,8 +1024,11 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     const details = getAdditionalUserInfo(cred);
     track(details && details.isNewUser ? 'sign_up' : 'login', { method: 'google' });
       } catch (e) {
-    // If popup is blocked by mobile browser or webview, fall back to redirect
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+    // The person closed the Google window (or opened a second one): that is a cancel, not an error.
+    // It used to force a full-page redirect to Google.
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    // If the popup is blocked by a mobile browser or webview, fall back to redirect
+    if (e.code === 'auth/popup-blocked') {
       try {
         await signInWithRedirect(auth, provider);
       } catch (redirectErr) {
@@ -1578,7 +1580,7 @@ function renderHabits() {
           <div class="badges-row">
             <span class="cat-badge"><span class="cat-ico" style="color:${cat.color}">${cat.emoji}</span>${cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
-            ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + habitStreak + '</span>' : ''}
+            ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
             ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
           </div>
         </div>
@@ -2287,7 +2289,7 @@ function buildInsights(habits, today = new Date()) {
 
   // 3) Longest streak
   let bestStreak = 0, bestName = '';
-  habits.forEach(h => { const s = calcLongestStreak(h); if (s > bestStreak) { bestStreak = s; bestName = h.name; } });
+  habits.filter(h => habitFreq(h) === 'daily').forEach(h => { const s = calcLongestStreak(h); if (s > bestStreak) { bestStreak = s; bestName = h.name; } });
   if (bestStreak >= 3) out.push({ ic: 'flame', html: `Longest streak: <strong>${bestStreak} days</strong> on \u201C${escHtml(bestName)}\u201D.` });
 
   // 4) Most consistent habit (last 30 days, daily habits only)
@@ -2593,8 +2595,8 @@ async function executeDataExport() {
         h.name || 'Untitled',
         cat.label || h.category,
         freq,
-        `${streak} days`,
-        `${longest} days`,
+        `${streak} ${streakUnit(h, streak)}`,
+        `${longest} ${streakUnit(h, longest)}`,
         completions
       ];
     });
@@ -2872,25 +2874,10 @@ function openDetailsModal(habit) {
   document.getElementById('details-habit-name').textContent = habit.name;
   
   const streak = calcHabitStreak(habit);
-  let longest = 0;
-  let current = 0;
-  if (habit.completedDates && habit.completedDates.length > 0) {
-    const sortedDates = [...habit.completedDates].sort();
-    let tempStreak = 1;
-    longest = 1;
-    for (let i = 1; i < sortedDates.length; i++) {
-      const diff = new Date(sortedDates[i]) - new Date(sortedDates[i-1]);
-      if (diff <= 86400000 * 1.5) { // consecutive roughly
-        tempStreak++;
-        if (tempStreak > longest) longest = tempStreak;
-      } else {
-        tempStreak = 1;
-      }
-    }
-  }
-  
-  document.getElementById('details-current-streak').textContent = streak;
-  document.getElementById('details-longest-streak').textContent = Math.max(streak, longest);
+  const longest = calcLongestStreak(habit);
+
+  document.getElementById('details-current-streak').textContent = habitFreq(habit) === 'daily' ? streak : streakShort(habit, streak);
+  document.getElementById('details-longest-streak').textContent = habitFreq(habit) === 'daily' ? longest : streakShort(habit, longest);
   document.getElementById('details-total-days').textContent = habit.completedDates ? habit.completedDates.length : 0;
   
   document.getElementById('details-journal-input').value = '';
@@ -3001,33 +2988,55 @@ function updateTimerDisplay() {
   document.getElementById('timer-display').textContent = `${m}:${s}`;
 }
 
-document.getElementById('timer-start')?.addEventListener('click', () => {
-  if (timerInterval) return;
-  document.getElementById('timer-start').classList.add('hidden');
-  document.getElementById('timer-pause').classList.remove('hidden');
-  
-  timerInterval = setInterval(() => {
-    timeLeft--;
-    updateTimerDisplay();
-    if (timeLeft <= 0) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-      playChime();
-      toggleHabit(activeTimerHabit.id, false, todayStr()); // Check it off
-      addXP(50);
-      toast('Focus session complete. +50 XP', 'success');
-      document.getElementById('timer-modal').classList.add('hidden');
-      document.getElementById('timer-start').classList.remove('hidden');
-      document.getElementById('timer-pause').classList.add('hidden');
-    }
-  }, 1000);
-});
+// Has this habit already been completed for its current period (today / this week / this month)?
+function isHabitDoneNow(h) {
+  const dates = h.completedDates || [];
+  if (h.frequency === 'weekly') return dates.some(isSameWeek);
+  if (h.frequency === 'monthly') return dates.some(isSameMonth);
+  return dates.includes(todayStr());
+}
 
-document.getElementById('timer-pause')?.addEventListener('click', () => {
+// The countdown is measured against the clock. Counting ticks drifts, because browsers slow timers down
+// in background tabs, which is exactly where a focus timer spends its time.
+let timerEndsAt = 0;
+function stopTimerTicking() {
   clearInterval(timerInterval);
   timerInterval = null;
   document.getElementById('timer-start').classList.remove('hidden');
   document.getElementById('timer-pause').classList.add('hidden');
+}
+
+function finishFocusSession() {
+  stopTimerTicking();
+  document.getElementById('timer-modal').classList.add('hidden');
+  playChime();
+  const h = activeTimerHabit && allHabits.find(x => x.id === activeTimerHabit.id);
+  // A session completes the habit like a normal tick, for the normal XP, once. It used to add 50 XP every
+  // time, even on a habit that was already done, so short sessions could be repeated for unlimited XP.
+  if (!h || isHabitDoneNow(h)) { toast('Focus session complete.', 'success'); return; }
+  const row = document.querySelector(`.habit-item[data-id="${CSS.escape(h.id)}"] .habit-check`);
+  completeHabit(h.id, todayStr(), row);
+}
+
+function tickTimer() {
+  timeLeft = Math.max(0, Math.ceil((timerEndsAt - Date.now()) / 1000));
+  updateTimerDisplay();
+  if (timeLeft <= 0) finishFocusSession();
+}
+
+document.getElementById('timer-start')?.addEventListener('click', () => {
+  if (timerInterval) return;
+  document.getElementById('timer-start').classList.add('hidden');
+  document.getElementById('timer-pause').classList.remove('hidden');
+  timerEndsAt = Date.now() + timeLeft * 1000;
+  timerInterval = setInterval(tickTimer, 1000);
+});
+document.addEventListener('visibilitychange', () => { if (timerInterval && !document.hidden) tickTimer(); });   // catch up at once on return
+
+document.getElementById('timer-pause')?.addEventListener('click', () => {
+  if (timerInterval) timeLeft = Math.max(1, Math.ceil((timerEndsAt - Date.now()) / 1000));
+  stopTimerTicking();
+  updateTimerDisplay();
 });
 
 document.getElementById('timer-close')?.addEventListener('click', () => {

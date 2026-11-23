@@ -26,6 +26,7 @@ const col = name => (db[name] ||= {});
 // ── Sentinels ───────────────────────────────────────────
 export const arrayUnion = (...v) => ({ __op: 'union', v });
 export const arrayRemove = (...v) => ({ __op: 'remove', v });
+export const increment = n => ({ __op: 'inc', n });
 export const deleteField = () => ({ __op: 'del' });
 
 function applyOp(container, key, val) {
@@ -36,6 +37,8 @@ function applyOp(container, key, val) {
   } else if (val && val.__op === 'remove') {
     const cur = Array.isArray(container[key]) ? container[key] : [];
     container[key] = cur.filter(y => !val.v.some(x => JSON.stringify(x) === JSON.stringify(y)));
+  } else if (val && val.__op === 'inc') {
+    container[key] = (typeof container[key] === 'number' ? container[key] : 0) + val.n;
   } else if (val && val.__op === 'del') {
     delete container[key];
   } else {
@@ -91,11 +94,15 @@ function notify(name) {
   }), 0);
 }
 
-export function onSnapshot(ref, cb) {
+// window.__mockProfileDelay (ms) makes users/{uid} arrive after the habits, as it can on a real network.
+export function onSnapshot(ref, ...rest) {
+  const cb = typeof rest[0] === 'function' ? rest[0] : rest[1];   // (ref, cb) or (ref, options, cb)
   const l = { ref, cb };
-  dbListeners.add(l);
-  setTimeout(() => { if (dbListeners.has(l)) cb(snapFor(ref)); }, 0);
-  return () => dbListeners.delete(l);
+  const delay = ref.kind === 'doc' && ref.name === 'users' ? (W.__mockProfileDelay || 0) : 0;
+  let stopped = false;
+  if (!delay) dbListeners.add(l);
+  setTimeout(() => { if (!stopped) { dbListeners.add(l); cb(snapFor(ref)); } }, delay);
+  return () => { stopped = true; dbListeners.delete(l); };
 }
 export async function addDoc(c, data) {
   const id = 'mock' + (idSeq.n++);
@@ -131,6 +138,9 @@ const auth = (W.__mockAuth ||= (() => {
   try { u = JSON.parse(localStorage.getItem(LS_USER) || 'null'); } catch (_) {}
   return { currentUser: u };
 })());
+// User objects round-trip through JSON, so methods are attached whenever one is handed to the app.
+const live = u => u && Object.defineProperty(u, 'getIdTokenResult', { configurable: true, enumerable: false,
+  value: async () => ({ authTime: new Date(Date.now() - (W.__mockAuthAgeMs || 0)).toUTCString() }) });
 const mkUser = (over = {}) => ({
   uid: 'u-test', displayName: 'Test User', email: 'test@example.com', photoURL: null,
   metadata: { creationTime: new Date().toISOString() }, ...over,
@@ -138,12 +148,12 @@ const mkUser = (over = {}) => ({
 function setUser(u) {
   auth.currentUser = u;
   try { u ? localStorage.setItem(LS_USER, JSON.stringify(u)) : localStorage.removeItem(LS_USER); } catch (_) {}
-  setTimeout(() => authListeners.forEach(cb => cb(u)), 0);
+  setTimeout(() => authListeners.forEach(cb => cb(live(u))), 0);
 }
 export const initializeApp = () => ({});
 export const getAuth = () => auth;
 export class GoogleAuthProvider {}
-export const onAuthStateChanged = (_a, cb) => { authListeners.add(cb); setTimeout(() => cb(auth.currentUser), 0); return () => authListeners.delete(cb); };
+export const onAuthStateChanged = (_a, cb) => { authListeners.add(cb); setTimeout(() => cb(live(auth.currentUser)), 0); return () => authListeners.delete(cb); };
 export async function signInWithPopup() { const u = mkUser(); setUser(u); return { user: u, __new: !localStorage.getItem('mock_seen_google') }; }
 export const signInWithRedirect = signInWithPopup;
 export const getRedirectResult = async () => null;
@@ -153,7 +163,12 @@ export async function signInWithEmailAndPassword(_a, email) { if (email.startsWi
 export async function createUserWithEmailAndPassword(_a, email) { if (email.startsWith('taken@')) fail('auth/email-already-in-use'); const u = mkUser({ email, displayName: null }); setUser(u); return { user: u, __new: true }; }
 export async function updateProfile(u, p) { Object.assign(u, p); setUser(u); }
 export async function signOut() { setUser(null); }
-export async function deleteUser() { setUser(null); }
+// Like real Firebase, deleting an account needs a sign-in from the last 5 minutes (window.__mockAuthAgeMs = age).
+export async function deleteUser() {
+  if ((W.__mockAuthAgeMs || 0) > 5 * 60000) fail('auth/requires-recent-login');
+  if (W.__mockDeleteUserFails) fail('auth/network-request-failed');
+  setUser(null);
+}
 export const getAdditionalUserInfo = cred => ({ isNewUser: !!(cred && cred.__new) });
 
 // ── Analytics: record events so tests can assert on them ──

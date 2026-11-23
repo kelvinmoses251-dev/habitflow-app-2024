@@ -9,7 +9,7 @@ import {
   getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, addDoc, query, where,
   onSnapshot, deleteDoc, doc, setDoc, updateDoc, getDoc,
-  arrayUnion, arrayRemove, getDocs, orderBy, limit, deleteField
+  arrayUnion, arrayRemove, getDocs, orderBy, limit, deleteField, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getMessaging, getToken, onMessage
@@ -335,6 +335,9 @@ let userFrozenDates = [];
 let userShieldUsedAt = 0;          // ms timestamp the last shield was consumed (drives the weekly recharge)
 let userAllDoneBonusDate = null;   // local day the +100 Daily Master bonus was last awarded (once per day)
 let userDocLoaded = false;         // true once users/{uid} has been read, so we never act on default values
+let profileHasXP = true;           // false only when the SERVER says this account has no saved XP yet
+let habitsLoaded = false;          // true once the first habits snapshot for this account has arrived
+let deletingAccount = false;       // account deletion in progress: nothing may write to the profile
 const SHIELD_RECHARGE_MS = 7 * 24 * 60 * 60 * 1000;
 const XP_PER_HABIT = 25;
 const XP_DAILY_BONUS = 100;
@@ -347,6 +350,8 @@ function resetUserState() {
   userShieldUsedAt = 0;
   userAllDoneBonusDate = null;
   userDocLoaded = false;
+  profileHasXP = true;
+  habitsLoaded = false;
   previousMaxStreak = null;
 }
 
@@ -535,11 +540,14 @@ async function addXP(amount, targetEl = null) {
 
   updateXPUI();
 
-  // Save to Firestore (not awaited: see backgroundWrite)
-  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { xp: currentUserXP }, { merge: true }), 'save your XP', true);
+  // Save to Firestore (not awaited: see backgroundWrite). The server ADDS the amount to whatever is saved:
+  // writing our own total would wipe XP whenever this device's copy is stale (profile not loaded yet,
+  // or XP earned on another device).
+  profileHasXP = true;
+  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { xp: increment(amount) }, { merge: true }), 'save your XP', true);
 
-  // Check Level-Up
-  if (amount > 0 && newInfo.level > prevInfo.level) {
+  // Check Level-Up (not before the saved total is known, or level 1 -> 2 would be announced to a level 6 user)
+  if (userDocLoaded && amount > 0 && newInfo.level > prevInfo.level) {
     setTimeout(() => {
       showLevelUpModal(newInfo);
     }, 600);
@@ -1247,7 +1255,7 @@ function updateAvatars(user) {
       const uData = docSnap.data();
       if (uData.avatar) photoURL = uData.avatar;
       if (typeof uData.xp === 'number') {
-        currentUserXP = uData.xp;
+        currentUserXP = Math.max(0, uData.xp);
         updateXPUI();
       }
       if (typeof uData.streakShields === 'number') {
@@ -1260,10 +1268,15 @@ function updateAvatars(user) {
       if (typeof uData.allDoneBonusDate === 'string') userAllDoneBonusDate = uData.allDoneBonusDate;
       updateStreakShieldUI();
     }
+    // Only a server answer can tell us the account has no XP: a cache miss looks the same as "no profile".
+    if (!docSnap.metadata.fromCache && !docSnap.metadata.hasPendingWrites) {
+      profileHasXP = docSnap.exists() && typeof docSnap.data().xp === 'number';
+    }
     if (!userDocLoaded) {
       userDocLoaded = true;
       if (allHabits.length) { checkAndApplyStreakShield(); renderHabits(); updateStreak(); }
     }
+    seedXPFromHistory();
     
     if (photoURL) {
       [navAva, profAva].forEach(el => { el.src = photoURL; el.classList.remove('hidden'); });
@@ -1414,6 +1427,19 @@ async function toggleHabit(id, currentlyDone, dateToRemove) {
 
 let deletedHabits = []; // Stores soft-deleted habits
 
+// Accounts from before XP existed get credit for their history, once. This runs only after the server has
+// confirmed that the profile has no XP. (It used to run whenever the local value was 0, which is also what
+// it is before the profile has loaded, so a slow profile read replaced the saved total with a guess.)
+function seedXPFromHistory() {
+  if (!currentUser || deletingAccount || !userDocLoaded || !habitsLoaded || profileHasXP) return;
+  profileHasXP = true;
+  const historicalXP = allHabits.reduce((acc, h) => acc + ((h.completedDates || []).length * XP_PER_HABIT), 0);
+  if (historicalXP <= 0) return;
+  currentUserXP = historicalXP;
+  updateXPUI();
+  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { xp: historicalXP }, { merge: true }), 'save your XP', true);
+}
+
 let landingDemoChecked = false;
 
 function subscribeToHabits() {
@@ -1450,14 +1476,8 @@ function subscribeToHabits() {
     if (userDocLoaded) updateStreak();   // before that, shield data is still defaults
     syncUserStats();
 
-    // Auto-seed XP if new user or legacy habits exist
-    if (currentUserXP === 0 && allHabits.length > 0) {
-      const historicalXP = allHabits.reduce((acc, h) => acc + ((h.completedDates || []).length * 25), 0);
-      if (historicalXP > 0) {
-        currentUserXP = historicalXP;
-        setDoc(doc(db, 'users', currentUser.uid), { xp: currentUserXP }, { merge: true }).catch(console.warn);
-      }
-    }
+    habitsLoaded = true;
+    seedXPFromHistory();
     updateXPUI();
     checkAndApplyStreakShield();
     updateStreakShieldUI();
@@ -2666,26 +2686,51 @@ const delAccBtn = document.getElementById('delete-account-btn');
 if (delAccBtn) {
   delAccBtn.addEventListener('click', async () => {
     if (!confirm('Are you sure you want to completely delete your account and all your habits? This cannot be undone.')) return;
+    const user = currentUser;
+    delAccBtn.disabled = true;
+    let erasing = false;
     try {
-      delAccBtn.disabled = true;
-      // Delete all habits
-      const batch = [];
-      allHabits.forEach(h => batch.push(deleteDoc(doc(db, 'habits', h.id))));
-      await Promise.all(batch);
-      
-      // Delete user doc
-      await deleteDoc(doc(db, 'users', currentUser.uid));
-      
-      // Delete Auth user
-      await deleteUser(currentUser);
-      
+      // 1) Check everything that could stop us BEFORE erasing anything. Firebase only deletes a login that
+      //    signed in within the last few minutes, and deletes must reach the server, so being offline or
+      //    having an old sign-in used to leave people with their data gone and their account still there.
+      if (!navigator.onLine) {
+        toast('You are offline. Connect to the internet to delete your account.', 'error', 6000);
+        return;
+      }
+      const { authTime } = await user.getIdTokenResult(true);
+      if (Date.now() - new Date(authTime).getTime() > 4 * 60000) {
+        toast('For security, please sign out and sign back in, then delete your account straight away.', 'error', 8000);
+        return;
+      }
+
+      // 2) Stop everything that writes to this account, so the profile is not re-created behind us.
+      erasing = true;
+      deletingAccount = true;
+      if (unsubHabits) { unsubHabits(); unsubHabits = null; }
+      if (userProfileUnsubscribe) { userProfileUnsubscribe(); userProfileUnsubscribe = null; }
+
+      // 3) Erase every habit this account owns (asked from the server, so "Recently deleted" ones are included).
+      const mine = await getDocs(query(collection(db, 'habits'), where('userId', '==', user.uid)));
+      await Promise.all(mine.docs.map(d => deleteDoc(doc(db, 'habits', d.id))));
+      await deleteDoc(doc(db, 'users', user.uid));
+
+      // 4) Finally the login itself.
+      await deleteUser(user);
       toast('Account deleted.', 'info');
     } catch (err) {
-      if (err.code === 'auth/requires-recent-login') {
-        toast('For security, please sign out and sign back in to delete your account.', 'error');
-      } else {
-        toast('Failed to delete account: ' + err.message, 'error');
+      console.warn('Account deletion failed:', err);
+      toast(err.code === 'auth/requires-recent-login'
+        ? 'For security, please sign out and sign back in, then delete your account straight away.'
+        : erasing ? 'Could not finish deleting your account. Check your connection and tap Delete again.'
+                  : 'Could not start deleting your account. Check your connection and try again.', 'error', 8000);
+      if (erasing && currentUser && currentUser.uid === user.uid) {
+        // Still signed in: bring the app back to life so Delete can be retried
+        deletingAccount = false;
+        updateAvatars(user);
+        subscribeToHabits();
       }
+    } finally {
+      deletingAccount = false;
       delAccBtn.disabled = false;
     }
   });
@@ -2752,7 +2797,7 @@ if (messaging) {
 // ── Service Worker ────────────────────────────────────────
 // ── Social & Leaderboard ─────────────────────────────────
 async function syncUserStats() {
-  if (!currentUser) return;
+  if (!currentUser || deletingAccount) return;
   
   let totalStreak = 0;
   let badgesCount = 0;

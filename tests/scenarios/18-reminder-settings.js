@@ -1,7 +1,7 @@
 // The "Daily reminders" switch must really switch reminders on and off for THIS device, and a signed-out
 // device must stop receiving the previous person's reminders.
 module.exports = (scenario, c) => {
-  const { boot, ev, sleep, signedIn, check, noExceptions } = c;
+  const { boot, ev, sleep, waitFor, signedIn, check, noExceptions } = c;
   const stub = (perm, token = 'tok-A') => `(() => { window.__perm = ${JSON.stringify(perm)}; window.__mockFcmToken = ${JSON.stringify(token)};
     Object.defineProperty(Notification, 'permission', { get() { return window.__perm; }, configurable: true });
     Notification.requestPermission = async () => { window.__perm = 'granted'; return 'granted'; }; })();`;
@@ -25,7 +25,7 @@ module.exports = (scenario, c) => {
     await sleep(900);
     await flip(false); await sleep(600);
     check('token removed', !('fcmToken' in await profile()), JSON.stringify(await profile()));
-    await ev(`location.reload()`); await sleep(1800);
+    await ev(`location.reload()`); await sleep(500); await waitFor(`!!window.__mockDB && !!document.getElementById('notif-toggle') && !document.getElementById('loading-screen')`, 20000); await sleep(1200);
     check('token not re-registered after reload', !('fcmToken' in await profile()));
     check('switch still shows off', !(await checked()));
   });
@@ -36,7 +36,7 @@ module.exports = (scenario, c) => {
     check('starts without a token', !('fcmToken' in await profile()));
     await flip(true); await sleep(600);
     check('token saved', (await profile()).fcmToken === 'tok-A');
-    await ev(`location.reload()`); await sleep(1800);
+    await ev(`location.reload()`); await sleep(500); await waitFor(`!!window.__mockDB && !!document.getElementById('notif-toggle') && !document.getElementById('loading-screen')`, 20000); await sleep(1200);
     check('switch shows on after reload', await checked());
   });
 

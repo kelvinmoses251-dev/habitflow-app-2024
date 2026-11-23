@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="What information Habitly handles, why, and the choices you have." />
+  <title>Privacy policy | Habitly</title>
+  <link rel="canonical" href="https://habit-tracker-demo-34c0a.web.app/privacy.html" />
+  <script>
+    (function () { try {
+      var t = localStorage.getItem('theme');
+      var dark = t ? t === 'dark' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {} })();
+  </script>
+  <link rel="icon" type="image/png" href="favicon.png?v=4" />
+  <meta name="theme-color" content="#4A3AB8" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css?v=34" />
+</head>
+<body class="legal-body">
+<header class="legal-bar">
+  <a class="legal-brand" href="/" aria-label="Habitly home">
+    <svg class="logo-mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 16.5l5 5 9-10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="brand-name">Habitly</span>
+  </a>
+  <a class="btn-secondary legal-back" href="/">Back to the app</a>
+</header>
+<main class="legal">
+  <h1>Privacy policy</h1>
+  <p class="legal-updated">Last updated: 23 November 2026</p>
+  <p class="legal-lead">Habitly is a habit tracker. This page explains, in plain language, what information the app handles, why, and what you can do about it.</p>
+
+  <h2>The short version</h2>
+  <ul>
+    <li>We store what you put into Habitly so it can sync between your devices.</li>
+    <li>We do not sell your data and we do not show ads.</li>
+    <li>Usage statistics are anonymous and you can switch them off.</li>
+    <li>You can export your data or delete your account at any time from Profile.</li>
+  </ul>
+
+  <h2>What we collect</h2>
+  <h3>Your account</h3>
+  <ul>
+    <li>Your <strong>email address</strong> and display name.</li>
+    <li>If you use "Continue with Google", the name and profile photo that Google shares with us.</li>
+    <li>If you sign up with a password, it is handled by Firebase Authentication. We never see or store the password itself.</li>
+  </ul>
+  <h3>What you create</h3>
+  <ul>
+    <li>Your <strong>habits</strong>: name, category, how often they repeat, and the dates and times you completed them.</li>
+    <li>Any <strong>notes</strong> you write on a habit.</li>
+    <li>A <strong>profile picture</strong>, if you upload one. It is stored as a small image on your profile.</li>
+    <li>Progress figures worked out from the above: XP, level, streaks, streak shields and when you were last active.</li>
+  </ul>
+  <h3>Reminders (only if you turn them on)</h3>
+  <ul>
+    <li>A <strong>push token</strong>: an identifier your browser gives us so a notification can reach that device.</li>
+    <li>Your <strong>time zone</strong>, so reminders arrive in your morning and evening and are based on your own day.</li>
+    <li>When the last reminder was sent, so you are not reminded twice.</li>
+  </ul>
+  <p>Switching "Daily reminders" off in Profile, or signing out, removes that device's push token.</p>
+  <h3>Anonymous usage statistics (optional)</h3>
+  <p>We use Google Analytics for Firebase to count events such as "signed up", "habit added" or "habit completed". These events never include your name, email address or the text of your habits. Google Analytics also records general technical information such as browser type and approximate region.</p>
+  <p>No usage statistics are sent if your browser has <strong>Do Not Track</strong> or Global Privacy Control switched on, or if you turn off "Share anonymous usage data" in Profile.</p>
+  <h3>Stored on your own device</h3>
+  <ul>
+    <li>Your preferences (theme, sound, vibration and similar settings).</li>
+    <li>An offline copy of your habits, so the app works without a connection.</li>
+    <li>The landing-page demo. Anything you try there stays in your browser unless you create an account.</li>
+  </ul>
+  <p>Habitly does not use advertising cookies.</p>
+
+  <h2>How we use it</h2>
+  <ul>
+    <li>To run the app: show your habits, keep them in sync and work out streaks and levels.</li>
+    <li>To send the reminders you asked for.</li>
+    <li>To understand, in aggregate, which parts of the app are used so we can improve it.</li>
+  </ul>
+  <p>We do not sell your personal data, and we never use it for advertising.</p>
+
+  <h2>Who handles your data</h2>
+  <p>Habitly runs on services provided by other companies. They process data on our behalf:</p>
+  <ul>
+    <li><strong>Google Firebase</strong>: sign-in (Authentication), the database that holds your habits and profile (Cloud Firestore), hosting, push notifications (Cloud Messaging) and Google Analytics.</li>
+    <li><strong>GitHub</strong>: the scheduled job that decides who is due a reminder runs on GitHub's servers. It reads reminder settings and whether today's habits are complete.</li>
+    <li><strong>Google Fonts, jsDelivr and cdnjs</strong>: deliver fonts and code libraries. Like any website request, they receive your IP address.</li>
+  </ul>
+  <p>These providers may store and process data in countries other than your own.</p>
+  <p>When you make a shareable progress image, it is created on your device and goes only where you choose to send it.</p>
+
+  <h2>How long we keep it</h2>
+  <ul>
+    <li>Your account and habits are kept until you delete them.</li>
+    <li>A habit you remove can be restored for one hour. After that it is permanently deleted the next time the app syncs.</li>
+    <li>Deleting your account erases your habits, your profile and your login straight away.</li>
+  </ul>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li><strong>Export</strong>: Profile, then "Export data", downloads a report of your habits.</li>
+    <li><strong>Delete account</strong>: Profile, then "Delete account". For your security you may be asked to sign in again first.</li>
+    <li><strong>Reminders</strong> and <strong>usage statistics</strong>: switch either off in Profile.</li>
+    <li>You can ask us for a copy of your data, or to correct or delete it, using the contact details below.</li>
+  </ul>
+  <p>Depending on where you live, you may have additional legal rights over your personal data, including the right to complain to your local data protection authority.</p>
+
+  <h2>Security</h2>
+  <p>All traffic is encrypted in transit, and database rules allow only you to read or change your own habits and profile. No online service can promise perfect security, so please use a strong, unique password.</p>
+
+  <h2>Children</h2>
+  <p>Habitly is not intended for children under 13, or under the minimum age for online services in your country. We do not knowingly collect their data.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If we change this policy we will update the date at the top of this page. For significant changes we will tell you in the app.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or requests about your data: <a href="mailto:info.habitly@gmail.com">info.habitly@gmail.com</a></p>
+  <p>See also the <a href="/terms.html">Terms of use</a>.</p>
+</main>
+<footer class="legal-foot">
+  <a href="/">Habitly</a>
+  <a href="/terms.html">Terms of use</a>
+</footer>
+</body>
+</html>

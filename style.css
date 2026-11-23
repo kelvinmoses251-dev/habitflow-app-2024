@@ -605,6 +605,26 @@ textarea { resize: none; }
 .toggle input:checked + .toggle-track { background: var(--primary); }
 .toggle input:checked + .toggle-track::before { transform: translateX(16px); }
 .toggle input:focus-visible + .toggle-track { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
+/* ── Privacy / terms ────────────────────────────────── */
+.auth-legal { margin-top: var(--sp-2); font-size: .78rem; color: var(--muted); line-height: 1.5; }
+.auth-legal a, .profile-legal a, .legal a, .legal-foot a { color: var(--primary-ink); text-decoration: underline; text-underline-offset: 2px; }
+.profile-legal { display: flex; justify-content: center; gap: var(--sp-4); font-size: .82rem; margin-top: var(--sp-4); }
+.legal-body { display: block; min-height: 100vh; background: var(--bg); color: var(--text); }
+.legal-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); max-width: 760px; margin: 0 auto; padding: var(--sp-4); }
+.legal-brand { display: inline-flex; align-items: center; gap: .5rem; color: var(--text); text-decoration: none; font-weight: 700; }
+.legal-back { text-decoration: none; font-size: .88rem; white-space: nowrap; }
+.legal { max-width: 760px; margin: 0 auto; padding: var(--sp-4) var(--sp-4) var(--sp-6); line-height: 1.65; overflow-wrap: anywhere; }
+.legal h1 { font-family: var(--font-display, 'Instrument Serif', serif); font-weight: 400; font-size: clamp(2.1rem, 7vw, 3rem); line-height: 1.1; margin: var(--sp-4) 0 var(--sp-2); }
+.legal h2 { font-size: 1.15rem; font-weight: 600; margin: 2rem 0 .5rem; }
+.legal h3 { font-size: .95rem; font-weight: 600; margin: 1.25rem 0 .35rem; }
+.legal p, .legal ul { margin: 0 0 .85rem; color: var(--text-2); }
+.legal ul { padding-left: 1.2rem; list-style: disc; }
+.legal li { margin-bottom: .35rem; }
+.legal strong { color: var(--text); font-weight: 600; }
+.legal-updated { font-size: .85rem; color: var(--muted); }
+.legal-lead { font-size: 1.05rem; color: var(--text); }
+.legal-foot { display: flex; justify-content: center; gap: var(--sp-4); max-width: 760px; margin: 0 auto; padding: var(--sp-5) var(--sp-4) var(--sp-6); border-top: 1px solid var(--border); font-size: .85rem; }
+
 .app-ver { text-align: center; font-size: .75rem; color: var(--muted); padding-bottom: var(--sp-4); }
 
 /* ── Notifications ──────────────────────────────────── */

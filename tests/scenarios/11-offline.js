@@ -24,7 +24,7 @@ module.exports = (scenario, c) => {
     await ev(`document.getElementById('confirm-check-yes').click()`);
     check('habit shows as done', await waitFor(`document.querySelectorAll('#habits .habit-check:checked').length === 1`, 4000));
     check('XP updated immediately (not blocked on the server)', await waitFor(`document.getElementById('user-current-xp').textContent === '25'`, 4000), await text('#user-current-xp'));
-    check('success toast shown', await waitFor(`document.getElementById('toast-container').textContent.includes('Habit completed')`, 4000));
+    check('success toast shown', await waitFor(`document.getElementById('toast-container').textContent.includes('Completed. +25 XP')`, 4000));
     noExceptions();
 
     await setOffline(false);

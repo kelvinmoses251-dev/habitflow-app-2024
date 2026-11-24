@@ -3,7 +3,7 @@ module.exports = (scenario, c) => {
   const { boot, ev, send, sleep, waitFor, signedIn, check, visible, noExceptions } = c;
   const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(Date.now() - n * 864e5);
   const H = (name, o = {}) => ({ userId: 'u-test', name, category: 'health', frequency: 'daily', completedDates: [], createdAt: '2026-01-05T10:00:00Z', order: 1, ...o });
-  const seed = (habits, extra = {}, profile = { xp: 300 }) => signedIn({ ...extra, mock_fb_db: { habits, users: { 'u-test': profile } } });
+  const seed = (habits, extra = {}, profile = { xp: 300 }) => signedIn({ habitly_confirm: null, ...extra, mock_fb_db: { habits, users: { 'u-test': profile } } });
   const six = () => ({
     a: H('Drink water', { order: 1, completedDates: [day(0), day(1), day(2)], completedTimestamps: { [day(0)]: Date.now() - 5000 } }),
     b: H('Read 10 pages', { order: 2, category: 'reading', completedDates: [day(0), day(1)], completedTimestamps: { [day(0)]: Date.now() - 5000 } }),
@@ -59,6 +59,56 @@ module.exports = (scenario, c) => {
     check('the first row is still on the first screen', (await firstRowTop()) <= 320, await firstRowTop());
     await ev(`document.getElementById('summary-toggle').click()`); await sleep(400);
     check('unfolded, the banner is back', await visible('#streak-risk'));
+    noExceptions();
+  });
+
+  // ── 15: one tap completes, with Undo ─────────────────────
+  const xp = () => ev(`__mockDB.users['u-test'].xp`);
+  const doneToday = id => ev(`(__mockDB.habits[${JSON.stringify(id)}].completedDates || []).includes(${JSON.stringify(day(0))})`);
+  const tick = id => ev(`document.querySelector('.habit-item[data-id="${id}"] .habit-check').click()`);
+  const undo = () => ev(`document.querySelector('#toast-container .toast-action').click()`);
+
+  scenario('home: one tap completes a habit and Undo puts everything back', async () => {
+    await boot({ seed: seed(six()) }); await rows(); await sleep(300);
+    await tick('d');
+    check('no question is asked', await waitFor(`${JSON.stringify(day(0))} && (__mockDB.habits.d.completedDates || []).length === 1`, 3000) && !(await visible('#confirm-check-modal')));
+    check('XP goes up by 25', await waitFor(`__mockDB.users['u-test'].xp === 325`, 3000), await xp());
+    check('the toast offers Undo', await waitFor(`!!document.querySelector('#toast-container .toast-action')`, 3000) && /Undo/.test(await ev(`document.querySelector('#toast-container .toast-action').textContent`)));
+    check('the toast stays about six seconds', await ev(`parseFloat(getComputedStyle(document.querySelector('.toast .toast-bar')).animationDuration) === 6`));
+    await undo();
+    check('Undo un-completes it', await waitFor(`(__mockDB.habits.d.completedDates || []).length === 0`, 3000));
+    check('and refunds the XP', await waitFor(`__mockDB.users['u-test'].xp === 300`, 3000), await xp());
+    check('the row is un-ticked', await waitFor(`!document.querySelector('.habit-item[data-id="d"] .habit-check').checked`, 3000));
+    noExceptions();
+  });
+
+  scenario('home: Undo after the last habit follows the same rules as un-ticking', async () => {
+    const one = { a: H('Only habit') };
+    await boot({ seed: seed(one) }); await rows(); await sleep(300);
+    await tick('a');
+    check('finishing everything shows the all-done dialog and the bonus', await waitFor(`!document.getElementById('all-done-overlay').classList.contains('hidden') && __mockDB.users['u-test'].xp === 425`, 6000), await xp());
+    await undo(); await sleep(900);
+    check('Undo takes back the 25 XP for the habit', (await xp()) === 400, await xp());
+    check('the habit is open again', !(await doneToday('a')));
+    await ev(`document.getElementById('all-done-close').click()`); await sleep(200);
+    await tick('a'); await sleep(1500);
+    check('doing it again cannot claim the daily bonus twice', (await xp()) === 425, await xp());
+    noExceptions();
+  });
+
+  scenario('home: people who switched "Ask before completing" on still get asked, and it works offline', async () => {
+    await boot({ seed: seed(six(), { habitly_confirm: 'on' }) }); await rows(); await sleep(300);
+    await tick('d');
+    check('the question appears', await waitFor(`!document.getElementById('confirm-check-modal').classList.contains('hidden')`, 3000));
+    check('nothing is completed until they answer', !(await doneToday('d')));
+    await ev(`document.getElementById('confirm-check-yes').click()`);
+    check('answering yes completes it, with Undo offered too', await waitFor(`(__mockDB.habits.d.completedDates || []).length === 1 && !!document.querySelector('#toast-container .toast-action')`, 4000));
+    await boot({ seed: seed(six()) }); await rows(); await sleep(300);
+    await ev(`window.__mockOffline = true; 0`);
+    await tick('e');
+    check('offline: the row ticks at once', await waitFor(`document.querySelector('.habit-item[data-id="e"] .habit-check').checked`, 3000));
+    await waitFor(`!!document.querySelector('#toast-container .toast-action')`, 3000); await undo();
+    check('offline: Undo un-ticks at once', await waitFor(`!document.querySelector('.habit-item[data-id="e"] .habit-check').checked`, 3000));
     noExceptions();
   });
 

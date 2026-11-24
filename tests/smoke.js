@@ -113,14 +113,16 @@ function check(name, cond, detail) {
     await send('Emulation.setDeviceMetricsOverride', mobile ? { width: 390, height: 844, deviceScaleFactor: 2, mobile: true } : { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
     await send('Emulation.setTimezoneOverride', { timezoneId: tz });
     await send('Page.navigate', { url: ORIGIN + '/404-boot' }); await sleep(300);   // any same-origin page to reach localStorage
-    await ev(`localStorage.clear(); ${Object.entries(seed).map(([k, v]) => `localStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(typeof v === 'string' ? v : JSON.stringify(v))});`).join('')} 0`);
+    await ev(`localStorage.clear(); ${Object.entries(seed).filter(([, v]) => v != null).map(([k, v]) => `localStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(typeof v === 'string' ? v : JSON.stringify(v))});`).join('')} 0`);
     logs = [];
     await send('Page.navigate', { url: ORIGIN + '/index.html' + hash });
     await waitFor(`!!document.getElementById('auth-screen') && !document.getElementById('loading-screen')`, 20000);
     await sleep(300);
   }
   const user = (over = {}) => JSON.stringify({ uid: 'u-test', displayName: 'Test User', email: 'test@example.com', photoURL: null, metadata: { creationTime: '2026-01-05T10:00:00Z' }, ...over });
-  const signedIn = (extra = {}) => ({ mock_fb_user: user(), 'habitly_seen_u-test': '1', habitly_returning: '1', ...extra });
+  // Most older scenarios walk through the "Mark as complete?" dialog, so the shared seed switches it on.
+  // The real default (one tap, with Undo) is covered in 24-home.js, which passes habitly_confirm: null.
+  const signedIn = (extra = {}) => ({ mock_fb_user: user(), 'habitly_seen_u-test': '1', habitly_returning: '1', habitly_confirm: 'on', ...extra });
   const text = sel => ev(`(document.querySelector(${JSON.stringify(sel)})||{}).textContent`);
   const visible = sel => ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); return !!e && !e.classList.contains('hidden') && getComputedStyle(e).display!=='none' && e.getClientRects().length>0})()`);
   const noExceptions = () => check('no uncaught exceptions', !logs.some(l => l.t === 'exception'), logs.filter(l => l.t === 'exception').map(l => l.m).join(' | ').slice(0, 300));

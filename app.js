@@ -1953,6 +1953,28 @@ if (confirmModal) {
 }
 
 // Complete a habit: after confirmation, or straight away when "Ask before completing" is switched off.
+// One tap completes by default. The question "Mark as complete?" is opt-in (Profile → Ask before completing).
+const confirmFirst = () => { try { return localStorage.getItem('habitly_confirm') === 'on'; } catch (_) { return false; } };
+
+// Take a completion back. Shared by un-ticking the box and by Undo, so both follow the same rules:
+// only within an hour of completing, and the 25 XP is refunded so ticking cannot be farmed.
+// Returns false (and says why) when the completion is locked.
+function uncompleteHabit(id, date) {
+  const h = allHabits.find(x => x.id === id);
+  if (!h) return false;
+  const completedAt = h.completedTimestamps?.[date];
+  const locked = completedAt ? (Date.now() - completedAt > 3600000) : (date !== todayStr());
+  if (locked) {
+    buzz([60, 40, 60]);
+    toast('Locked: a completed habit can only be unchecked within 1 hour.', 'warning');
+    return false;
+  }
+  playUncheck();
+  buzz(30);
+  setTimeout(async () => { if (await toggleHabit(id, true, date)) await addXP(-XP_PER_HABIT); }, 200);
+  return true;
+}
+
 function completeHabit(id, dateToRm, checkboxEl) {
   if (checkboxEl) checkboxEl.checked = true;
   nudgeFirstHabit = false;
@@ -1963,7 +1985,9 @@ function completeHabit(id, dateToRm, checkboxEl) {
   setTimeout(async () => {
     await toggleHabit(id, false, dateToRm);
     await addXP(XP_PER_HABIT, checkboxEl);
-    toast('Habit completed. +25 XP', 'success');
+    // Undo stays for six seconds. It finds the date the habit is ticked for now (weekly and monthly habits
+    // are ticked for the day they were done), then follows the normal un-tick rules.
+    toast('Completed. +25 XP', 'success', 6000, { label: 'Undo', onClick: () => { track('habit_undo'); uncompleteHabit(id, dateToRm || todayStr()); } });
     track('habit_completed');
     checkAllDone(id);
     maybeAskForReminders();
@@ -1984,31 +2008,12 @@ document.getElementById('habits').addEventListener('change', async e => {
 
   if (isDone) {
     cb.checked = false;
-    if (localStorage.getItem('habitly_confirm') === 'off') completeHabit(id, dateToRm, cb);   // the user switched confirmation off
-    else openConfirmCheckModal(h, dateToRm, cb);                                               // default: ask first
+    if (confirmFirst()) openConfirmCheckModal(h, dateToRm, cb);   // only for people who switched "Ask before completing" on
+    else completeHabit(id, dateToRm, cb);                         // default: one tap, with Undo
     return;
   }
 
-  // If user is trying to uncheck a habit, check if it is locked (> 1 hour)
-  const completionTime = h?.completedTimestamps?.[dateToRm];
-  const nowMs = Date.now();
-  const isLocked = completionTime ? (nowMs - completionTime > 3600000) : (dateToRm !== todayStr());
-
-  if (isLocked) {
-    cb.checked = true; // Re-check the checkbox immediately
-    buzz([60, 40, 60]);
-    toast('Locked: a completed habit can only be unchecked within 1 hour.', 'warning');
-    return;
-  }
-
-  // Unchecking within 1 hour allowed
-  playUncheck();
-  buzz(30);
-
-  setTimeout(async () => {
-    // Refund the XP so ticking/unticking can't be farmed
-    if (await toggleHabit(id, true, dateToRm)) await addXP(-XP_PER_HABIT);
-  }, 200);
+  if (!uncompleteHabit(id, dateToRm)) cb.checked = true;          // locked: put the tick back
 });
 
 // ── Double-click to Open Details ────────────────────────
@@ -2529,7 +2534,7 @@ if (soundToggle) {
 }
 const confirmToggle = document.getElementById('confirm-toggle');
 if (confirmToggle) {
-  confirmToggle.checked = localStorage.getItem('habitly_confirm') !== 'off';
+  confirmToggle.checked = confirmFirst();
   confirmToggle.addEventListener('change', e => localStorage.setItem('habitly_confirm', e.target.checked ? 'on' : 'off'));
 }
 const analyticsToggle = document.getElementById('analytics-toggle');

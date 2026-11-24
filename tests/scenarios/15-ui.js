@@ -97,10 +97,13 @@ module.exports = (scenario, c) => {
     check('check mark is a drawn stroke', (await ev(`getComputedStyle(document.querySelector('.done-check')).strokeDasharray`)) !== 'none');
   });
 
-  scenario('Ask before completing: on by default; switching it off completes in one tap', async () => {
-    await boot({ seed: seed({ a: habit('A') }) });
+  scenario('Ask before completing: off by default (one tap); a saved choice is respected', async () => {
+    await boot({ seed: { ...seed({ a: habit('A') }), habitly_confirm: null } });
     await ready(1);
-    check('setting is on by default', (await ev(`document.getElementById('confirm-toggle').checked`)) === true);
+    check('setting is off by default', (await ev(`document.getElementById('confirm-toggle').checked`)) === false);
+    await boot({ seed: { ...seed({ a: habit('A') }), habitly_confirm: 'on' } });
+    await ready(1);
+    check('switched on, it shows on', (await ev(`document.getElementById('confirm-toggle').checked`)) === true);
     await boot({ seed: { ...seed({ a: habit('A') }), habitly_confirm: 'off' } });
     await ready(1);
     check('setting reflects the saved choice', (await ev(`document.getElementById('confirm-toggle').checked`)) === false);

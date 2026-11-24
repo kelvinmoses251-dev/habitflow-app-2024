@@ -49,4 +49,25 @@ module.exports = (scenario, c) => {
       }
     }
   });
+
+  const CAT_KEYS = ['health', 'mind', 'social', 'growth', 'productive', 'nutrition', 'fitness', 'reading', 'saving', 'relaxation', 'project'];
+  scenario('foundation: category icons come from the one icon set', async () => {
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), js = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+    for (const k of CAT_KEYS) check(`sprite has i-cat-${k}`, html.includes(`id="i-cat-${k}"`));
+    check('no hand-written icon strings left in app.js', !/stroke-width="2"/.test(js));
+    const habits = Object.fromEntries(CAT_KEYS.map((k, i) => ['h' + i, { userId: 'u-test', name: 'Habit ' + k, category: k, frequency: 'daily', completedDates: [], createdAt: '2026-01-05T10:00:00Z', order: i }]));
+    for (const theme of ['light', 'dark']) {
+      await boot({ seed: { ...signedIn(), ...(theme === 'dark' ? { theme: 'dark' } : {}), mock_fb_db: { habits, users: {} } } });
+      await waitFor(`document.querySelectorAll('.habit-item').length === 11`);
+      if (theme === 'light') {
+        check('each row draws its category from the sprite', await ev(`${JSON.stringify(CAT_KEYS)}.every((k, i) => !!document.querySelector('.habit-item[data-id="h' + i + '"] .cat-ico use[href="#i-cat-' + k + '"]'))`));
+        check('category icons use the shared 1.75 stroke', (await ev(`getComputedStyle(document.querySelector('.habit-item .cat-ico svg')).strokeWidth`)) === '1.75px');
+        check('row action icons come from the sprite too', await ev(`['clock', 'trash'].every(n => !!document.querySelector('.habit-item .btn-icon use[href="#i-' + n + '"]'))`));
+      }
+      const cols = JSON.parse(await ev(`JSON.stringify({ bg: getComputedStyle(document.querySelector('#habits').closest('.card')).backgroundColor, icons: [...document.querySelectorAll('.habit-item .cat-ico')].map(e => getComputedStyle(e).color) })`));
+      const worst = Math.min(...cols.icons.map(col => ratio(col, cols.bg)));
+      check(`${theme}: every category colour is at least 3:1 against its card`, worst >= 3, worst.toFixed(2));
+    }
+    noExceptions();
+  });
 };

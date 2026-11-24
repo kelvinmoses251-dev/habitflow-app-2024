@@ -230,41 +230,25 @@ function backgroundWrite(promise, what = 'save your changes', quiet = false) {
 let   messaging;
 try { messaging = getMessaging(firebaseApp); } catch (_) { /* not supported */ }
 
-// ── Icons (Lucide) ───────────────────────────────────────
-const icons = {
-  health: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-  mind: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-  social: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  growth: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m15 9-6 6"/><path d="M9 9h6v6"/></svg>',
-  productive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-  nutrition: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
-  fitness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="m18 11 2 2v5h-5l-2-2"/><path d="m6 11-2 2v5h5l2-2"/><path d="M2 13v-2l5-5h10l5 5v2"/></svg>',
-  reading: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
-  saving: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
-  relaxation: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
-  project: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>'
-};
-
-// Category icons: tidy the mapping (mind was a dollar sign; saving was a plus in a circle)
-const _icon = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">${inner}</svg>`;
-icons.saving = _icon('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>');
-icons.mind   = _icon('<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>');
-icons.growth = _icon('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');
-
 // ── Categories ───────────────────────────────────────────
+// Icons live in the sprite in index.html (#i-cat-<key>) so every icon in the app shares one stroke and grid.
+// Each category has a colour for light surfaces and a lighter one for dark surfaces (both at least 3:1).
+const catIcon = key => `<svg class="icon" aria-hidden="true"><use href="#i-cat-${key}"/></svg>`;
 const CATS = {
-  health:     { label: 'Health',     emoji: icons.health, color: '#DC2626', bg: '#FFF0F0' },
-  mind:       { label: 'Mind',       emoji: icons.mind, color: '#4361EE', bg: '#EEF0FF' },
-  social:     { label: 'Social',     emoji: icons.social, color: '#EA580C', bg: '#FFF4ED' },
-  growth:     { label: 'Growth',     emoji: icons.growth, color: '#16A34A', bg: '#F0FDF4' },
-  productive: { label: 'Productive', emoji: icons.productive, color: '#CA8A04', bg: '#FEFCE8' },
-  nutrition:  { label: 'Nutrition',  emoji: icons.nutrition, color: '#059669', bg: '#ECFDF5' },
-  fitness:    { label: 'Fitness',    emoji: icons.fitness, color: '#7C3AED', bg: '#F5F3FF' },
-  reading:    { label: 'Reading',    emoji: icons.reading, color: '#0891B2', bg: '#ECFEFF' },
-  saving:     { label: 'Saving',     emoji: icons.saving, color: '#B45309', bg: '#FEF3C7' },
-  relaxation: { label: 'Relaxation', emoji: icons.relaxation, color: '#7E22CE', bg: '#FAF5FF' },
-  project:    { label: 'Project',    emoji: icons.project, color: '#475569', bg: '#F1F5F9' },
+  health:     { label: 'Health',     color: '#DC2626', dark: '#F87171' },
+  mind:       { label: 'Mind',       color: '#4361EE', dark: '#8AA0FF' },
+  social:     { label: 'Social',     color: '#EA580C', dark: '#FB923C' },
+  growth:     { label: 'Growth',     color: '#16A34A', dark: '#4ADE80' },
+  productive: { label: 'Productive', color: '#A16207', dark: '#FACC15' },
+  nutrition:  { label: 'Nutrition',  color: '#059669', dark: '#34D399' },
+  fitness:    { label: 'Fitness',    color: '#7C3AED', dark: '#A78BFA' },
+  reading:    { label: 'Reading',    color: '#0891B2', dark: '#22D3EE' },
+  saving:     { label: 'Saving',     color: '#B45309', dark: '#FBBF24' },
+  relaxation: { label: 'Relaxation', color: '#7E22CE', dark: '#C084FC' },
+  project:    { label: 'Project',    color: '#475569', dark: '#94A3B8' },
 };
+Object.keys(CATS).forEach(key => { CATS[key].icon = catIcon(key); });
+const catColor = cat => (isDarkTheme() ? cat.dark : cat.color);
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
@@ -1570,7 +1554,7 @@ function renderHabits() {
     const li = document.createElement('li');
     li.className = 'habit-item' + (animateRows ? ' enter' : '') + (h.id === justCompletedId ? ' just-done' : '');
     li.dataset.id = h.id;
-    li.style.setProperty('--cat', cat.color);
+    li.style.setProperty('--cat', catColor(cat));
     li.style.setProperty('--i', rowIdx);
     li.innerHTML = `
       <div class="habit-label">
@@ -1578,7 +1562,7 @@ function renderHabits() {
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name ${isDone ? 'done' : ''}">${escHtml(h.name)}</span>
           <div class="badges-row">
-            <span class="cat-badge"><span class="cat-ico" style="color:${cat.color}">${cat.emoji}</span>${cat.label}</span>
+            <span class="cat-badge"><span class="cat-ico">${cat.icon}</span>${cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
             ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
@@ -1587,15 +1571,15 @@ function renderHabits() {
       </div>
       <div class="habit-actions">
         <button class="btn-icon" data-id="${h.id}" data-action="timer" title="Start Focus Timer" aria-label="Start focus timer for ${escHtml(h.name)}">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>
         </button>
         ${isEditable ?
         '<button class="btn-icon" data-id="' + h.id + '" data-action="edit" title="Edit habit" aria-label="Edit ' + escHtml(h.name) + '">' +
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
+          '<svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg>' +
         '</button>'
         : ''}
         <button class="btn-icon" data-id="${h.id}" data-action="delete" title="Remove habit" aria-label="Remove ${escHtml(h.name)}">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+          <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
         </button>
       </div>`;
     list.appendChild(li);
@@ -2148,7 +2132,7 @@ function renderCatBreakdown() {
       labels: catCounts.map(c => c.cat.label),
       datasets: [{
         data: catCounts.map(c => c.count),
-        backgroundColor: catCounts.map(c => c.cat.color),
+        backgroundColor: catCounts.map(c => catColor(c.cat)),
         borderColor: isDark ? '#171719' : '#FFFFFF',
         borderWidth: 3,
         hoverOffset: 4
@@ -2453,6 +2437,7 @@ if (darkModeToggle) {
   darkModeToggle.addEventListener('change', (e) => {
     localStorage.setItem('theme', e.target.checked ? 'dark' : 'light');
     applyTheme();
+    renderHabits();
     if (location.hash === '#stats') renderStats();
   });
 }

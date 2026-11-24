@@ -519,7 +519,7 @@ textarea { resize: none; }
 .habit-name.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--border-strong); }
 .badges-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-xs); color: var(--muted); }
 .cat-badge { display: inline-flex; align-items: center; gap: 6px; }
-.cat-badge .cat-ico { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--cat, var(--muted)) 14%, transparent); }
+.cat-badge .cat-ico { display: inline-grid; place-items: center; width: 18px; height: 18px; color: var(--cat, var(--muted)); border-radius: var(--r-sm); background: color-mix(in srgb, var(--cat, var(--muted)) 14%, transparent); }
 .cat-badge svg { width: 12px; height: 12px; }
 .freq-badge { text-transform: capitalize; }
 .streak-pill { display: inline-flex; align-items: center; gap: 3px; color: var(--streak); font-weight: 600; font-variant-numeric: tabular-nums; }

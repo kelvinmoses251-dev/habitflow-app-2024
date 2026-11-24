@@ -567,6 +567,17 @@ html.dialog-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .summary-more, .bar-chev { transition: none; } }
 .today-add { display: none; }
+/* Day browser: arrows around the title, and a quiet note while a past day is shown */
+.day-header { align-items: center; gap: 2px; }
+.day-header .today-date { margin-left: auto; padding-left: var(--sp-2); white-space: nowrap; }
+.day-nav { color: var(--muted); flex: none; }
+.day-nav:disabled { opacity: .3; cursor: default; background: none; }
+.day-header #day-prev { margin-left: -8px; }
+.past-note { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-sm); color: var(--text-2); background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
+.past-note.hidden { display: none; }
+.habit-item.is-readonly .habit-check { cursor: default; }
+.habit-item.is-readonly:hover { background: none; }
+.wk-day[data-day] { cursor: pointer; }
 .period-card.hidden { display: none; }
 /* Time-of-day headings inside Today: slim, quiet, never taller than 28px */
 .group-head { list-style: none; display: flex; align-items: center; gap: 6px; height: 26px; margin-top: var(--sp-2); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
@@ -581,6 +592,8 @@ html.dialog-open { overflow: hidden; }
   #page-home.has-habits .today-add { display: grid; width: 44px; height: 44px; margin: -10px -10px -10px var(--sp-1); color: var(--primary-ink); }
   #page-home.has-habits .card-header { align-items: center; }
   #page-home.has-habits .today-date { margin-left: auto; }
+  .day-header .day-nav { width: 44px; height: 44px; margin-top: -8px; margin-bottom: -8px; }
+  .day-header #day-prev { margin-left: -12px; }
   /* While the summary is folded, the streak warning is shown in its bar instead of as a separate banner */
   .summary.is-collapsed ~ .risk-banner { display: none; }
   .summary.is-collapsed.at-risk #bar-line { color: var(--streak); }

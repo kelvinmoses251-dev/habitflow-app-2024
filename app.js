@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder } from "./home.js?v=4";
+import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay } from "./home.js?v=5";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -336,6 +336,8 @@ const XP_DAILY_BONUS = 100;
 
 // Wipe per-account state so one user's XP/shields can never leak into (or be written onto) another account.
 function resetUserState() {
+  viewDay = null;
+  renderDayHeader();
   currentUserXP = 0;
   userStreakShields = 1;
   userFrozenDates = [];
@@ -1526,6 +1528,8 @@ function renderHabits() {
   if (!allHabits.length) {
     ['week-card', 'month-card', 'no-daily'].forEach(id => document.getElementById(id).classList.add('hidden'));
     ['habits-week', 'habits-month'].forEach(id => { document.getElementById(id).innerHTML = ''; });
+    viewDay = null;
+    renderDayHeader();
     empty.classList.remove('hidden');
     renderStarterPacks();
     updateProgress(0, 0);
@@ -1533,6 +1537,10 @@ function renderHabits() {
     return;
   }
   empty.classList.add('hidden');
+
+  renderDayHeader();
+  const pastDay = viewingPast();
+  if (pastDay) { renderPastDay(pastDay); return; }      // a past day: read-only, and today's progress above stays as it is
 
   // Sort logic
   const smartSortEnabled = localStorage.getItem('smartSort') !== 'false';
@@ -1757,6 +1765,73 @@ document.getElementById('starter-packs')?.addEventListener('click', e => {
 });
 
 const RING_LEN = 2 * Math.PI * 44;
+// ── Day browser: look back at previous days (read-only) ───
+// viewDay is null for today. Past days can be looked at but never changed, in line with the rule that a
+// completion can only be undone for an hour.
+const DAY_BROWSER_LIMIT = 60;
+let viewDay = null;
+let viewDaySetOn = null;                             // the real day viewDay was chosen on: a view never outlives midnight
+function viewingPast() {
+  if (viewDay && viewDaySetOn !== todayStr()) viewDay = null;
+  return viewDay && viewDay !== todayStr() ? viewDay : null;
+}
+function setViewDay(day) {
+  const today = todayStr(), earliest = shiftDay(today, -DAY_BROWSER_LIMIT);
+  const clamped = day > today ? today : day < earliest ? earliest : day;
+  viewDay = clamped === today ? null : clamped;
+  viewDaySetOn = today;
+  setRevealed(null);
+  renderHabits();
+}
+function renderDayHeader() {
+  const past = viewingPast(), today = todayStr();
+  const shown = past ? new Date(past + 'T12:00:00') : new Date();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('today-title', past ? shown.toLocaleDateString('en-GB', { weekday: 'long' }) : 'Today');
+  // Phones have room for a short date only
+  set('today-date', shown.toLocaleDateString('en-GB', phoneLayout.matches ? { weekday: past ? undefined : 'short', day: 'numeric', month: 'short' } : { weekday: 'long', day: 'numeric', month: 'long' }));
+  const prev = document.getElementById('day-prev'), next = document.getElementById('day-next');
+  if (prev) prev.disabled = (past || today) <= shiftDay(today, -DAY_BROWSER_LIMIT);
+  if (next) next.disabled = !past;
+  document.getElementById('past-note')?.classList.toggle('hidden', !past);
+  document.getElementById('page-home')?.classList.toggle('is-past', !!past);
+}
+// What the Today card shows for a past day: the daily habits that existed then, ticked or not, and nothing to press.
+function renderPastDay(day) {
+  const list = document.getElementById('habits');
+  const items = habitsOnDay([...allHabits].sort((a, b) => (a.order || 0) - (b.order || 0)), day);
+  ['week-card', 'month-card', 'no-daily'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  list.innerHTML = items.length ? items.map(({ habit: h, done }) => {
+    const cat = CATS[h.category] || CATS.health;
+    return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${catColor(cat)}">
+      <div class="habit-label">
+        <input type="checkbox" class="habit-check" disabled ${done ? 'checked' : ''} aria-label="${escHtml(h.name)}: ${done ? 'done' : 'not done'} that day" />
+        <div class="habit-meta">
+          <span class="habit-name ${done ? 'done' : ''}">${escHtml(h.name)}</span>
+          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${cat.icon}</span>${cat.label}</span></div>
+        </div>
+      </div>
+    </li>`;
+  }).join('') : '<li class="empty-note">You had no daily habits on this day.</li>';
+}
+document.getElementById('day-prev')?.addEventListener('click', () => setViewDay(shiftDay(viewingPast() || todayStr(), -1)));
+document.getElementById('day-next')?.addEventListener('click', () => setViewDay(shiftDay(viewingPast() || todayStr(), 1)));
+document.getElementById('back-to-today')?.addEventListener('click', () => { setViewDay(todayStr()); document.getElementById('day-prev')?.focus(); });
+document.querySelector('.day-header')?.addEventListener('keydown', e => {
+  if (!(e.target instanceof Element) || !e.target.closest('.day-nav')) return;
+  const by = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+  if (!by) return;
+  e.preventDefault();
+  setViewDay(shiftDay(viewingPast() || todayStr(), by));
+  // The pressed arrow may have just become disabled (today has no "next"): keep focus on one that works
+  const prev = document.getElementById('day-prev'), next = document.getElementById('day-next');
+  (by > 0 && !next.disabled ? next : !prev.disabled ? prev : next).focus();
+});
+document.getElementById('week-strip')?.addEventListener('click', e => {
+  const cell = e.target instanceof Element ? e.target.closest('.wk-day[data-day]') : null;
+  if (cell) setViewDay(cell.dataset.day);
+});
+
 // ── Summary: folded to a slim bar on phones ───────────────
 // Saved choice wins. Otherwise it is folded once there are habits (so the list is on the first screen) and open
 // for an empty account. Desktop always shows the whole summary; the fold is purely a phone layout.
@@ -1788,7 +1863,7 @@ document.getElementById('summary-toggle')?.addEventListener('click', () => {
   try { localStorage.setItem(SUMMARY_KEY, summaryCollapsed() ? 'open' : 'closed'); } catch (_) {}
   applySummaryState();
 });
-if (phoneLayout.addEventListener) phoneLayout.addEventListener('change', applySummaryState);
+if (phoneLayout.addEventListener) phoneLayout.addEventListener('change', () => { applySummaryState(); renderDayHeader(); });
 
 document.getElementById('today-add')?.addEventListener('click', () => quickAddHabit());
 
@@ -1833,7 +1908,7 @@ function renderWeekStrip() {
     const state = daily.length && doneDaily === daily.length ? 'full' : anyDone ? 'some' : 'none';
     const label = d.toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'short' });
     const what = state === 'full' ? 'all habits done' : state === 'some' ? 'some habits done' : 'no habits done';
-    cells.push(`<div class="wk-day ${state}${n === 0 ? ' is-today' : ''}" role="img" aria-label="${escHtml(label)}: ${what}"><span class="wk-dot">${state === 'full' ? '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>' : ''}</span><span class="wk-lbl">${d.toLocaleDateString('en', { weekday: 'narrow' })}</span></div>`);
+    cells.push(`<div class="wk-day ${state}${n === 0 ? ' is-today' : ''}" data-day="${key}" role="img" aria-label="${escHtml(label)}: ${what}"><span class="wk-dot">${state === 'full' ? '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>' : ''}</span><span class="wk-lbl">${d.toLocaleDateString('en', { weekday: 'narrow' })}</span></div>`);
   }
   el.innerHTML = cells.join('');
 }
@@ -1965,13 +2040,13 @@ function reorderHabit(id, groupIds, toIndex) {
   track('habit_reordered');
 }
 attachReorder(document.getElementById('page-home'), {
-  enabled: () => !phoneLayout.matches,
+  enabled: () => !phoneLayout.matches && !viewingPast(),
   onDrop: reorderHabit,
 });
 
 // Swipe right to complete (or take back a recent completion), left to reveal the actions. Phones only.
 attachSwipe(document.getElementById('page-home'), {
-  enabled: () => phoneLayout.matches,
+  enabled: () => phoneLayout.matches && !viewingPast(),
   onLeft: id => setRevealed(id),
   onRight: (id, row) => {
     const cb = row.querySelector('.habit-check');

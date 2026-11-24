@@ -538,6 +538,45 @@ html.dialog-open { overflow: hidden; }
   padding: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-5);
 }
 .summary-top { display: flex; align-items: center; gap: var(--sp-5); }
+/* The rest of the summary. On phones it folds away behind the slim bar (see .summary-bar). */
+.summary-more { display: grid; grid-template-rows: 1fr; }
+.summary-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: var(--sp-5); }
+.summary-bar { display: none; }
+@media (max-width: 640px) {
+  .page-content { padding-top: var(--sp-3); gap: var(--sp-3); }
+  .summary { padding: 0; gap: 0; border-radius: var(--r-xl); }
+  .summary-bar {
+    display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 56px; padding: var(--sp-2) var(--sp-4);
+    background: none; border: 0; color: inherit; font: inherit; text-align: left; border-radius: inherit;
+  }
+  .bar-ring { flex: none; width: 36px; height: 36px; }
+  .bar-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .bar-ring .ring-bg, .bar-ring .ring-fg { stroke-width: 4; }
+  .bar-ring .ring-fg { stroke-dasharray: 100.53; stroke-dashoffset: 100.53; }
+  .bar-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: var(--lh-snug); }
+  .bar-text strong { font-size: var(--fs-base); font-weight: 600; }
+  .bar-text span { font-size: var(--fs-sm); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-streak { flex: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--streak); }
+  .bar-chev { flex: none; color: var(--muted); transition: transform var(--t-base); }
+  .summary:not(.is-collapsed) .bar-chev { transform: rotate(180deg); }
+  .summary-more { transition: grid-template-rows var(--t-sheet); }
+  .summary.is-collapsed .summary-more { grid-template-rows: 0fr; }
+  .summary-inner { padding: 0 var(--sp-5); }
+  .summary:not(.is-collapsed) .summary-inner { padding: var(--sp-2) var(--sp-5) var(--sp-5); }
+  .summary:not(.is-collapsed) .summary-bar { border-bottom: 1px solid var(--border); border-radius: var(--r-xl) var(--r-xl) 0 0; }
+}
+@media (prefers-reduced-motion: reduce) { .summary-more, .bar-chev { transition: none; } }
+.today-add { display: none; }
+@media (max-width: 640px) {
+  /* Once there are habits, the list comes first on a phone: New habit moves below it and the Today header gets a + button */
+  #page-home.has-habits .new-habit { order: 5; }
+  #page-home.has-habits .today-add { display: grid; width: 44px; height: 44px; margin: -10px -10px -10px var(--sp-1); color: var(--primary-ink); }
+  #page-home.has-habits .card-header { align-items: center; }
+  #page-home.has-habits .today-date { margin-left: auto; }
+  /* While the summary is folded, the streak warning is shown in its bar instead of as a separate banner */
+  .summary.is-collapsed ~ .risk-banner { display: none; }
+  .summary.is-collapsed.at-risk #bar-line { color: var(--streak); }
+}
 .ring { position: relative; width: 104px; height: 104px; flex: none; }
 .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .ring-bg { fill: none; stroke: rgba(255,255,255,.14); stroke-width: 7; }

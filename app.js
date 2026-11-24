@@ -842,7 +842,9 @@ async function runGuidedTour(userKey) {
   try {
     const { startTour } = await import('./coach.js?v=1');
     track('tour_started');
-    const { completed, step } = await startTour();
+    summaryForcedOpen = true; applySummaryState();       // the tour's second stop explains the whole summary
+    let completed, step;
+    try { ({ completed, step } = await startTour()); } finally { summaryForcedOpen = false; applySummaryState(); }
     try { localStorage.setItem(userKey, '1'); } catch (_) { /* storage unavailable */ }
     track(completed ? 'tour_completed' : 'tour_skipped', { step });
     if (completed && !allHabits.length) setNewHabitOpen(true, { focus: true });   // the tour ends on the first action to take
@@ -1513,6 +1515,7 @@ function renderHabits() {
 
   // Nothing is known yet: keep the placeholders, and do not show the empty state or open the form on a guess.
   if (!habitsLoaded) return;
+  document.getElementById('page-home').classList.toggle('has-habits', allHabits.length > 0);
   list.removeAttribute('aria-busy');
   if (!userSetNewHabit) setNewHabitOpen(!allHabits.length);   // open for an empty list, one tidy row otherwise
   list.innerHTML = '';
@@ -1630,13 +1633,15 @@ function updateStreakRisk() {
   const atRisk = allHabits
     .filter(h => (!h.frequency || h.frequency === 'daily') && !(h.completedDates || []).includes(t) && calcHabitStreak(h) > 0)
     .sort((x, y) => calcHabitStreak(y) - calcHabitStreak(x));
-  if (!atRisk.length || now.getHours() < 16) { el.classList.add('hidden'); return; }
+  if (!atRisk.length || now.getHours() < 16) { el.classList.add('hidden'); barRiskLine = ''; renderBarLine(); return; }
 
   const top = atRisk[0];
   const mid = new Date(now); mid.setHours(24, 0, 0, 0);
   const mins = Math.max(1, Math.round((mid - now) / 60000));
   const left = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
   document.getElementById('risk-title').textContent = `${top.name}: ${calcHabitStreak(top)}-day streak ends in ${left}`;
+  barRiskLine = `${top.name}: ${calcHabitStreak(top)}-day streak ends in ${left}`;
+  renderBarLine();
   document.getElementById('risk-sub').textContent = userStreakShields > 0
     ? 'Complete it today to keep your shield.'
     : 'Complete it before midnight to keep the streak.';
@@ -1691,6 +1696,41 @@ document.getElementById('starter-packs')?.addEventListener('click', e => {
 });
 
 const RING_LEN = 2 * Math.PI * 44;
+// ── Summary: folded to a slim bar on phones ───────────────
+// Saved choice wins. Otherwise it is folded once there are habits (so the list is on the first screen) and open
+// for an empty account. Desktop always shows the whole summary; the fold is purely a phone layout.
+const SUMMARY_KEY = 'habitly_summary';
+let barBaseLine = 'No habits yet';                   // "4 left today"
+let barRiskLine = '';                                // "Read: 3-day streak ends in 5h", while a streak is at risk
+function renderBarLine() {
+  const el = document.getElementById('bar-line');
+  if (el) el.textContent = barRiskLine || barBaseLine;
+  document.getElementById('summary')?.classList.toggle('at-risk', !!barRiskLine);
+}
+const phoneLayout = window.matchMedia ? matchMedia('(max-width: 640px)') : { matches: false };
+let summaryForcedOpen = false;                       // the guided tour unfolds it while it explains it
+function summaryCollapsed() {
+  if (summaryForcedOpen) return false;
+  let saved = null;
+  try { saved = localStorage.getItem(SUMMARY_KEY); } catch (_) {}
+  return saved ? saved === 'closed' : allHabits.length > 0;
+}
+function applySummaryState() {
+  const box = document.getElementById('summary'), more = document.getElementById('summary-more'), btn = document.getElementById('summary-toggle');
+  if (!box || !more || !btn) return;
+  const collapsed = summaryCollapsed();
+  box.classList.toggle('is-collapsed', collapsed);
+  btn.setAttribute('aria-expanded', String(!collapsed));
+  more.inert = collapsed && phoneLayout.matches;     // folded content must not be reachable by Tab or a screen reader
+}
+document.getElementById('summary-toggle')?.addEventListener('click', () => {
+  try { localStorage.setItem(SUMMARY_KEY, summaryCollapsed() ? 'open' : 'closed'); } catch (_) {}
+  applySummaryState();
+});
+if (phoneLayout.addEventListener) phoneLayout.addEventListener('change', applySummaryState);
+
+document.getElementById('today-add')?.addEventListener('click', () => quickAddHabit());
+
 function updateProgress(done, total) {
   const ring = document.getElementById('today-ring');
   const fg = document.getElementById('ring-fg');
@@ -1703,7 +1743,16 @@ function updateProgress(done, total) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('ring-num', done);
   set('ring-of', `of ${total}`);
-  set('summary-line', total === 0 ? 'No habits yet' : done === total ? 'All done for today' : `${total - done} left today`);
+  const line = total === 0 ? 'No habits yet' : done === total ? 'All done for today' : `${total - done} left today`;
+  set('summary-line', line);
+  // The slim bar phones show in place of the full summary
+  set('bar-count', `${done} of ${total}`);
+  barBaseLine = line;
+  renderBarLine();
+  const barFg = document.getElementById('bar-ring-fg');
+  if (barFg) barFg.style.strokeDashoffset = String(100.53 * (1 - frac));
+  document.getElementById('summary')?.classList.toggle('all-done', total > 0 && done === total);
+  applySummaryState();
   renderWeekStrip();
 }
 
@@ -1733,6 +1782,8 @@ let previousMaxStreak = null;
 function updateStreak() {
   const maxStreak = calcStreak(allHabits);
   document.getElementById('greeting-streak').textContent = maxStreak;
+  const barStreak = document.getElementById('bar-streak');
+  if (barStreak) barStreak.textContent = maxStreak;
   const badge = getUserBadge(maxStreak);
 
   if (previousMaxStreak !== null && maxStreak > previousMaxStreak) {

@@ -54,7 +54,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=45" />
+  <link rel="stylesheet" href="style.css?v=46" />
 </head>
 <body>
 
@@ -283,7 +283,15 @@
     <section id="page-home" class="page active">
       <div class="page-content">
 
-        <section class="summary" aria-label="Your progress">
+        <section class="summary" id="summary" aria-label="Your progress">
+          <!-- Phones: a slim bar so today's list is on the first screen. Tap to unfold the rest. -->
+          <button type="button" id="summary-toggle" class="summary-bar" aria-expanded="false" aria-controls="summary-more">
+            <span class="bar-ring" aria-hidden="true"><svg viewBox="0 0 40 40"><circle class="ring-bg" cx="20" cy="20" r="16"/><circle class="ring-fg" id="bar-ring-fg" cx="20" cy="20" r="16"/></svg></span>
+            <span class="bar-text"><strong id="bar-count">0 of 0</strong><span id="bar-line">No habits yet</span></span>
+            <span class="bar-streak" title="Current streak in days"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg><span id="bar-streak">0</span><span class="sr-only"> day streak</span></span>
+            <svg class="icon bar-chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+          </button>
+          <div id="summary-more" class="summary-more"><div class="summary-inner">
           <div class="summary-top">
             <div class="ring" id="today-ring" role="img" aria-label="No habits yet">
               <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="ring-bg" cx="50" cy="50" r="44"/><circle class="ring-fg" id="ring-fg" cx="50" cy="50" r="44"/></svg>
@@ -324,6 +332,7 @@
             </div>
             <div class="xp-track"><div class="xp-fill" id="user-xp-bar" style="width: 0%;"></div></div>
           </div>
+          </div></div>
         </section>
 
         <!-- Streak at risk (evening, streak alive, nothing ticked yet) -->
@@ -373,6 +382,8 @@
           <div class="card-header">
             <h2 class="card-title section-title">Today</h2>
             <span id="today-date" class="today-date"></span>
+            <!-- Phones: New habit sits below the list, so this is the quick way to it -->
+            <button type="button" id="today-add" class="btn-icon today-add" aria-label="New habit"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
           </div>
           <ul id="habits" class="habits-list"></ul>
           <div id="empty-state" class="empty-state hidden">
@@ -763,6 +774,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=44"></script>
+<script type="module" src="app.js?v=45"></script>
 </body>
 </html>

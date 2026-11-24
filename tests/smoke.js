@@ -60,17 +60,28 @@ function check(name, cond, detail) {
     await sleep(250);
   }
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'habitly-test-'));
-  const proc = spawn(BROWSER, ['--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
-    '--no-first-run', '--disable-gpu', '--disable-extensions', '--mute-audio', 'about:blank'], { stdio: 'ignore' });
+  let proc = null;
+  const killBrowser = () => { try { process.platform === 'win32' ? execSync(`taskkill /pid ${proc.pid} /T /F`, { stdio: 'ignore' }) : proc.kill('SIGKILL'); } catch (_) {} };
   const cleanup = () => {
-    try { process.platform === 'win32' ? execSync(`taskkill /pid ${proc.pid} /T /F`, { stdio: 'ignore' }) : proc.kill('SIGKILL'); } catch (_) {}
+    killBrowser();
     try { server.close(); } catch (_) {}
     try { fs.rmSync(profile, { recursive: true, force: true }); } catch (_) {}
   };
   process.on('exit', cleanup);
 
-  let targets;
-  for (let i = 0; i < 60; i++) { try { targets = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json`)).json(); if (targets.some(t => t.type === 'page')) break; } catch (_) {} await sleep(250); }
+  // Start the browser and wait for its page. On a busy machine it occasionally fails to come up, which used to
+  // abort the whole run with a TypeError, so try up to three times before giving up with a clear message.
+  let targets = null;
+  for (let attempt = 1; attempt <= 3 && !targets; attempt++) {
+    proc = spawn(BROWSER, ['--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
+      '--no-first-run', '--disable-gpu', '--disable-extensions', '--mute-audio', 'about:blank'], { stdio: 'ignore' });
+    for (let i = 0; i < 80; i++) {
+      try { const t = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json`)).json(); if (t.some(x => x.type === 'page')) { targets = t; break; } } catch (_) {}
+      await sleep(250);
+    }
+    if (!targets) { console.error(`Browser did not start (attempt ${attempt} of 3).`); killBrowser(); await sleep(2000); }
+  }
+  if (!targets) { console.error('Could not start a browser for the tests.'); process.exit(2); }
   const ws = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
   await new Promise(r => (ws.onopen = r));
 

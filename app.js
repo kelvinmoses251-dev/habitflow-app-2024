@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots } from "./home.js?v=2";
+import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe } from "./home.js?v=3";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -1653,7 +1653,10 @@ function renderHabits() {
         <button class="btn-icon" data-id="${h.id}" data-action="delete" title="Remove habit" aria-label="Remove ${escHtml(h.name)}">
           <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
         </button>
-      </div>`;
+      </div>
+      <button class="btn-icon row-more" type="button" data-action="more" data-id="${h.id}" aria-label="More actions for ${escHtml(h.name)}" aria-expanded="false">
+        <svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>
+      </button>`;
     section.list.appendChild(li);
   });
 
@@ -1664,6 +1667,7 @@ function renderHabits() {
   }
   document.getElementById('no-daily').classList.toggle('hidden', sections.daily.total > 0);
 
+  applyRevealed();
   habitsEntered = true;
   if (nudgeFirstHabit && done === 0) {
     const first = list.querySelector('.habit-check:not(:checked)');
@@ -1919,7 +1923,41 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
 });
 
 // ── Habit List Events (delegation) ───────────────────────
+// ── Row actions on phones: tucked behind a More button, or a swipe to the left ──
+// One row at a time. Tapping anywhere else, or Escape, closes it.
+let revealedId = null;
+function applyRevealed() {
+  document.querySelectorAll('#page-home .habit-item').forEach(row => {
+    const on = !!revealedId && row.dataset.id === revealedId;
+    row.classList.toggle('is-revealed', on);
+    row.querySelector('.row-more')?.setAttribute('aria-expanded', String(on));
+  });
+}
+function setRevealed(id) { revealedId = id || null; applyRevealed(); }
+document.addEventListener('click', e => {
+  if (revealedId && !(e.target instanceof Element && e.target.closest('.habit-item.is-revealed'))) setRevealed(null);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && revealedId) setRevealed(null); });
+
+// Swipe right to complete (or take back a recent completion), left to reveal the actions. Phones only.
+attachSwipe(document.getElementById('page-home'), {
+  enabled: () => phoneLayout.matches,
+  onLeft: id => setRevealed(id),
+  onRight: (id, row) => {
+    const cb = row.querySelector('.habit-check');
+    const h = allHabits.find(x => x.id === id);
+    if (!cb || !h || cb.disabled) return;
+    setRevealed(null);
+    if (cb.checked) { if (uncompleteHabit(id, cb.dataset.date)) cb.checked = false; }
+    else if (confirmFirst()) openConfirmCheckModal(h, cb.dataset.date, cb);
+    else completeHabit(id, cb.dataset.date, cb);
+  },
+});
+
 document.getElementById('page-home').addEventListener('click', async e => {
+  // More (phones): show or hide this row's actions
+  const more = e.target.closest('[data-action="more"]');
+  if (more) { setRevealed(revealedId === more.dataset.id ? null : more.dataset.id); return; }
   // Delete
   const del = e.target.closest('[data-action="delete"]');
   if (del) {

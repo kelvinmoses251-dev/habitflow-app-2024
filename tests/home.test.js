@@ -100,3 +100,60 @@ test('planReorder copes with habits that have no order yet', async () => {
   writes.forEach(w => { after[w.id] = w.order; });
   assert.ok(after.c < after.a && after.a < after.b, JSON.stringify(after));
 });
+
+test('swipeIntent waits for 12px, then decides between a sideways swipe and a scroll', async () => {
+  const { swipeIntent } = await load();
+  assert.equal(swipeIntent(5, 3), 'pending');          // not enough movement yet
+  assert.equal(swipeIntent(-8, 8), 'pending');
+  assert.equal(swipeIntent(20, 4), 'swipe');           // clearly sideways
+  assert.equal(swipeIntent(-30, 10), 'swipe');
+  assert.equal(swipeIntent(6, 30), 'scroll');          // clearly up or down: leave it to the page
+  assert.equal(swipeIntent(14, 13), 'scroll');         // diagonal is treated as a scroll, never as a swipe
+});
+
+test('swipeResult needs more than 72px before anything happens', async () => {
+  const { swipeResult } = await load();
+  assert.equal(swipeResult(30), null);
+  assert.equal(swipeResult(72), null);
+  assert.equal(swipeResult(73), 'right');
+  assert.equal(swipeResult(-72), null);
+  assert.equal(swipeResult(-90), 'left');
+});
+
+test('habitsOnDay lists the daily habits that existed on a day, with whether each was done', async () => {
+  const { habitsOnDay } = await load();
+  const habits = [
+    { id: 'a', name: 'Old', createdAt: '2026-11-01T08:00:00', completedDates: ['2026-11-20', '2026-11-22'] },
+    { id: 'b', name: 'Newer', createdAt: '2026-11-22T08:00:00', completedDates: [] },
+    { id: 'w', name: 'Weekly', frequency: 'weekly', createdAt: '2026-11-01T08:00:00', completedDates: ['2026-11-20'] },
+    { id: 'd', name: 'Deleted', createdAt: '2026-11-01T08:00:00', completedDates: ['2026-11-20'], deletedAt: 123 },
+    { id: 'n', name: 'No date', completedDates: ['2026-11-20'] },
+  ];
+  const on20 = habitsOnDay(habits, '2026-11-20');
+  assert.deepEqual(on20.map(x => [x.habit.id, x.done]), [['a', true], ['n', true]]);       // b did not exist yet; weekly and deleted are left out
+  const on22 = habitsOnDay(habits, '2026-11-22');
+  assert.deepEqual(on22.map(x => [x.habit.id, x.done]), [['a', true], ['b', false], ['n', false]]);
+});
+
+test('shiftDay moves a day key by whole days', async () => {
+  const { shiftDay } = await load();
+  assert.equal(shiftDay('2026-11-24', -1), '2026-11-23');
+  assert.equal(shiftDay('2026-03-01', -1), '2026-02-28');
+  assert.equal(shiftDay('2026-12-31', 1), '2027-01-01');
+  assert.equal(shiftDay('2026-11-24', 0), '2026-11-24');
+});
+
+test('matchesFilter matches by category, by text, or both, ignoring case and accents', async () => {
+  const { matchesFilter } = await load();
+  const h = { name: 'Café run', category: 'fitness' };
+  assert.equal(matchesFilter(h, {}), true);
+  assert.equal(matchesFilter(h, { category: 'fitness' }), true);
+  assert.equal(matchesFilter(h, { category: 'reading' }), false);
+  assert.equal(matchesFilter(h, { text: 'cafe' }), true);                    // accent-insensitive
+  assert.equal(matchesFilter(h, { text: 'RUN' }), true);                     // case-insensitive
+  assert.equal(matchesFilter(h, { text: '  run  ' }), true);                 // stray spaces
+  assert.equal(matchesFilter(h, { text: 'walk' }), false);
+  assert.equal(matchesFilter(h, { category: 'fitness', text: 'walk' }), false);
+  assert.equal(matchesFilter(h, { category: 'all', text: '' }), true);       // "All" and an empty box mean no filter
+  assert.equal(matchesFilter({ name: 'Read', category: 'reading' }, { text: 'reading' }), true);   // typing a category name finds it
+});

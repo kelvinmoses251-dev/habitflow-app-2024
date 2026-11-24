@@ -49,12 +49,12 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
-  <link rel="modulepreload" href="ui.js?v=4" />
+  <link rel="modulepreload" href="ui.js?v=5" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=44" />
+  <link rel="stylesheet" href="style.css?v=45" />
 </head>
 <body>
 
@@ -593,7 +593,7 @@
 <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
 
 <!-- Crop picture -->
-<div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Crop your picture">
+<div id="crop-modal" class="modal hidden" data-sticky role="dialog" aria-modal="true" aria-label="Crop your picture">
   <div class="dialog">
     <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Crop your picture</h2>
@@ -606,7 +606,7 @@
 </div>
 
 <!-- Edit habit -->
-<div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Edit habit">
+<div id="edit-modal" class="modal hidden" data-sticky role="dialog" aria-modal="true" aria-label="Edit habit">
   <div class="dialog">
     <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Edit habit</h2>
@@ -657,7 +657,7 @@
 </div>
 
 <!-- Focus timer -->
-<div id="timer-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Focus timer">
+<div id="timer-modal" class="modal hidden" data-sticky role="dialog" aria-modal="true" aria-label="Focus timer">
   <div class="dialog dialog-narrow">
     <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Focus timer</h2>
@@ -763,6 +763,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=43"></script>
+<script type="module" src="app.js?v=44"></script>
 </body>
 </html>

@@ -97,6 +97,12 @@ function notify(name) {
 // window.__mockProfileDelay (ms) makes users/{uid} arrive after the habits, as it can on a real network.
 export function onSnapshot(ref, ...rest) {
   const cb = typeof rest[0] === 'function' ? rest[0] : rest[1];   // (ref, cb) or (ref, options, cb)
+  // window.__mockSnapshotError = 'permission-denied' makes the habits listener fail the way a rules error does
+  const onError = rest.filter(x => typeof x === 'function')[1];
+  if (W.__mockSnapshotError && ref.name === 'habits') {
+    setTimeout(() => onError && onError(Object.assign(new Error('Missing or insufficient permissions.'), { code: W.__mockSnapshotError })), 0);
+    return () => {};
+  }
   const l = { ref, cb };
   const delay = ref.kind === 'doc' && ref.name === 'users' ? (W.__mockProfileDelay || 0)
     : (ref.name === 'habits' ? (W.__mockSnapshotDelay || 0) : 0);          // __mockSnapshotDelay: habits arrive late, as on a slow connection

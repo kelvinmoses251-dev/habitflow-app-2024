@@ -71,6 +71,7 @@ export function enhanceSelect(select, opts = {}) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'select-btn';
+  btn.setAttribute('role', 'combobox');             // a select-only combobox: the role that supports aria-activedescendant
   btn.setAttribute('aria-haspopup', 'listbox');
   btn.setAttribute('aria-expanded', 'false');
   btn.setAttribute('aria-controls', `${uid}-list`);
@@ -81,8 +82,10 @@ export function enhanceSelect(select, opts = {}) {
   list.setAttribute('aria-label', name);
   list.hidden = true;
   select.insertAdjacentElement('afterend', btn);
-  // The list lives at the end of <body>, not beside the button: cards and dialogs use transforms, and a
-  // transformed ancestor would shift a position:fixed list away from where it was placed.
+  // The list is not placed beside the button: cards and dialogs use transforms, and a transformed ancestor
+  // would shift a position:fixed list away from where it was put. It lives at the end of <body>, or, while the
+  // button is inside a dialog, at the end of that dialog's backdrop element, so it stays inside the aria-modal
+  // region and screen readers can reach it (see open()).
   document.body.appendChild(list);
 
   let active = -1;                                    // index of the highlighted option
@@ -127,6 +130,8 @@ export function enhanceSelect(select, opts = {}) {
     list.innerHTML = items.map((o, i) => `<li role="option" id="${uid}-o${i}" data-value="${esc(o.value)}" aria-selected="${o.value === select.value}">`
       + `${iconFor(o.value)}<span class="select-label">${esc(o.textContent)}</span>`
       + `<svg class="icon select-tick" aria-hidden="true"><use href="#i-check"/></svg></li>`).join('');
+    const home = btn.closest('.modal') || document.body;
+    if (list.parentNode !== home) home.appendChild(list);
     list.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
     place();
@@ -260,8 +265,14 @@ export function watchDialogs(root = document) {
 
   // A click on the dimmed backdrop itself (not on the dialog). Dialogs with their own backdrop handler have
   // already closed by the time this runs, so nothing is pressed twice.
+  // Only a press and a release that are both on the backdrop count: selecting text or dragging the crop box and
+  // letting go outside the dialog also fires a click on the backdrop. Dialogs marked data-sticky hold work in
+  // progress (a running timer, a half-edited form, a photo being cropped) and close only by their own buttons.
+  let pressedOn = null;
+  document.addEventListener('pointerdown', e => { pressedOn = e.target; }, true);
   document.addEventListener('click', e => {
-    if (e.target instanceof Element && e.target.classList.contains('modal')) dismiss(e.target);
+    const m = e.target;
+    if (m instanceof Element && m.classList.contains('modal') && pressedOn === m && !m.hasAttribute('data-sticky')) dismiss(m);
   });
 
   // Phone sheets: drag down from the handle (or the top edge) to dismiss; a short drag springs back.
@@ -269,10 +280,10 @@ export function watchDialogs(root = document) {
   document.addEventListener('pointerdown', e => {
     if (!stack.length || !matchMedia('(max-width: 640px)').matches || !(e.target instanceof Element)) return;
     const m = stack[stack.length - 1].modal, dlg = m.querySelector('.dialog');
-    if (!dlg || !dlg.contains(e.target) || !m.querySelector('[data-dismiss]')) return;
-    const onHandle = !!e.target.closest('.sheet-handle');
-    const nearTop = e.clientY - dlg.getBoundingClientRect().top <= 48 && !e.target.closest('button, a, input, textarea, select');
-    if (!onHandle && !nearTop) return;
+    if (!dlg || !dlg.contains(e.target) || !m.querySelector('[data-dismiss]') || m.hasAttribute('data-sticky')) return;
+    // Only the grab area starts a drag. It has touch-action: none, so a phone hands the gesture to us; anywhere
+    // else the browser would claim the touch for scrolling and cancel the drag half-way.
+    if (!e.target.closest('.sheet-handle')) return;
     drag = { m, dlg, startY: e.clientY, dy: 0 };
     dlg.style.animation = 'none';                     // a running or finished entrance animation would override the transform
     dlg.style.transition = 'none';

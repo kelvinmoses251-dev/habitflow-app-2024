@@ -318,10 +318,24 @@ html.dialog-open { overflow: hidden; }
     padding: var(--sp-3) var(--sp-5) calc(var(--sp-6) + env(safe-area-inset-bottom, 0px));
   }
   .modal:not(.hidden) .dialog { animation: sheetIn var(--t-sheet) both; }
-  .sheet-handle { display: block; flex: none; align-self: center; width: 36px; height: 4px; border-radius: var(--r-full); background: var(--border-strong); margin-bottom: var(--sp-2); touch-action: none; }
+  /* The grab area spans the sheet and is 28px tall; the visible bar is drawn inside it. touch-action: none hands
+     the gesture to the app instead of the browser's scrolling. */
+  .sheet-handle { display: grid; place-items: center; flex: none; align-self: stretch; height: 28px; margin: calc(var(--sp-3) * -1) calc(var(--sp-5) * -1) calc(var(--sp-2) * -1); touch-action: none; cursor: grab; }
+  .sheet-handle::after { content: ''; width: 36px; height: 4px; border-radius: var(--r-full); background: var(--border-strong); }
+  .modal[data-sticky] .sheet-handle { display: none; }     /* work in progress: closes only by its own buttons */
   .modal .dialog .dialog-actions > button { flex: 1; }     /* full-width actions are easier to hit with a thumb */
 }
 @media (prefers-reduced-motion: reduce) { .modal:not(.hidden) .dialog { animation: none; } }
+
+/* Small controls keep their drawn size but get a 44px touch area on phones and touch screens */
+@media (pointer: coarse), (max-width: 640px) {
+  .habit-check, .toggle { position: relative; }
+  .habit-check::before { content: ''; position: absolute; inset: -11px; }
+  .toggle::before { content: ''; position: absolute; inset: -11px -3px; z-index: 2; }
+  .habit-actions .btn-icon, .btn-icon { width: 44px; height: 44px; }
+  .toast-action { min-height: 44px; padding: 0 var(--sp-3); }
+}
+.load-error { list-style: none; display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-4) 0; color: var(--text-2); font-size: var(--fs-base); }
 .dialog-icon {
   width: 40px; height: 40px; border-radius: var(--r-md); display: grid; place-items: center;
   background: var(--primary-soft); color: var(--primary-ink);

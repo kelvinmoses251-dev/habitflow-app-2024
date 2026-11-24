@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=4";
+import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
 // ── Firebase Init ────────────────────────────────────────
@@ -1494,6 +1494,14 @@ function subscribeToHabits() {
     if (!document.getElementById('recovery-modal').classList.contains('hidden')) {
       renderDeletedHabits();
     }
+  }, err => {
+    // The list could not be read (signed out elsewhere, a rules change, no access). Say so: placeholder rows
+    // that never resolve look like the app is still loading.
+    console.warn('Could not load habits:', err);
+    const list = document.getElementById('habits');
+    list.removeAttribute('aria-busy');
+    list.innerHTML = '<li class="load-error"><span>Could not load your habits. Check your connection, then try again.</span><button type="button" class="btn-secondary" id="habits-retry">Try again</button></li>';
+    document.getElementById('habits-retry').addEventListener('click', () => { showHabitPlaceholders(); subscribeToHabits(); });
   });
 }
 

@@ -111,10 +111,10 @@ module.exports = (scenario, c) => {
     check('focus went back to where it was', await ev(`document.activeElement.classList.contains('habit-check')`));
     check('the page scrolls again', (await ev(`getComputedStyle(document.documentElement).overflow`)) !== 'hidden');
     await ev(`document.getElementById('export-data-btn').click()`); await sleep(350);
-    await ev(`document.getElementById('confirm-export-modal').dispatchEvent(new MouseEvent('click', { bubbles: true }))`); await sleep(200);
+    await ev(`(() => { const m = document.getElementById('confirm-export-modal'); m.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); m.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()`); await sleep(200);
     check('a click on the backdrop dismisses', !(await visible('#confirm-export-modal')));
     await ev(`document.getElementById('recovery-modal').classList.remove('hidden')`); await sleep(350);
-    await ev(`document.getElementById('recovery-modal').dispatchEvent(new MouseEvent('click', { bubbles: true }))`); await sleep(200);
+    await ev(`(() => { const m = document.getElementById('recovery-modal'); m.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); m.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()`); await sleep(200);
     check('that works for dialogs that had no backdrop handling before', !(await visible('#recovery-modal')));
     noExceptions();
   });

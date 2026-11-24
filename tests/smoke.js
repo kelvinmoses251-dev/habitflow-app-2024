@@ -53,6 +53,12 @@ function check(name, cond, detail) {
 }
 
 (async () => {
+  // A browser from a run that has only just finished may still be shutting down and holding the debugging port.
+  // Starting before it lets go made the next run fail at once, so wait (up to 20s) for the port to be free.
+  for (let i = 0; i < 80; i++) {
+    try { await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/version`, { signal: AbortSignal.timeout(400) }); } catch (_) { break; }
+    await sleep(250);
+  }
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'habitly-test-'));
   const proc = spawn(BROWSER, ['--headless=new', `--remote-debugging-port=${DEBUG_PORT}`, `--user-data-dir=${profile}`,
     '--no-first-run', '--disable-gpu', '--disable-extensions', '--mute-audio', 'about:blank'], { stdio: 'ignore' });

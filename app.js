@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay } from "./home.js?v=5";
+import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=6";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -336,6 +336,8 @@ const XP_DAILY_BONUS = 100;
 
 // Wipe per-account state so one user's XP/shields can never leak into (or be written onto) another account.
 function resetUserState() {
+  homeFilter = { category: 'all', text: '' };
+  { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
   renderDayHeader();
   currentUserXP = 0;
@@ -1530,6 +1532,8 @@ function renderHabits() {
     ['habits-week', 'habits-month'].forEach(id => { document.getElementById(id).innerHTML = ''; });
     viewDay = null;
     renderDayHeader();
+    renderFilterBar(false);
+    document.getElementById('no-match').classList.add('hidden');
     empty.classList.remove('hidden');
     renderStarterPacks();
     updateProgress(0, 0);
@@ -1540,7 +1544,15 @@ function renderHabits() {
 
   renderDayHeader();
   const pastDay = viewingPast();
-  if (pastDay) { renderPastDay(pastDay); return; }      // a past day: read-only, and today's progress above stays as it is
+  if (pastDay) {                                        // a past day: read-only, and today's progress above stays as it is
+    document.getElementById('home-filter')?.classList.add('hidden');
+    document.getElementById('no-match')?.classList.add('hidden');
+    renderPastDay(pastDay);
+    return;
+  }
+  renderFilterBar(allHabits.length >= FILTER_FROM);
+  const filtering = filterActive();
+  let shownRows = 0;
 
   // Sort logic
   const smartSortEnabled = localStorage.getItem('smartSort') !== 'false';
@@ -1594,6 +1606,9 @@ function renderHabits() {
     const section = sections[freq] || sections.daily;
     section.total++;
     if (isDone) section.done++;
+    if (filtering && !matchesFilter(h, homeFilter)) return;      // counted above, just not shown
+    shownRows++;
+    section.shown = (section.shown || 0) + 1;
     if (grouped && section === sections.daily && timeSlot(h) !== lastSlot) {
       lastSlot = timeSlot(h);
       const head = document.createElement('li');
@@ -1675,10 +1690,11 @@ function renderHabits() {
 
   for (const key of ['weekly', 'monthly']) {
     const sec = sections[key];
-    sec.card.classList.toggle('hidden', sec.total === 0);
+    sec.card.classList.toggle('hidden', sec.total === 0 || !sec.shown);
     sec.count.textContent = `${sec.done} of ${sec.total}`;
   }
-  document.getElementById('no-daily').classList.toggle('hidden', sections.daily.total > 0);
+  document.getElementById('no-daily').classList.toggle('hidden', sections.daily.total > 0 || filtering);
+  document.getElementById('no-match').classList.toggle('hidden', !(filtering && shownRows === 0));
 
   applyRevealed();
   // A keyboard move rebuilds the list: put focus back on the same grip so the arrow key can be pressed again
@@ -1765,6 +1781,35 @@ document.getElementById('starter-packs')?.addEventListener('click', e => {
 });
 
 const RING_LEN = 2 * Math.PI * 44;
+// ── Filter: search and category chips, once the list is long ──
+const FILTER_FROM = 9;                                // shown when there are more than eight habits
+let homeFilter = { category: 'all', text: '' };
+const filterActive = () => homeFilter.category !== 'all' || !!homeFilter.text.trim();
+function renderFilterBar(show) {
+  const bar = document.getElementById('home-filter'), chips = document.getElementById('filter-chips');
+  if (!bar || !chips) return;
+  if (!show) homeFilter = { category: 'all', text: '' };            // a short list has nothing to filter
+  bar.classList.toggle('hidden', !show);
+  if (!show) return;
+  const inUse = Object.keys(CATS).filter(k => allHabits.some(h => (CATS[h.category] ? h.category : 'health') === k));
+  if (homeFilter.category !== 'all' && !inUse.includes(homeFilter.category)) homeFilter.category = 'all';
+  chips.innerHTML = ['all', ...inUse].map(k =>
+    `<button type="button" class="chip" data-cat="${k}" aria-pressed="${homeFilter.category === k}">${k === 'all' ? 'All' : CATS[k].label}</button>`).join('');
+}
+document.getElementById('filter-chips')?.addEventListener('click', e => {
+  const chip = e.target instanceof Element ? e.target.closest('.chip') : null;
+  if (!chip) return;
+  homeFilter.category = chip.dataset.cat;
+  renderHabits();
+});
+document.getElementById('habit-search')?.addEventListener('input', e => { homeFilter.text = e.target.value; renderHabits(); });
+document.getElementById('filter-clear')?.addEventListener('click', () => {
+  homeFilter = { category: 'all', text: '' };
+  const box = document.getElementById('habit-search');
+  if (box) { box.value = ''; box.focus(); }
+  renderHabits();
+});
+
 // ── Day browser: look back at previous days (read-only) ───
 // viewDay is null for today. Past days can be looked at but never changed, in line with the rule that a
 // completion can only be undone for an hour.

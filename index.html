@@ -50,12 +50,12 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
   <link rel="modulepreload" href="ui.js?v=5" />
-  <link rel="modulepreload" href="home.js?v=5" />
+  <link rel="modulepreload" href="home.js?v=6" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=52" />
+  <link rel="stylesheet" href="style.css?v=53" />
 </head>
 <body>
 
@@ -406,6 +406,12 @@
             <button type="button" id="today-add" class="btn-icon today-add" aria-label="New habit"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
           </div>
           <p id="past-note" class="past-note hidden"><span>You are looking at a past day. It cannot be changed.</span><button type="button" id="back-to-today" class="btn-link">Back to today</button></p>
+          <!-- Shown once there are more than eight habits -->
+          <div id="home-filter" class="home-filter hidden">
+            <input type="search" id="habit-search" aria-label="Search habits" placeholder="Search" autocomplete="off" />
+            <div id="filter-chips" class="chips" role="group" aria-label="Filter by category"></div>
+          </div>
+          <p id="no-match" class="empty-note hidden"><span>No habits match.</span> <button type="button" class="btn-link" id="filter-clear">Clear</button></p>
           <ul id="habits" class="habits-list"></ul>
           <p id="reorder-status" class="sr-only" role="status" aria-live="polite"></p>
           <p id="no-daily" class="empty-note hidden">No daily habits yet. Your weekly and monthly habits are below.</p>
@@ -821,6 +827,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=52"></script>
+<script type="module" src="app.js?v=53"></script>
 </body>
 </html>

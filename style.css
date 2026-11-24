@@ -567,6 +567,21 @@ html.dialog-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .summary-more, .bar-chev { transition: none; } }
 .today-add { display: none; }
+/* Search and category chips, for long lists. One line, never taller than a field; chips scroll sideways. */
+.home-filter { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); min-width: 0; }
+.home-filter.hidden { display: none; }
+.home-filter input[type="search"] { flex: 0 0 auto; width: 132px; min-height: 36px; padding: .35rem .7rem; font-family: inherit; font-size: var(--fs-ui); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-full); }
+.home-filter input[type="search"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); outline: none; }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; min-width: 0; padding: 0 2px; }
+.chip:focus-visible { outline-offset: -2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; min-height: 32px; padding: 0 var(--sp-3); font-family: inherit; font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-full); white-space: nowrap; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
+.chip:hover { background: var(--surface-2); }
+.chip[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+@media (pointer: coarse), (max-width: 640px) {
+  .home-filter input[type="search"] { min-height: 44px; width: 116px; }
+  .chip { min-height: 44px; }
+}
 /* Day browser: arrows around the title, and a quiet note while a past day is shown */
 .day-header { align-items: center; gap: 2px; }
 .day-header .today-date { margin-left: auto; padding-left: var(--sp-2); white-space: nowrap; }

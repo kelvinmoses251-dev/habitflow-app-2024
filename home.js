@@ -58,12 +58,12 @@ export function habitsOnDay(habits, day) {
 // Lower-case, with accents removed, so "cafe" finds "Café".
 const fold = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-// Does a habit match the filter? `category` may be a category key or 'all'; `text` is matched against the
-// habit's name and its category.
+// Does a habit match the filter? `category` may be a category key or 'all'; `text` is looked for in the
+// habit's name; typing a whole category name also finds its habits.
 export function matchesFilter(habit, { category, text } = {}) {
   if (category && category !== 'all' && habit.category !== category) return false;
   const q = fold(text);
-  return !q || fold(habit.name).includes(q) || fold(habit.category).includes(q);
+  return !q || fold(habit.name).includes(q) || fold(habit.category) === q;      // a whole category name also counts
 }
 
 // ── Reordering ────────────────────────────────────────────

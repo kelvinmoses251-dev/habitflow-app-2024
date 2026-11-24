@@ -88,7 +88,9 @@ module.exports = (scenario, c) => {
     check('there is a chip for each category in use, plus All', (await ev(`[...document.querySelectorAll('#home-filter .chip')].map(c => c.textContent.trim()).join('|')`)) === 'All|Health|Fitness|Reading', await ev(`[...document.querySelectorAll('#home-filter .chip')].map(c => c.textContent.trim()).join('|')`));
     await type('read'); await sleep(250);
     check('typing filters the list', (await shown()) === 'Read a chapter|Read the news', await shown());
-    check('it filters the weekly section too', (await ev(`document.querySelectorAll('#habits-week .habit-item').length`)) === 1);
+    check('it filters the weekly section too, hiding it when nothing there matches', !(await visible('#week-card')));
+    await type('weekly'); await sleep(250);
+    check('and shows it when something does', (await ev(`document.querySelectorAll('#habits-week .habit-item').length`)) === 1 && (await shown()) === '' && !(await visible('#no-match')));
     await type('cafe'); await sleep(250);
     check('search ignores accents and case', (await shown()) === 'Café walk', await shown());
     await type('zzz'); await sleep(250);

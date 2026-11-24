@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { timeSlot, currentSlot, slotOrder, SLOT_LABEL } from "./home.js?v=1";
+import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots } from "./home.js?v=2";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -1612,7 +1612,16 @@ function renderHabits() {
     }
 
     const habitStreak = calcHabitStreak(h);
-    
+
+    // The last seven days at a glance (daily habits only). Days before the habit existed are left blank.
+    let dotsHTML = '';
+    if (freq === 'daily') {
+      const week = weekDots(h, t);
+      const counted = week.filter(d => d.state !== 'na');
+      dotsHTML = `<span class="dots" role="img" aria-label="Last 7 days: ${counted.filter(d => d.state === 'on').length} of ${counted.length} done">`
+        + week.map(d => `<i class="${d.state}${d.today ? ' today' : ''}"></i>`).join('') + '</span>';
+    }
+
     const li = document.createElement('li');
     li.className = 'habit-item' + (animateRows ? ' enter' : '') + (h.id === justCompletedId ? ' just-done' : '');
     li.dataset.id = h.id;
@@ -1628,6 +1637,7 @@ function renderHabits() {
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
             ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
+            ${dotsHTML}
           </div>
         </div>
       </div>

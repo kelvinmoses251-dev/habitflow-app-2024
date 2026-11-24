@@ -679,6 +679,14 @@ html.dialog-open { overflow: hidden; }
 .freq-badge { text-transform: capitalize; }
 .streak-pill { display: inline-flex; align-items: center; gap: 3px; color: var(--streak); font-weight: 600; font-variant-numeric: tabular-nums; }
 .streak-pill .icon { width: 13px; height: 13px; }
+/* Last seven days: filled = done, ring = missed, faint = before the habit existed, ringed = today */
+.dots { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; padding-left: var(--sp-2); }
+.dots i { width: 6px; height: 6px; border-radius: var(--r-full); border: 1px solid var(--border-strong); background: transparent; }
+.dots i.on { background: var(--cat, var(--primary)); border-color: var(--cat, var(--primary)); }
+.dots i.na { border-color: transparent; background: var(--surface-2); }
+.dots i.today { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border-strong); }
+.dots i.today.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--cat, var(--primary)); }
+@media (max-width: 359px) { .dots { display: none; } }
 .locked-badge { display: inline-flex; align-items: center; }
 .locked-badge .icon { width: 12px; height: 12px; }
 .habit-actions { display: flex; align-items: center; gap: 2px; flex: none; }

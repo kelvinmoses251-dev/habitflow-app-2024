@@ -567,6 +567,22 @@ html.dialog-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .summary-more, .bar-chev { transition: none; } }
 .today-add { display: none; }
+/* Focus view: a calm full-screen layer with one habit on it */
+.focus-open { margin-top: var(--sp-3); }
+.focus-open.hidden { display: none; }
+.modal.focus-view { background: var(--bg); }
+.modal.focus-view .dialog.focus-card { max-width: 480px; background: transparent; border: 0; box-shadow: none; gap: var(--sp-4); text-align: center; }
+.focus-top { display: flex; align-items: center; justify-content: space-between; }
+.focus-progress { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+.focus-body { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); padding: var(--sp-8) 0; }
+.focus-name { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.1rem, 9vw, 3rem); line-height: var(--lh-tight); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.focus-streak { color: var(--text-2); font-size: var(--fs-base); min-height: 1.4em; }
+.focus-actions > button { flex: 1; }
+.focus-view .hidden { display: none; }
+@media (max-width: 640px) {
+  .modal.focus-view { align-items: center; }
+  .modal.focus-view .dialog.focus-card { border-radius: 0; max-height: 100dvh; padding: var(--sp-4) var(--sp-5); }
+}
 /* Search and category chips, for long lists. One line, never taller than a field; chips scroll sideways. */
 .home-filter { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); min-width: 0; }
 .home-filter.hidden { display: none; }

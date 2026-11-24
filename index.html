@@ -55,7 +55,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=53" />
+  <link rel="stylesheet" href="style.css?v=54" />
 </head>
 <body>
 
@@ -145,6 +145,28 @@
     <div class="skel skel-text"></div>
     <div class="skel skel-text short"></div>
     <div class="skel skel-card"></div>
+  </div>
+</div>
+
+<!-- Focus view: the open habits for today, one at a time. Sits before the other dialogs so the timer and the
+     all-done dialog open on top of it. -->
+<div id="focus-view" class="modal focus-view hidden" role="dialog" aria-modal="true" aria-label="Focus" data-sticky>
+  <div class="dialog focus-card">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <div class="focus-top">
+      <span id="focus-progress" class="focus-progress" aria-live="polite"></span>
+      <button type="button" id="focus-exit" class="btn-ghost btn-sm" data-dismiss>Exit</button>
+    </div>
+    <div class="focus-body">
+      <span id="focus-cat" class="cat-badge"></span>
+      <h2 id="focus-name" class="focus-name"></h2>
+      <p id="focus-streak" class="focus-streak"></p>
+    </div>
+    <div class="dialog-actions focus-actions">
+      <button type="button" id="focus-skip" class="btn-secondary">Skip</button>
+      <button type="button" id="focus-done" class="btn-primary" autofocus>Done</button>
+    </div>
+    <button type="button" id="focus-timer" class="btn-ghost">Start timer</button>
   </div>
 </div>
 
@@ -415,6 +437,7 @@
           <ul id="habits" class="habits-list"></ul>
           <p id="reorder-status" class="sr-only" role="status" aria-live="polite"></p>
           <p id="no-daily" class="empty-note hidden">No daily habits yet. Your weekly and monthly habits are below.</p>
+          <button type="button" id="focus-open" class="btn-secondary btn-full focus-open hidden"><svg class="icon" aria-hidden="true"><use href="#i-target"/></svg>Focus: one habit at a time</button>
           <div id="empty-state" class="empty-state hidden">
             <p class="empty-title">Start with a ready-made set</p>
             <span class="empty-text">Each one adds three habits. You can edit or delete them later.</span>
@@ -827,6 +850,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=53"></script>
+<script type="module" src="app.js?v=54"></script>
 </body>
 </html>

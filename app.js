@@ -949,6 +949,7 @@ const ESC_CLOSERS = [   // ordered top of the stack first
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['details-modal', 'details-close'],
   ['edit-modal', 'edit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
+  ['focus-view', 'focus-exit'],
   ['notif-ask', 'notif-ask-no'],
 ];
 document.addEventListener('keydown', e => {
@@ -1534,6 +1535,7 @@ function renderHabits() {
     renderDayHeader();
     renderFilterBar(false);
     document.getElementById('no-match').classList.add('hidden');
+    document.getElementById('focus-open')?.classList.add('hidden');
     empty.classList.remove('hidden');
     renderStarterPacks();
     updateProgress(0, 0);
@@ -1547,6 +1549,7 @@ function renderHabits() {
   if (pastDay) {                                        // a past day: read-only, and today's progress above stays as it is
     document.getElementById('home-filter')?.classList.add('hidden');
     document.getElementById('no-match')?.classList.add('hidden');
+    document.getElementById('focus-open')?.classList.add('hidden');
     renderPastDay(pastDay);
     return;
   }
@@ -1704,6 +1707,7 @@ function renderHabits() {
     const first = list.querySelector('.habit-check:not(:checked)');
     if (first) first.classList.add('nudge');
   }
+  updateFocusButton();
   updateProgress(done, allHabits.length);
   updateStreakRisk();
 }
@@ -1781,6 +1785,65 @@ document.getElementById('starter-packs')?.addEventListener('click', e => {
 });
 
 const RING_LEN = 2 * Math.PI * 44;
+// ── Focus view: today's open daily habits, one at a time ──
+// The queue is fixed when the view opens (the open daily habits, in list order). Done completes the habit by
+// the normal one-tap path and moves on; Skip just moves on.
+let focusQueue = [];
+let focusAt = 0;
+const openDailyIds = () => [...document.querySelectorAll('#habits .habit-item:not(.is-readonly) .habit-check:not(:checked)')].map(cb => cb.dataset.id);
+function updateFocusButton() {
+  const b = document.getElementById('focus-open');
+  if (b) b.classList.toggle('hidden', !!viewingPast() || filterActive() || openDailyIds().length < 2);
+}
+function renderFocus() {
+  const today = todayStr();
+  const isOpen = id => { const h = allHabits.find(x => x.id === id); return h && !(h.completedDates || []).includes(today); };
+  while (focusAt < focusQueue.length && !isOpen(focusQueue[focusAt]) && !focusJustDone.has(focusQueue[focusAt])) focusAt++;   // completed elsewhere meanwhile
+  const h = allHabits.find(x => x.id === focusQueue[focusAt]);
+  const finished = !h;
+  const set = (id, v) => { document.getElementById(id).textContent = v; };
+  set('focus-progress', finished ? 'Finished' : `${focusAt + 1} of ${focusQueue.length}`);
+  set('focus-name', finished ? 'That is everything for today.' : h.name);
+  const streak = finished ? 0 : calcHabitStreak(h);
+  set('focus-streak', finished ? '' : streak > 0 ? `${streak}-day streak` : 'No streak yet. Today can be day one.');
+  const cat = finished ? null : (CATS[h.category] || CATS.health);
+  const chip = document.getElementById('focus-cat');
+  chip.classList.toggle('hidden', finished);
+  chip.innerHTML = cat ? `<span class="cat-ico" style="--cat:${catColor(cat)}">${cat.icon}</span>${cat.label}` : '';
+  document.getElementById('focus-skip').classList.toggle('hidden', finished);
+  document.getElementById('focus-timer').classList.toggle('hidden', finished);
+  set('focus-done', finished ? 'Finish' : 'Done');
+}
+const focusJustDone = new Set();                      // completed from this view; the write lands a moment later
+const closeFocus = () => document.getElementById('focus-view').classList.add('hidden');
+document.getElementById('focus-open')?.addEventListener('click', () => {
+  focusQueue = openDailyIds();
+  focusAt = 0;
+  focusJustDone.clear();
+  if (!focusQueue.length) return;
+  renderFocus();
+  document.getElementById('focus-view').classList.remove('hidden');
+  track('focus_opened');
+});
+document.getElementById('focus-done')?.addEventListener('click', () => {
+  const id = focusQueue[focusAt];
+  if (!id || !allHabits.some(h => h.id === id)) { closeFocus(); return; }
+  focusJustDone.add(id);
+  completeHabit(id, todayStr(), null);
+  focusAt++;
+  renderFocus();
+});
+const focusSkip = () => { if (focusAt < focusQueue.length) { focusAt++; renderFocus(); } };
+document.getElementById('focus-skip')?.addEventListener('click', focusSkip);
+document.getElementById('focus-exit')?.addEventListener('click', closeFocus);
+document.getElementById('focus-timer')?.addEventListener('click', () => {
+  const h = allHabits.find(x => x.id === focusQueue[focusAt]);
+  if (h) openTimerModal(h);
+});
+document.getElementById('focus-view')?.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' && !document.getElementById('focus-skip').classList.contains('hidden')) { e.preventDefault(); focusSkip(); }
+});
+
 // ── Filter: search and category chips, once the list is long ──
 const FILTER_FROM = 9;                                // shown when there are more than eight habits
 let homeFilter = { category: 'all', text: '' };

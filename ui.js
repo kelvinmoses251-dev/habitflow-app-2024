@@ -256,11 +256,13 @@ export function watchDialogs(root = document) {
   document.addEventListener('keydown', e => {
     if (e.key !== 'Tab' || !stack.length) return;
     const dlg = stack[stack.length - 1].modal;
-    const f = focusables(dlg);
+    // Toast buttons (Undo) are part of the round too: a toast raised from inside a dialog must be reachable by keyboard
+    const f = [...focusables(dlg), ...[...document.querySelectorAll('#toast-container button')].filter(b => b.getClientRects().length > 0)];
     if (!f.length) { e.preventDefault(); return; }
-    const first = f[0], last = f[f.length - 1], inside = dlg.contains(document.activeElement);
-    if (e.shiftKey && (!inside || document.activeElement === first)) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && (!inside || document.activeElement === last)) { e.preventDefault(); first.focus(); }
+    // Move through that list ourselves, in order and wrapping, so focus can go nowhere else on the page
+    e.preventDefault();
+    const i = f.indexOf(document.activeElement);
+    f[i < 0 ? 0 : (i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
   }, true);
 
   // A click on the dimmed backdrop itself (not on the dialog). Dialogs with their own backdrop handler have

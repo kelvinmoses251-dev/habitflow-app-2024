@@ -750,6 +750,11 @@ html.dialog-open { overflow: hidden; }
 .habit-item.is-dragging::before, .habit-item.is-dragging + .habit-item::before { opacity: 0; }
 html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; }
 .row-move { display: none; }
+/* Any touch screen (tablets too, where the row actions are always visible) reorders with Move up / Move down */
+@media (pointer: coarse) { .habit-item .row-move { display: grid; } }
+.details-time { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); font-size: var(--fs-ui); color: var(--text-2); }
+.details-time.hidden { display: none; }
+.details-time .select-btn { width: 160px; flex: none; }
 @media (max-width: 640px) {
   .row-grip { display: none; }
   .habit-item .row-move { display: grid; }

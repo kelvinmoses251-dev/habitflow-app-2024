@@ -49,13 +49,13 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
-  <link rel="modulepreload" href="ui.js?v=5" />
-  <link rel="modulepreload" href="home.js?v=6" />
+  <link rel="modulepreload" href="ui.js?v=6" />
+  <link rel="modulepreload" href="home.js?v=7" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=54" />
+  <link rel="stylesheet" href="style.css?v=55" />
 </head>
 <body>
 
@@ -159,7 +159,7 @@
     </div>
     <div class="focus-body">
       <span id="focus-cat" class="cat-badge"></span>
-      <h2 id="focus-name" class="focus-name"></h2>
+      <h2 id="focus-name" class="focus-name" aria-live="polite"></h2>
       <p id="focus-streak" class="focus-streak"></p>
     </div>
     <div class="dialog-actions focus-actions">
@@ -774,6 +774,16 @@
       <div><dt>Total days</dt><dd id="details-total-days">0</dd></div>
     </dl>
 
+    <div class="details-time" id="details-time-row">
+      <span class="details-time-label">Time of day</span>
+      <select id="details-time" aria-label="Time of day">
+        <option value="any" selected>Any time</option>
+        <option value="morning">Morning</option>
+        <option value="afternoon">Afternoon</option>
+        <option value="evening">Evening</option>
+      </select>
+    </div>
+
     <div class="details-journal">
       <h3>Notes</h3>
       <textarea id="details-journal-input" aria-label="Note for today" placeholder="Add a note for today"></textarea>
@@ -850,6 +860,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=54"></script>
+<script type="module" src="app.js?v=55"></script>
 </body>
 </html>

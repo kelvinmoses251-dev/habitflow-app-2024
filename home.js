@@ -162,7 +162,8 @@ export function attachSwipe(root, { enabled = () => true, onRight, onLeft }) {
 // (same list and same data-group), because the app sorts groups itself: done habits sink, times of day stay together.
 // `groupIds` is the group's order before the move and `toIndex` the row's new position in it.
 export function attachReorder(root, { enabled = () => true, onDrop }) {
-  const groupOf = row => [...row.parentNode.querySelectorAll(':scope > .habit-item')].filter(r => r.dataset.group === row.dataset.group);
+  // (A row that has been removed from the page, because the list was redrawn mid-drag, has no group.)
+  const groupOf = row => (row.parentNode ? [...row.parentNode.querySelectorAll(':scope > .habit-item')].filter(r => r.dataset.group === row.dataset.group) : []);
   let d = null;                                       // the drag in progress
   let raf = 0;
 
@@ -189,6 +190,7 @@ export function attachReorder(root, { enabled = () => true, onDrop }) {
   });
   addEventListener('pointermove', e => {
     if (!d) return;
+    if (!d.row.isConnected) { finish(false); return; }   // the list was redrawn under the drag: drop it quietly
     d.y = e.clientY;
     // Step the row past each neighbour of its group whose middle the pointer has crossed
     for (const other of groupOf(d.row)) {

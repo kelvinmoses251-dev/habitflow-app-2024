@@ -8,7 +8,7 @@ module.exports = (scenario, c) => {
   scenario('components: the category select is a designed, keyboard-friendly list', async () => {
     await boot({ seed: signedIn() });
     await waitFor(`!!document.querySelector('#habit-form .select-btn') && !document.getElementById('habit-form').hidden`, 6000);
-    check('all six selects are enhanced', (await ev(`document.querySelectorAll('.select-btn').length`)) === 6);
+    check('all seven selects are enhanced', (await ev(`document.querySelectorAll('.select-btn').length`)) === 7);
     check('the button shows the placeholder first', /Category/.test(await ev(`${catBtn}.textContent`)));
     await ev(`${catBtn}.click()`); await sleep(100);
     check('opens a listbox with the 11 categories', (await ev(`${openList}.querySelectorAll('[role=option]').length`)) === 11);

@@ -15,8 +15,8 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=6";
-import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
+import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
+import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
 // ── Firebase Init ────────────────────────────────────────
@@ -256,7 +256,7 @@ const catColor = cat => (isDarkTheme() ? cat.dark : cat.color);
 // The four dropdowns become designed lists (ui.js). Category ones show each category's icon in its colour.
 const catChip = value => (CATS[value] ? `<span class="cat-ico" style="--cat:${catColor(CATS[value])}">${CATS[value].icon}</span>` : '');
 ['habit-category', 'edit-habit-category'].forEach(id => enhanceSelect(document.getElementById(id), { iconFor: catChip }));
-['habit-frequency', 'edit-habit-frequency', 'habit-time', 'edit-habit-time'].forEach(id => enhanceSelect(document.getElementById(id)));
+['habit-frequency', 'edit-habit-frequency', 'habit-time', 'edit-habit-time', 'details-time'].forEach(id => enhanceSelect(document.getElementById(id)));
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
@@ -336,6 +336,11 @@ const XP_DAILY_BONUS = 100;
 
 // Wipe per-account state so one user's XP/shields can never leak into (or be written onto) another account.
 function resetUserState() {
+  document.getElementById('focus-view')?.classList.add('hidden');
+  focusQueue = []; focusAt = 0;
+  revealedId = null;
+  pendingComplete.forEach(clearTimeout); pendingComplete.clear();
+  pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
@@ -1522,7 +1527,11 @@ function renderHabits() {
 
   // Nothing is known yet: keep the placeholders, and do not show the empty state or open the form on a guess.
   if (!habitsLoaded) return;
-  const focusedGrip = document.activeElement?.classList?.contains('row-grip') ? document.activeElement.closest('.habit-item')?.dataset.id : null;
+  // The list is rebuilt on every change. Remember which control in which row had keyboard focus, and give it back.
+  const act = document.activeElement, actRow = act?.closest?.('#page-home .habit-item');
+  const focusSel = !actRow ? null : act.classList.contains('row-grip') ? '.row-grip' : act.classList.contains('habit-check') ? '.habit-check'
+    : act.dataset.action ? `[data-action="${act.dataset.action}"]` : null;
+  const focusRowId = focusSel ? actRow.dataset.id : null;
   document.getElementById('page-home').classList.toggle('has-habits', allHabits.length > 0);
   list.removeAttribute('aria-busy');
   if (!userSetNewHabit) setNewHabitOpen(!allHabits.length);   // open for an empty list, one tidy row otherwise
@@ -1575,7 +1584,13 @@ function renderHabits() {
   const isDaily = h => !h.frequency || h.frequency === 'daily';
   const grouped = sorted.some(h => isDaily(h) && timeSlot(h) !== 'any');
   const slotRank = slotOrder(currentSlot(new Date().getHours()));
-  if (grouped) sorted.sort((a, b) => (isDaily(a) && isDaily(b) ? slotRank.indexOf(timeSlot(a)) - slotRank.indexOf(timeSlot(b)) : 0));
+  if (grouped) {
+    // Sort the daily habits on their own. (Sorting the mixed list with "leave weekly ones where they are" is not
+    // a consistent ordering, and split a group in two whenever a weekly habit sat between its members.)
+    const daily = sorted.filter(isDaily).map((h, i) => ({ h, i }))
+      .sort((a, b) => slotRank.indexOf(timeSlot(a.h)) - slotRank.indexOf(timeSlot(b.h)) || a.i - b.i).map(x => x.h);
+    sorted.splice(0, sorted.length, ...daily, ...sorted.filter(h => !isDaily(h)));
+  }
   const SLOT_ICON = { morning: 'i-sunrise', afternoon: 'i-sun', evening: 'i-moon', any: 'i-clock' };
   let lastSlot = null;
 
@@ -1700,14 +1715,14 @@ function renderHabits() {
   document.getElementById('no-match').classList.toggle('hidden', !(filtering && shownRows === 0));
 
   applyRevealed();
-  // A keyboard move rebuilds the list: put focus back on the same grip so the arrow key can be pressed again
-  if (focusedGrip) document.querySelector(`.habit-item[data-id="${CSS.escape(focusedGrip)}"] .row-grip`)?.focus({ preventScroll: true });
+  if (focusRowId) document.querySelector(`#page-home .habit-item[data-id="${CSS.escape(focusRowId)}"] ${focusSel}`)?.focus({ preventScroll: true });
   habitsEntered = true;
   if (nudgeFirstHabit && done === 0) {
     const first = list.querySelector('.habit-check:not(:checked)');
     if (first) first.classList.add('nudge');
   }
   updateFocusButton();
+  if (!document.getElementById('focus-view').classList.contains('hidden')) renderFocus();   // keep an open focus view in step with the data
   updateProgress(done, allHabits.length);
   updateStreakRisk();
 }
@@ -1798,7 +1813,7 @@ function updateFocusButton() {
 function renderFocus() {
   const today = todayStr();
   const isOpen = id => { const h = allHabits.find(x => x.id === id); return h && !(h.completedDates || []).includes(today); };
-  while (focusAt < focusQueue.length && !isOpen(focusQueue[focusAt]) && !focusJustDone.has(focusQueue[focusAt])) focusAt++;   // completed elsewhere meanwhile
+  while (focusAt < focusQueue.length && !isOpen(focusQueue[focusAt]) && !pendingUncomplete.has(focusQueue[focusAt])) focusAt++;   // completed meanwhile, here or on another device
   const h = allHabits.find(x => x.id === focusQueue[focusAt]);
   const finished = !h;
   const set = (id, v) => { document.getElementById(id).textContent = v; };
@@ -1814,22 +1829,24 @@ function renderFocus() {
   document.getElementById('focus-timer').classList.toggle('hidden', finished);
   set('focus-done', finished ? 'Finish' : 'Done');
 }
-const focusJustDone = new Set();                      // completed from this view; the write lands a moment later
 const closeFocus = () => document.getElementById('focus-view').classList.add('hidden');
 document.getElementById('focus-open')?.addEventListener('click', () => {
   focusQueue = openDailyIds();
   focusAt = 0;
-  focusJustDone.clear();
   if (!focusQueue.length) return;
   renderFocus();
   document.getElementById('focus-view').classList.remove('hidden');
   track('focus_opened');
 });
-document.getElementById('focus-done')?.addEventListener('click', () => {
+document.getElementById('focus-done')?.addEventListener('click', e => {
   const id = focusQueue[focusAt];
-  if (!id || !allHabits.some(h => h.id === id)) { closeFocus(); return; }
-  focusJustDone.add(id);
-  completeHabit(id, todayStr(), null);
+  const h = allHabits.find(x => x.id === id);
+  if (!h) { closeFocus(); return; }                    // "Finish", or the habit is gone
+  // Hold the button for a moment: a double tap must not complete the next habit before it has been read
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  setTimeout(() => { btn.disabled = false; if (!document.getElementById('focus-view').classList.contains('hidden') && document.activeElement === document.body) btn.focus(); }, 450);
+  completeHabit(id, todayStr(), null);                 // does nothing if it was completed meanwhile, here or elsewhere
   focusAt++;
   renderFocus();
 });
@@ -1851,13 +1868,19 @@ const filterActive = () => homeFilter.category !== 'all' || !!homeFilter.text.tr
 function renderFilterBar(show) {
   const bar = document.getElementById('home-filter'), chips = document.getElementById('filter-chips');
   if (!bar || !chips) return;
-  if (!show) homeFilter = { category: 'all', text: '' };            // a short list has nothing to filter
+  if (!show) {                                                      // a short list has nothing to filter
+    homeFilter = { category: 'all', text: '' };
+    const box = document.getElementById('habit-search');
+    if (box) box.value = '';
+  }
   bar.classList.toggle('hidden', !show);
   if (!show) return;
+  const focusedChip = document.activeElement?.classList?.contains('chip') ? document.activeElement.dataset.cat : null;
   const inUse = Object.keys(CATS).filter(k => allHabits.some(h => (CATS[h.category] ? h.category : 'health') === k));
   if (homeFilter.category !== 'all' && !inUse.includes(homeFilter.category)) homeFilter.category = 'all';
   chips.innerHTML = ['all', ...inUse].map(k =>
     `<button type="button" class="chip" data-cat="${k}" aria-pressed="${homeFilter.category === k}">${k === 'all' ? 'All' : CATS[k].label}</button>`).join('');
+  if (focusedChip) chips.querySelector(`.chip[data-cat="${CSS.escape(focusedChip)}"]`)?.focus({ preventScroll: true });   // rebuilt: keep keyboard focus
 }
 document.getElementById('filter-chips')?.addEventListener('click', e => {
   const chip = e.target instanceof Element ? e.target.closest('.chip') : null;
@@ -1872,6 +1895,27 @@ document.getElementById('filter-clear')?.addEventListener('click', () => {
   if (box) { box.value = ''; box.focus(); }
   renderHabits();
 });
+
+document.getElementById('details-time')?.addEventListener('change', e => {
+  const h = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (!h) return;
+  const v = e.target.value;
+  backgroundWrite(updateDoc(doc(db, 'habits', h.id), { timeOfDay: v === 'any' ? deleteField() : v }), 'save the time of day');
+});
+
+// ── Midnight ──────────────────────────────────────────────
+// The list is drawn for one day. If the app is left open past midnight, redraw it for the new day when the tab
+// is looked at again (and on a slow timer), so a tick is never saved against yesterday.
+let renderedDay = todayStr();
+function checkDayRollover() {
+  if (!currentUser || todayStr() === renderedDay) return;
+  renderedDay = todayStr();
+  renderHabits();
+  updateStreak();
+  if (location.hash === '#stats') renderStats();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayRollover(); });
+setInterval(checkDayRollover, 30000);
 
 // ── Day browser: look back at previous days (read-only) ───
 // viewDay is null for today. Past days can be looked at but never changed, in line with the rule that a
@@ -2271,9 +2315,23 @@ const confirmFirst = () => { try { return localStorage.getItem('habitly_confirm'
 // Take a completion back. Shared by un-ticking the box and by Undo, so both follow the same rules:
 // only within an hour of completing, and the 25 XP is refunded so ticking cannot be farmed.
 // Returns false (and says why) when the completion is locked.
+// A completion is saved 300ms after the tap and a take-back 200ms after, so quick taps can overlap. These two
+// maps hold what is still on its way, so that the second tap cancels the first instead of racing it.
+const pendingComplete = new Map();                    // habit id -> timer
+const pendingUncomplete = new Map();                  // habit id -> timer
 function uncompleteHabit(id, date) {
   const h = allHabits.find(x => x.id === id);
   if (!h) return false;
+  if (pendingComplete.has(id)) {                      // ticked a moment ago and not saved yet: just call it off
+    clearTimeout(pendingComplete.get(id));
+    pendingComplete.delete(id);
+    playUncheck();
+    buzz(30);
+    return true;
+  }
+  // Already open, or already being taken back (for example Undo pressed after un-ticking by hand): nothing to do,
+  // and above all nothing to refund a second time.
+  if (pendingUncomplete.has(id) || !(h.completedDates || []).includes(date)) return true;
   const completedAt = h.completedTimestamps?.[date];
   const locked = completedAt ? (Date.now() - completedAt > 3600000) : (date !== todayStr());
   if (locked) {
@@ -2283,18 +2341,31 @@ function uncompleteHabit(id, date) {
   }
   playUncheck();
   buzz(30);
-  setTimeout(async () => { if (await toggleHabit(id, true, date)) await addXP(-XP_PER_HABIT); }, 200);
+  pendingUncomplete.set(id, setTimeout(async () => {
+    pendingUncomplete.delete(id);
+    if (await toggleHabit(id, true, date)) await addXP(-XP_PER_HABIT);
+  }, 200));
   return true;
 }
 
 function completeHabit(id, dateToRm, checkboxEl) {
+  const habit = allHabits.find(x => x.id === id);
+  if (!habit) return;
+  if (pendingUncomplete.has(id)) {                    // un-ticked a moment ago and not saved yet: call that off, it stays completed
+    clearTimeout(pendingUncomplete.get(id));
+    pendingUncomplete.delete(id);
+    if (checkboxEl) checkboxEl.checked = true;
+    return;
+  }
+  if (pendingComplete.has(id) || isHabitDoneNow(habit)) return;   // already completed or on its way: never count it twice
   if (checkboxEl) checkboxEl.checked = true;
   nudgeFirstHabit = false;
   justCompletedId = id;
   setTimeout(() => { if (justCompletedId === id) justCompletedId = null; }, 1600);
   playPop();
   buzz([40, 20, 40]);
-  setTimeout(async () => {
+  pendingComplete.set(id, setTimeout(async () => {
+    pendingComplete.delete(id);
     await toggleHabit(id, false, dateToRm);
     await addXP(XP_PER_HABIT, checkboxEl);
     // Undo stays for six seconds. It finds the date the habit is ticked for now (weekly and monthly habits
@@ -2303,7 +2374,7 @@ function completeHabit(id, dateToRm, checkboxEl) {
     track('habit_completed');
     checkAllDone(id);
     maybeAskForReminders();
-  }, 300);
+  }, 300));
 }
 
 // ── Checkbox Click Handler with Confirmation ──────────────
@@ -3259,6 +3330,9 @@ function openDetailsModal(habit) {
   document.getElementById('details-current-streak').textContent = habitFreq(habit) === 'daily' ? streak : streakShort(habit, streak);
   document.getElementById('details-longest-streak').textContent = habitFreq(habit) === 'daily' ? longest : streakShort(habit, longest);
   document.getElementById('details-total-days').textContent = habit.completedDates ? habit.completedDates.length : 0;
+  // Time of day can be changed here at any age of the habit (it only affects how Today is grouped)
+  document.getElementById('details-time-row').classList.toggle('hidden', habitFreq(habit) !== 'daily');
+  document.getElementById('details-time').value = timeSlot(habit);
   
   document.getElementById('details-journal-input').value = '';
   renderJournal(habit);

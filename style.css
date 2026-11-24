@@ -698,6 +698,18 @@ html.dialog-open { overflow: hidden; }
   .habit-actions { opacity: 0; transition: opacity var(--t-fast); }
   .habit-item:hover .habit-actions, .habit-item:focus-within .habit-actions { opacity: 1; }
 }
+/* Reordering. Desktop: a grip in the row's left gutter, shown on hover or focus. Phones: Move up / Move down in More. */
+.row-grip { position: absolute; left: -10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 20px; height: 32px; padding: 0; background: none; border: 0; border-radius: var(--r-sm); color: var(--muted); cursor: grab; opacity: 0; transition: opacity var(--t-fast); touch-action: none; }
+.row-grip .icon { width: 14px; height: 14px; }
+.habit-item:hover .row-grip, .row-grip:focus-visible { opacity: 1; }
+.habit-item.is-dragging { background: var(--surface); box-shadow: var(--elev-2); z-index: 2; }
+.habit-item.is-dragging::before, .habit-item.is-dragging + .habit-item::before { opacity: 0; }
+html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; }
+.row-move { display: none; }
+@media (max-width: 640px) {
+  .row-grip { display: none; }
+  .habit-item .row-move { display: grid; }
+}
 /* Phones: row actions sit behind a More button (or a swipe left); a swipe right completes. */
 .row-more { display: none; }
 @media (max-width: 640px) {

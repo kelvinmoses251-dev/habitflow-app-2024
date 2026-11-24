@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe } from "./home.js?v=3";
+import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder } from "./home.js?v=4";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -1517,6 +1517,7 @@ function renderHabits() {
 
   // Nothing is known yet: keep the placeholders, and do not show the empty state or open the form on a guess.
   if (!habitsLoaded) return;
+  const focusedGrip = document.activeElement?.classList?.contains('row-grip') ? document.activeElement.closest('.habit-item')?.dataset.id : null;
   document.getElementById('page-home').classList.toggle('has-habits', allHabits.length > 0);
   list.removeAttribute('aria-busy');
   if (!userSetNewHabit) setNewHabitOpen(!allHabits.length);   // open for an empty list, one tidy row otherwise
@@ -1625,9 +1626,11 @@ function renderHabits() {
     const li = document.createElement('li');
     li.className = 'habit-item' + (animateRows ? ' enter' : '') + (h.id === justCompletedId ? ' just-done' : '');
     li.dataset.id = h.id;
+    li.dataset.group = `${grouped && freq === 'daily' ? timeSlot(h) : 'all'}|${smartSortEnabled && isDone ? 'done' : 'open'}`;
     li.style.setProperty('--cat', catColor(cat));
     li.style.setProperty('--i', rowIdx);
     li.innerHTML = `
+      <button class="row-grip" type="button" aria-label="Reorder ${escHtml(h.name)}" title="Drag to reorder, or use the arrow keys"><svg class="icon" aria-hidden="true"><use href="#i-grip"/></svg></button>
       <div class="habit-label">
         <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" aria-label="Mark ${escHtml(h.name)} complete" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} />
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
@@ -1642,6 +1645,8 @@ function renderHabits() {
         </div>
       </div>
       <div class="habit-actions">
+        <button class="btn-icon row-move" data-id="${h.id}" data-action="move-up" aria-label="Move ${escHtml(h.name)} up"><svg class="icon" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
+        <button class="btn-icon row-move" data-id="${h.id}" data-action="move-down" aria-label="Move ${escHtml(h.name)} down"><svg class="icon" aria-hidden="true"><use href="#i-arrow-down"/></svg></button>
         <button class="btn-icon" data-id="${h.id}" data-action="timer" title="Start Focus Timer" aria-label="Start focus timer for ${escHtml(h.name)}">
           <svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>
         </button>
@@ -1668,6 +1673,8 @@ function renderHabits() {
   document.getElementById('no-daily').classList.toggle('hidden', sections.daily.total > 0);
 
   applyRevealed();
+  // A keyboard move rebuilds the list: put focus back on the same grip so the arrow key can be pressed again
+  if (focusedGrip) document.querySelector(`.habit-item[data-id="${CSS.escape(focusedGrip)}"] .row-grip`)?.focus({ preventScroll: true });
   habitsEntered = true;
   if (nudgeFirstHabit && done === 0) {
     const first = list.querySelector('.habit-check:not(:checked)');
@@ -1939,6 +1946,29 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && revealedId) setRevealed(null); });
 
+// ── Reordering ────────────────────────────────────────────
+// A row moves within its own group (the app keeps done habits at the bottom and times of day together).
+// Normally one habit's `order` is saved; see planReorder in home.js.
+function reorderHabit(id, groupIds, toIndex) {
+  const items = groupIds.map(x => ({ id: x, order: allHabits.find(h => h.id === x)?.order }));
+  const writes = planReorder(items, id, toIndex);
+  if (!writes.length) return;
+  writes.forEach(w => {
+    const h = allHabits.find(x => x.id === w.id);
+    if (h) h.order = w.order;                            // show the new order at once; the snapshot will confirm it
+    backgroundWrite(updateDoc(doc(db, 'habits', w.id), { order: w.order }), 'save the new order');
+  });
+  renderHabits();
+  const name = allHabits.find(h => h.id === id)?.name || 'Habit';
+  const status = document.getElementById('reorder-status');
+  if (status) status.textContent = `${name} moved to position ${toIndex + 1} of ${groupIds.length}`;
+  track('habit_reordered');
+}
+attachReorder(document.getElementById('page-home'), {
+  enabled: () => !phoneLayout.matches,
+  onDrop: reorderHabit,
+});
+
 // Swipe right to complete (or take back a recent completion), left to reveal the actions. Phones only.
 attachSwipe(document.getElementById('page-home'), {
   enabled: () => phoneLayout.matches,
@@ -1955,6 +1985,15 @@ attachSwipe(document.getElementById('page-home'), {
 });
 
 document.getElementById('page-home').addEventListener('click', async e => {
+  // Move up / Move down (phones, inside More)
+  const move = e.target.closest('[data-action="move-up"], [data-action="move-down"]');
+  if (move) {
+    const row = move.closest('.habit-item');
+    const group = [...row.parentNode.querySelectorAll(':scope > .habit-item')].filter(r => r.dataset.group === row.dataset.group).map(r => r.dataset.id);
+    const to = group.indexOf(move.dataset.id) + (move.dataset.action === 'move-up' ? -1 : 1);
+    if (to >= 0 && to < group.length) reorderHabit(move.dataset.id, group, to);
+    return;
+  }
   // More (phones): show or hide this row's actions
   const more = e.target.closest('[data-action="more"]');
   if (more) { setRevealed(revealedId === more.dataset.id ? null : more.dataset.id); return; }

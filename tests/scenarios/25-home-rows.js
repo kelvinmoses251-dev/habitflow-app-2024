@@ -55,7 +55,7 @@ module.exports = (scenario, c) => {
     check('the actions are tucked away until asked for', !(await revealed('a')) && (await ev(`getComputedStyle(document.querySelector('.habit-item[data-id="a"] .habit-actions')).visibility`)) === 'hidden');
     check('a row with a streak and dots is still one line of badges', await ev(`(() => { const r = document.querySelector('.habit-item[data-id="a"]'); return Math.abs(r.querySelector('.dots').getBoundingClientRect().top - r.querySelector('.cat-badge').getBoundingClientRect().top) < 12; })()`));
     await ev(`document.querySelector('.habit-item[data-id="a"] .row-more').click()`); await sleep(300);
-    check('tapping More reveals timer, edit and remove', (await revealed('a')) && (await ev(`[...document.querySelectorAll('.habit-item[data-id="a"] .habit-actions [data-action]')].map(b => b.dataset.action).join()`)) === 'timer,edit,delete');
+    check('tapping More reveals move, timer, edit and remove', (await revealed('a')) && (await ev(`[...document.querySelectorAll('.habit-item[data-id="a"] .habit-actions [data-action]')].map(b => b.dataset.action).join()`)) === 'move-up,move-down,timer,edit,delete');
     check('More says it is expanded', (await ev(`document.querySelector('.habit-item[data-id="a"] .row-more').getAttribute('aria-expanded')`)) === 'true');
     await ev(`document.querySelector('.habit-item[data-id="b"] .row-more').click()`); await sleep(300);
     check('only one row is open at a time', (await revealed('b')) && !(await revealed('a')));
@@ -67,7 +67,7 @@ module.exports = (scenario, c) => {
     await size(320, 640); await sleep(200);
     check('no horizontal scroll at 320px', await ev(`document.documentElement.scrollWidth <= innerWidth`));
     await boot({ seed: seed(three()), mobile: false }); await rows(); await sleep(300);
-    check('desktop: no More button, the hover actions are unchanged', !(await visible('.row-more')) && (await ev(`document.querySelectorAll('.habit-item[data-id="a"] .habit-actions [data-action]').length`)) === 3);
+    check('desktop: no More button, the hover actions are unchanged', !(await visible('.row-more')) && (await ev(`[...document.querySelectorAll('.habit-item[data-id="a"] .habit-actions [data-action]')].filter(b => b.getClientRects().length).map(b => b.dataset.action).join()`)) === 'timer,edit,delete');
     noExceptions();
   });
 
@@ -90,6 +90,69 @@ module.exports = (scenario, c) => {
     await boot({ seed: seed(three()), mobile: false }); await rows(); await sleep(300);
     await swipe('b', 110); await sleep(600);
     check('desktop: dragging a row with the mouse does not complete it', !(await done('b')));
+    noExceptions();
+  });
+
+  // ── 13: reorder by drag, by keyboard, and by buttons on a phone ─
+  const four = () => ({
+    a: H('Alpha', { order: 100, createdAt: fresh() }),
+    b: H('Bravo', { order: 200, createdAt: fresh() }),
+    c: H('Charlie', { order: 300, createdAt: fresh() }),
+    z: H('Zulu done', { order: 50, completedDates: [day(0)], completedTimestamps: { [day(0)]: Date.now() - 1000 } }),
+  });
+  const order = () => ev(`[...document.querySelectorAll('#habits .habit-item')].map(r => r.dataset.id).join('')`);
+  const orderWrites = () => ev(`JSON.stringify(__mockWrites.filter(w => w.col === 'habits' && w.op === 'update' && 'order' in w.data).map(w => w.id))`);
+  const dragGrip = (id, toId, where) => ev(`(async () => { const g = document.querySelector('.habit-item[data-id="${id}"] .row-grip'), gr = g.getBoundingClientRect(), t = document.querySelector('.habit-item[data-id="${toId}"]').getBoundingClientRect();
+    const x = gr.left + gr.width / 2, y0 = gr.top + gr.height / 2, y1 = ${where === 'above' ? 't.top + 4' : 't.bottom - 4'};
+    const fire = (ty, py) => (ty === 'pointerdown' ? g : window).dispatchEvent(new PointerEvent(ty, { bubbles: true, cancelable: true, pointerId: 9, pointerType: 'mouse', button: 0, isPrimary: true, clientX: x, clientY: py }));
+    fire('pointerdown', y0);
+    for (let i = 1; i <= 6; i++) { fire('pointermove', y0 + (y1 - y0) * i / 6); await new Promise(r => setTimeout(r, 16)); }
+    fire('pointerup', y1); return 1; })()`);
+
+  scenario('rows: habits can be reordered by dragging the grip', async () => {
+    await boot({ seed: seed(four()), mobile: false }); await rows(); await sleep(300);
+    check('starts in saved order, with the done habit at the bottom', (await order()) === 'abcz', await order());
+    check('each row has a named grip', (await ev(`document.querySelector('.habit-item[data-id="c"] .row-grip').getAttribute('aria-label')`)) === 'Reorder Charlie');
+    await dragGrip('c', 'a', 'above'); await sleep(500);
+    check('dragging Charlie above Alpha puts it first', (await order()) === 'cabz', await order());
+    check('only the moved habit is saved', (await orderWrites()) === '["c"]', await orderWrites());
+    check('dragging did not tick anything', await ev(`Object.values(__mockDB.habits).filter(h => (h.completedDates || []).length).length === 1`));
+    await ev(`location.reload()`); await rows(); await sleep(400);
+    check('the new order survives a reload', (await order()) === 'cabz', await order());
+    await dragGrip('z', 'c', 'above'); await sleep(500);
+    check('a completed habit stays in the completed group', (await order()) === 'cabz', await order());
+    noExceptions();
+  });
+
+  scenario('rows: habits can be reordered from the keyboard, and it is announced', async () => {
+    await boot({ seed: seed(four()), mobile: false }); await rows(); await sleep(300);
+    const key = async k => { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code: k }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code: k }); await sleep(250); };
+    await ev(`document.querySelector('.habit-item[data-id="c"] .row-grip').focus()`);
+    await key('ArrowUp');
+    check('ArrowUp moves the row up one place', (await order()) === 'acbz', await order());
+    check('the move is announced', /Charlie.*position 2 of 3/.test(await ev(`document.getElementById('reorder-status').textContent`)), await ev(`document.getElementById('reorder-status').textContent`));
+    check('focus stays on the same grip, so it can be pressed again', await ev(`document.activeElement.classList.contains('row-grip') && document.activeElement.closest('.habit-item').dataset.id === 'c'`));
+    await key('ArrowUp');
+    check('pressing again moves it to the top', (await order()) === 'cabz', await order());
+    await key('ArrowUp');
+    check('at the top, another press does nothing', (await order()) === 'cabz');
+    await key('ArrowDown');
+    check('ArrowDown moves it back down', (await order()) === 'acbz', await order());
+    noExceptions();
+  });
+
+  scenario('rows: on a phone, Move up and Move down sit with the other row actions', async () => {
+    await boot({ seed: seed(four()) }); await rows(); await sleep(300);
+    check('no drag grip on a phone', !(await visible('.habit-item[data-id="b"] .row-grip')));
+    await ev(`document.querySelector('.habit-item[data-id="b"] .row-more').click()`); await sleep(250);
+    check('More offers Move up and Move down', await ev(`['move-up', 'move-down'].every(a => { const b = document.querySelector('.habit-item[data-id="b"] [data-action="' + a + '"]'); return !!b && !!b.getAttribute('aria-label') && b.getBoundingClientRect().width >= 44; })`));
+    await ev(`document.querySelector('.habit-item[data-id="b"] [data-action="move-up"]').click()`); await sleep(400);
+    check('Move up works', (await order()) === 'bacz', await order());
+    check('the actions stay open, so it can be moved again', await ev(`document.querySelector('.habit-item[data-id="b"]').classList.contains('is-revealed')`));
+    await ev(`document.querySelector('.habit-item[data-id="b"] [data-action="move-down"]').click()`); await sleep(400);
+    check('Move down works', (await order()) === 'abcz', await order());
+    await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 640, deviceScaleFactor: 1, mobile: true }); await sleep(200);
+    check('the revealed actions fit a 320px screen', await ev(`document.documentElement.scrollWidth <= innerWidth && document.querySelector('.habit-item.is-revealed .habit-actions').getBoundingClientRect().left >= 0`));
     noExceptions();
   });
 };

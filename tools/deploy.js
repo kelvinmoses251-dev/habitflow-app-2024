@@ -20,14 +20,15 @@ const WEB_EXT = /\.(html|js|css|png|svg|jpg|jpeg|webp|ico|json|webmanifest|woff2
 const NEVER = new Set(['firebase.json', 'package.json', 'package-lock.json', '.firebaserc']);
 
 const tracked = execSync('git ls-files', { cwd: ROOT }).toString().split('\n').filter(Boolean);
-const files = tracked.filter(f => !f.includes('/') && WEB_EXT.test(f) && !NEVER.has(f));
+// Top-level web files, plus the self-hosted fonts (the one folder that is published)
+const files = tracked.filter(f => ((!f.includes('/') && WEB_EXT.test(f)) || /^fonts\/[\w.-]+\.woff2$/.test(f)) && !NEVER.has(f));
 
 const dirty = execSync('git status --porcelain', { cwd: ROOT }).toString().split('\n')
   .filter(l => l && !l.startsWith('??') && files.includes(l.slice(3).trim()));
 if (dirty.length) console.warn('! Uncommitted changes in tracked web files (deploying what is on disk):\n  ' + dirty.join('\n  '));
 
 const stage = fs.mkdtempSync(path.join(os.tmpdir(), 'habitly-deploy-'));
-fs.mkdirSync(path.join(stage, 'public'));
+fs.mkdirSync(path.join(stage, 'public', 'fonts'), { recursive: true });
 files.forEach(f => fs.copyFileSync(path.join(ROOT, f), path.join(stage, 'public', f)));
 fs.copyFileSync(path.join(ROOT, '.firebaserc'), path.join(stage, '.firebaserc'));
 

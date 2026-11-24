@@ -3,7 +3,7 @@
 // Offline strategy (kept deliberately conservative: online behaviour must be identical to having no SW):
 //  - Habitly's own files   -> NETWORK-FIRST. A new deploy is picked up on the next load; the cache is only used
 //                             when the network fails (offline) or is crawling (>4s) and an exact copy exists.
-//  - Versioned CDN files   -> stale-while-revalidate (Firebase SDK, Chart.js, jsPDF, fonts). Their URLs are immutable.
+//  - Versioned CDN files   -> stale-while-revalidate (Firebase SDK, Chart.js, jsPDF). Their URLs are immutable.
 //  - Everything else (Firestore, Auth, Analytics, FCM APIs, non-GET) is NOT touched: it goes straight to the network.
 //
 // Bump CACHE_VERSION to force every client to drop its old caches.
@@ -56,7 +56,7 @@ self.addEventListener('notificationclick', (event) => {
 const CACHE_VERSION = 'v1';
 const SHELL_CACHE = `habitly-shell-${CACHE_VERSION}`;
 const CDN_CACHE = `habitly-cdn-${CACHE_VERSION}`;
-const CDN_HOSTS = ['www.gstatic.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+const CDN_HOSTS = ['www.gstatic.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com'];
 // Imported by app.js at startup but not referenced from index.html, so list them for first-offline readiness
 const EXTRA_PRECACHE = [
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js',
@@ -77,7 +77,8 @@ async function precache() {
   await shell.put('/index.html', res);
 
   // Cache exactly the files this index.html asks for (with their ?v= versions), plus a few fixed extras
-  const local = new Set(['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png']);
+  const local = new Set(['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png',
+    '/fonts/inter-var-latin.woff2', '/fonts/instrument-serif-latin.woff2', '/fonts/instrument-serif-italic-latin.woff2']);
   const remote = new Set(EXTRA_PRECACHE);
   for (const m of html.matchAll(/(?:src|href)="([^"#]+)"/g)) {
     let u;

@@ -70,4 +70,34 @@ module.exports = (scenario, c) => {
     }
     noExceptions();
   });
+
+  scenario('foundation: fonts are served from the site itself', async () => {
+    for (const f of ['index.html', 'privacy.html', 'terms.html'])
+      check(`${f} makes no Google Fonts request`, !/fonts\.(googleapis|gstatic)\.com/.test(fs.readFileSync(path.join(ROOT, f), 'utf8')));
+    check('the service worker does not fetch Google Fonts either', !/fonts\.(googleapis|gstatic)\.com/.test(fs.readFileSync(path.join(ROOT, 'firebase-messaging-sw.js'), 'utf8')));
+    await boot();
+    await ev(`document.fonts.ready.then(() => 1)`); await sleep(300);
+    check('Inter is loaded', await ev(`document.fonts.check('500 16px Inter')`));
+    check('the display serif is loaded', await ev(`document.fonts.check('italic 40px "Instrument Serif"')`));
+    const files = JSON.parse(await ev(`JSON.stringify(performance.getEntriesByType('resource').filter(r => /woff2/.test(r.name)).map(r => r.name))`));
+    check('font files were fetched', files.length >= 2, files.length);
+    check('every font file came from this origin', files.every(f => f.startsWith('http://localhost') || f.includes('habit-tracker-demo-34c0a.web.app')), files.find(f => /gstatic|googleapis/.test(f)) || '');
+    check('the privacy policy no longer lists Google Fonts', !/Google Fonts/.test(fs.readFileSync(path.join(ROOT, 'privacy.html'), 'utf8')));
+    const { execSync } = require('child_process');
+    const staged = execSync('node tools/deploy.js --dry', { cwd: ROOT }).toString();
+    check('the deploy publishes the font files', (staged.match(/fonts\/[\w-]+\.woff2/g) || []).length >= 3, (staged.match(/fonts\/[\w-]+\.woff2/g) || []).join(' '));
+    noExceptions();
+  });
+
+  scenario('foundation: text still renders and fits when the fonts cannot load', async () => {
+    await send('Network.setBlockedURLs', { urls: ['*.woff2'] });
+    try {
+      await boot();
+      await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 640, deviceScaleFactor: 1, mobile: true });
+      await sleep(500);
+      check('headline is visible', await visible('.landing-title'));
+      check('headline falls back to a serif', /Georgia|Times|serif/i.test(await ev(`getComputedStyle(document.querySelector('.landing-title')).fontFamily`)));
+      check('no horizontal scroll at 320px', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    } finally { await send('Network.setBlockedURLs', { urls: [] }); }
+  });
 };

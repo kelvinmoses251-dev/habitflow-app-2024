@@ -30,7 +30,7 @@ const BROWSERS = [
 const BROWSER = BROWSERS.find(p => fs.existsSync(p));
 if (!BROWSER) { console.error('No Chromium-based browser found. Set EDGE_PATH.'); process.exit(2); }
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 const PORT = 8137, DEBUG_PORT = 9447;
 // --origin https://... runs the same suite against a deployed site (real files, mocked Firebase backend)
 const ORIGIN = (argVal('--origin') || `http://localhost:${PORT}`).replace(/\/+$/, '');

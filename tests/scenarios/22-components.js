@@ -136,4 +136,58 @@ module.exports = (scenario, c) => {
     check('dark: the sheet is on the raised surface', await ev(`(() => { const d = document.createElement('i'); d.style.color = 'var(--surface-3)'; document.body.appendChild(d); const col = getComputedStyle(d).color; d.remove(); return getComputedStyle(${confirmDlg}).backgroundColor === col; })()`));
     noExceptions();
   });
+
+  // ── Toasts ───────────────────────────────────────────────
+  const raise = (msg, type = 'info', ms = 3500) => ev(`import('./ui.js').then(m => { m.toast(${JSON.stringify(msg)}, ${JSON.stringify(type)}, ${ms}); return 1; })`);
+  const toasts = () => ev(`document.querySelectorAll('#toast-container .toast').length`);
+  const appReady = () => waitFor(`!document.getElementById('app').classList.contains('hidden')`);
+
+  scenario('components: toasts have an icon, a countdown, a limit and can be swiped away', async () => {
+    await boot({ seed: signedIn() }); await appReady(); await sleep(300);
+    await raise('Saved', 'success', 60000);
+    check('success shows a tick', await ev(`!!document.querySelector('.toast.success use[href="#i-check"]')`));
+    await raise('Careful', 'warning', 60000); await raise('Broken', 'error', 60000);
+    check('warnings and errors show an alert icon', await ev(`!!document.querySelector('.toast.warning use[href="#i-alert"]') && !!document.querySelector('.toast.error use[href="#i-alert"]')`));
+    check('the countdown bar runs once', (await ev(`getComputedStyle(document.querySelector('.toast .toast-bar')).animationIterationCount`)) === '1');
+    check('phone: toasts sit above the bottom navigation', await ev(`(() => { const n = document.querySelector('.bottomnav').getBoundingClientRect(); return [...document.querySelectorAll('.toast')].every(t => t.getBoundingClientRect().bottom <= n.top); })()`));
+    await raise('One more', 'info', 60000);
+    check('info shows an info icon', await ev(`!!document.querySelector('.toast.info use[href="#i-info"]')`));
+    check('never more than three at once', (await toasts()) === 3, await toasts());
+    check('the oldest one made room', !(await ev(`[...document.querySelectorAll('.toast')].some(t => t.textContent.includes('Saved'))`)));
+    await raise('A'.repeat(200), 'error', 60000);
+    check('a very long toast does not widen the page', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.toast')].every(t => t.getBoundingClientRect().right <= innerWidth)`));
+    const before = await toasts();
+    await drag('#toast-container .toast:last-child', 120, 0); await sleep(450);
+    check('swiping removes one', (await toasts()) === before - 1, `${before} -> ${await toasts()}`);
+    await ev(`document.getElementById('recovery-modal').classList.remove('hidden')`); await sleep(400);
+    check('phone: with a sheet open, toasts move to the top so they never cover its buttons', await ev(`(() => { const d = document.querySelector('#recovery-modal .dialog').getBoundingClientRect(); return [...document.querySelectorAll('.toast')].every(t => t.getBoundingClientRect().bottom <= d.top); })()`));
+    noExceptions();
+  });
+
+  scenario('components: a toast waits while you are reading it, then goes', async () => {
+    await boot({ seed: signedIn(), mobile: false }); await appReady(); await sleep(300);
+    await raise('Hold on', 'info', 700);
+    await ev(`document.querySelector('.toast').dispatchEvent(new PointerEvent('pointerenter'))`); await sleep(1300);
+    check('still there while hovered', (await toasts()) === 1);
+    check('the bar is paused', (await ev(`getComputedStyle(document.querySelector('.toast .toast-bar')).animationPlayState`)) === 'paused');
+    await ev(`document.querySelector('.toast').dispatchEvent(new PointerEvent('pointerleave'))`); await sleep(1500);
+    check('gone after you leave', (await toasts()) === 0);
+    await raise('Where am I', 'info', 60000);
+    check('desktop: toasts are top right, under the top bar', await ev(`(() => { const t = document.querySelector('.toast').getBoundingClientRect(), n = document.querySelector('.topnav').getBoundingClientRect(); return document.documentElement.clientWidth - t.right <= 16 && t.top >= n.bottom; })()`));
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    try {
+      await raise('Quiet', 'success', 60000);
+      check('reduced motion: no entrance and no moving bar', await ev(`(() => { const t = [...document.querySelectorAll('.toast')].pop(); return getComputedStyle(t).animationName === 'none' && getComputedStyle(t.querySelector('.toast-bar')).animationName === 'none'; })()`));
+    } finally { await send('Emulation.setEmulatedMedia', { features: [] }); }
+    noExceptions();
+  });
+
+  scenario('components: toasts are readable in dark mode and keep their action', async () => {
+    await boot({ seed: signedIn({ theme: 'dark' }) }); await appReady(); await sleep(300);
+    await ev(`import('./ui.js').then(m => { window.__undone = 0; m.toast('Habit removed', 'info', 60000, { label: 'Undo', onClick: () => { window.__undone++; } }); return 1; })`);
+    check('dark: the toast is on the raised surface', await ev(`(() => { const d = document.createElement('i'); d.style.color = 'var(--surface-3)'; document.body.appendChild(d); const col = getComputedStyle(d).color; d.remove(); return getComputedStyle(document.querySelector('.toast')).backgroundColor === col; })()`));
+    await ev(`document.querySelector('.toast .toast-action').click()`);
+    check('the action runs and the toast leaves', (await ev(`window.__undone`)) === 1 && (await toasts()) === 0);
+    noExceptions();
+  });
 };

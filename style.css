@@ -739,12 +739,35 @@ html.dialog-open { overflow: hidden; }
 .notif-ask-actions { display: flex; gap: var(--sp-2); margin-left: auto; }
 .notif-ask-actions button { padding: .45rem .85rem; font-size: var(--fs-ui); }
 
+/* Toasts (ui.js toast): top right on desktop, bottom centre above the navigation on phones */
 .toast-container { position: fixed; top: calc(var(--topnav-h) + 10px); right: 12px; left: 12px; display: flex; flex-direction: column; gap: var(--sp-2); z-index: 10000; pointer-events: none; align-items: flex-end; }
-.toast { background: var(--text); color: var(--bg); border-radius: var(--r-md); padding: .65rem .9rem; box-shadow: var(--elev-2); font-size: var(--fs-ui); font-weight: 500; max-width: 340px; pointer-events: auto; animation: toastIn .2s ease; transition: opacity var(--t-base), transform var(--t-base); }
+.toast {
+  --tone: var(--primary-ink);
+  position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: var(--sp-2);
+  max-width: min(360px, calc(100vw - 24px)); padding: .7rem .9rem .8rem;
+  background: var(--surface-3); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--elev-2);
+  font-size: var(--fs-ui); font-weight: 500; line-height: var(--lh-snug); overflow-wrap: anywhere;
+  pointer-events: auto; touch-action: pan-y; animation: toastIn .2s ease; transition: opacity var(--t-base), transform var(--t-base);
+}
+.toast.success { --tone: var(--success); }
+.toast.warning { --tone: var(--warning); }
+.toast.error { --tone: var(--danger); }
+.toast-ic { color: var(--tone); margin-top: 1px; }
+.toast-msg { flex: 1; min-width: 0; }
 .toast.out { opacity: 0; transform: translateY(-6px); }
-.toast.has-action { display: flex; align-items: center; gap: var(--sp-3); }
-.toast-action { flex: none; background: none; border: none; color: inherit; font-weight: 600; font-size: var(--fs-ui); padding: 2px 6px; border-radius: var(--r-sm); text-decoration: underline; text-underline-offset: 3px; }
+.toast-action { flex: none; align-self: center; background: none; border: none; color: var(--primary-ink); font-weight: 600; font-size: var(--fs-ui); padding: 2px 6px; border-radius: var(--r-sm); text-decoration: underline; text-underline-offset: 3px; }
+/* How long it will stay: a thin bar that empties once */
+.toast-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--tone); opacity: .55; transform-origin: left; animation: toastBar linear 1 forwards; }
+.toast.is-paused .toast-bar { animation-play-state: paused; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (max-width: 640px) {
+  .toast-container { top: auto; bottom: calc(var(--bottomnav-h) + 12px + env(safe-area-inset-bottom, 0px)); align-items: center; flex-direction: column-reverse; }
+  /* A sheet owns the bottom of the screen: toasts move to the top so they never cover its buttons */
+  html.dialog-open .toast-container { top: calc(10px + env(safe-area-inset-top, 0px)); bottom: auto; flex-direction: column; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+}
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: none; } .toast-bar { animation: none; display: none; } }
 
 /* ── Bottom nav ─────────────────────────────────────── */
 .bottomnav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--bottomnav-h); background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom, 0); }

@@ -294,3 +294,68 @@ export function watchDialogs(root = document) {
   addEventListener('pointerup', endDrag);
   addEventListener('pointercancel', endDrag);
 }
+
+// ── Toasts ────────────────────────────────────────────────
+// toast(message, type, ms, action): a short message with an icon and a thin bar that shows how long it will stay.
+// It waits while you hover, focus or touch it, can be swiped away, and at most three are shown at once.
+// `action` is { label, onClick }, for example Undo.
+const TOAST_ICON = { success: 'i-check', warning: 'i-alert', error: 'i-alert', info: 'i-info' };
+const MAX_TOASTS = 3;
+export function toast(msg, type = 'info', ms = 3500, action = null) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const t = document.createElement('div');
+  t.className = `toast ${TOAST_ICON[type] ? type : 'info'}`;
+  t.innerHTML = `<svg class="icon toast-ic" aria-hidden="true"><use href="#${TOAST_ICON[type] || TOAST_ICON.info}"/></svg><span class="toast-msg"></span>`;
+  t.querySelector('.toast-msg').textContent = msg;
+
+  let timer = 0, remaining = ms, startedAt = 0, gone = false;
+  const remove = () => {
+    if (gone) return;
+    gone = true;
+    clearTimeout(timer);
+    t.classList.add('out');
+    setTimeout(() => t.remove(), 220);
+  };
+  const run = () => { startedAt = Date.now(); timer = setTimeout(remove, remaining); t.classList.remove('is-paused'); };
+  const pause = () => { if (gone) return; clearTimeout(timer); remaining = Math.max(400, remaining - (Date.now() - startedAt)); t.classList.add('is-paused'); };
+
+  if (action) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'toast-action'; b.textContent = action.label;
+    b.addEventListener('click', () => { gone = true; clearTimeout(timer); t.remove(); action.onClick(); });
+    t.appendChild(b);
+  }
+  const bar = document.createElement('span');
+  bar.className = 'toast-bar';
+  bar.style.animationDuration = `${ms}ms`;
+  t.appendChild(bar);
+
+  // Reading it? It waits.
+  t.addEventListener('pointerenter', pause);
+  t.addEventListener('pointerleave', () => { if (!gone && !drag) run(); });
+  t.addEventListener('focusin', pause);
+  t.addEventListener('focusout', () => { if (!gone) run(); });
+
+  // Swipe sideways to dismiss
+  let drag = null;
+  t.addEventListener('pointerdown', e => { if (!e.target.closest('button')) { drag = { x: e.clientX, dx: 0 }; pause(); } });
+  const onMove = e => { if (!drag) return; drag.dx = e.clientX - drag.x; t.style.transform = `translateX(${drag.dx}px)`; t.style.opacity = String(Math.max(.3, 1 - Math.abs(drag.dx) / 200)); };
+  const onUp = () => {
+    if (!drag) return;
+    const far = Math.abs(drag.dx) > 60;
+    drag = null;
+    if (far) { removeEventListener('pointermove', onMove); removeEventListener('pointerup', onUp); remove(); return; }
+    t.style.transform = ''; t.style.opacity = '';
+    run();
+  };
+  addEventListener('pointermove', onMove);
+  addEventListener('pointerup', onUp);
+  addEventListener('pointercancel', onUp);
+
+  // Never a pile: the oldest makes room at once.
+  const open = [...container.querySelectorAll('.toast:not(.out)')];
+  open.slice(0, Math.max(0, open.length - (MAX_TOASTS - 1))).forEach(old => old.remove());
+  container.appendChild(t);
+  run();
+}

@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs } from "./ui.js?v=3";
+import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=4";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
 // ── Firebase Init ────────────────────────────────────────
@@ -816,26 +816,7 @@ function getWeeklyData(habits) {
 }
 
 // ── Toast ─────────────────────────────────────────────────
-function toast(msg, type = 'info', ms = 3500, action = null) {
-  const tc = document.getElementById('toast-container');
-  const t  = document.createElement('div');
-  t.className = `toast ${type}`;
-  const label = document.createElement('span');
-  label.textContent = msg;
-  t.appendChild(label);
-  if (action) {                                   // e.g. { label: 'Undo', onClick }
-    t.classList.add('has-action');
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'toast-action'; b.textContent = action.label;
-    b.addEventListener('click', () => { t.remove(); action.onClick(); });
-    t.appendChild(b);
-  }
-  tc.appendChild(t);
-  setTimeout(() => {
-    t.classList.add('out');
-    setTimeout(() => t.remove(), 400);
-  }, ms);
-}
+// toast() lives in ui.js
 
 // ── Loading ───────────────────────────────────────────────
 function hideLoading() {

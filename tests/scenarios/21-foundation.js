@@ -100,4 +100,25 @@ module.exports = (scenario, c) => {
       check('no horizontal scroll at 320px', await ev(`document.documentElement.scrollWidth <= innerWidth`));
     } finally { await send('Network.setBlockedURLs', { urls: [] }); }
   });
+
+  scenario('foundation: buttons and fields have designed states', async () => {
+    await boot({ seed: { habitly_returning: '1' } });
+    const h = sel => ev(`document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect().height`);
+    check('primary button is at least 44px tall on a phone', (await h('#email-signin-btn')) >= 44, await h('#email-signin-btn'));
+    check('fields are at least 44px tall on a phone', (await h('#auth-email')) >= 44, await h('#auth-email'));
+    check('focus ring is a 2px outline in the accent colour', await ev(`(() => { const r = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch (_) { return []; } }).find(r => r.selectorText === ':focus-visible'); return !!r && r.cssText.includes('outline: 2px solid var(--primary-ink)') && r.style.outlineOffset === '2px'; })()`));
+    check('pressed buttons move down a pixel', await ev(`[...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch (_) { return []; } }).some(r => r.selectorText && /btn-primary/.test(r.selectorText) && /:active/.test(r.selectorText) && /translateY\\(1px\\)/.test(r.style.transform))`));
+    await ev(`(() => { document.getElementById('auth-email').value = 'wrong@example.com'; document.getElementById('auth-password').value = 'secret1'; document.getElementById('email-auth-form').requestSubmit(); })()`);
+    await sleep(700);
+    check('the failing field is marked invalid', (await ev(`document.getElementById('auth-password').getAttribute('aria-invalid')`)) === 'true');
+    check('the reason is shown under the field', /match/i.test(await ev(`(document.querySelector('#email-auth-form .field-msg') || {}).textContent || ''`)));
+    check('the field points at its message for screen readers', await ev(`(() => { const p = document.getElementById('auth-password'), m = document.querySelector('#email-auth-form .field-msg'); return !!m && !!m.id && p.getAttribute('aria-describedby') === m.id; })()`));
+    check('the invalid field has a danger border', await ev(`(() => { const d = document.createElement('i'); d.style.color = 'var(--danger)'; document.body.appendChild(d); const col = getComputedStyle(d).color; d.remove(); return getComputedStyle(document.getElementById('auth-password')).borderTopColor === col; })()`));
+    check('the button is usable again', await ev(`!document.getElementById('email-signin-btn').disabled && document.getElementById('email-signin-btn').getAttribute('aria-busy') !== 'true' && /sign in/i.test(document.getElementById('email-signin-btn').textContent)`));
+    await ev(`(() => { const p = document.getElementById('auth-password'); p.value = 'x'; p.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    check('typing clears the error', (await ev(`document.getElementById('auth-password').getAttribute('aria-invalid')`)) !== 'true' && !(await ev(`!!document.querySelector('#email-auth-form .field-msg')`)));
+    await boot({ seed: { habitly_returning: '1' }, mobile: false });
+    check('desktop buttons are 40px', Math.round(await h('#email-signin-btn')) === 40, await h('#email-signin-btn'));
+    noExceptions();
+  });
 };

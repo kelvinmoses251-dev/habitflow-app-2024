@@ -15,6 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { setBusy, setFieldError, clearFieldError } from "./ui.js?v=1";
 
 // ── Firebase Init ────────────────────────────────────────
 const firebaseApp = initializeApp(firebaseConfig);
@@ -1024,6 +1025,20 @@ document.getElementById('login-btn').addEventListener('click', async () => {
   }
 });
 
+// Which field an auth error is about, so the reason can be shown under that field as well as in a toast.
+const AUTH_ERROR_FIELD = {
+  'auth/invalid-credential': 'password', 'auth/invalid-login-credentials': 'password', 'auth/wrong-password': 'password',
+  'auth/user-not-found': 'email', 'auth/weak-password': 'password',
+  'auth/email-already-in-use': 'email', 'auth/invalid-email': 'email',
+};
+function showAuthError(err) {
+  const message = authErrorMessage(err);
+  const field = AUTH_ERROR_FIELD[(err && err.code) || ''];
+  if (field) setFieldError(field === 'email' ? emailInput : passInput, message);
+  toast(message, 'error');
+}
+function clearAuthErrors() { clearFieldError(emailInput); clearFieldError(passInput); }
+
 const emailForm = document.getElementById('email-auth-form');
 const emailInput = document.getElementById('auth-email');
 const passInput = document.getElementById('auth-password');
@@ -1036,15 +1051,16 @@ emailForm.addEventListener('submit', async (e) => {
   const pass = passInput.value;
   if (!email || !pass) return;
   
-  signinBtn.disabled = true; signinBtn.textContent = 'Signing in...';
+  clearAuthErrors();
+  setBusy(signinBtn, 'Signing in');
   try {
     await signInWithEmailAndPassword(auth, email, pass);
     track('login', { method: 'email' });
     emailForm.reset();
   } catch (e) {
-    toast(authErrorMessage(e), 'error');
+    showAuthError(e);
   } finally {
-    signinBtn.disabled = false; signinBtn.textContent = 'Sign In';
+    setBusy(signinBtn, null);
   }
 });
 
@@ -1057,7 +1073,8 @@ signupBtn.addEventListener('click', async () => {
   const pass = passInput.value;
   if (!email || !pass) return;
 
-  signupBtn.disabled = true; signupBtn.textContent = 'Signing up...';
+  clearAuthErrors();
+  setBusy(signupBtn, 'Creating account');
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, pass);
     // Optionally set a default display name from the email prefix
@@ -1067,9 +1084,9 @@ signupBtn.addEventListener('click', async () => {
     toast('Account created', 'success');
     track('sign_up', { method: 'email' });
   } catch (e) {
-    toast(authErrorMessage(e), 'error');
+    showAuthError(e);
   } finally {
-    signupBtn.disabled = false; signupBtn.textContent = 'Sign Up';
+    setBusy(signupBtn, null);
   }
 });
 
@@ -1334,7 +1351,7 @@ document.getElementById('crop-cancel').addEventListener('click', () => {
 document.getElementById('crop-save').addEventListener('click', async () => {
   if (!cropper || !currentUser) return;
   const btn = document.getElementById('crop-save');
-  btn.disabled = true; btn.textContent = 'Saving...';
+  setBusy(btn, 'Saving');
   
   try {
     // Scale down drastically to keep the base64 string tiny
@@ -1352,7 +1369,7 @@ document.getElementById('crop-save').addEventListener('click', async () => {
   } catch (err) {
     toast('Upload failed: ' + err.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Save Picture';
+    setBusy(btn, null);
     document.getElementById('ava-upload-input').value = '';
   }
 });
@@ -1774,7 +1791,7 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   const frequency = freqEl ? freqEl.value : 'daily';
   if (!name) return;
   const btn = e.target.querySelector('button[type="submit"]');
-  btn.disabled = true; btn.textContent = 'Adding…';
+  setBusy(btn, 'Adding');
   
   try {
     backgroundWrite(addHabit(name, category, frequency), 'add the habit');
@@ -1786,7 +1803,7 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   } catch (err) {
     toast('Failed to add habit: ' + err.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Add habit';
+    setBusy(btn, null);
   }
 });
 
@@ -1954,7 +1971,7 @@ document.getElementById('edit-habit-form').addEventListener('submit', async e =>
   
   if (!name || !id) return;
   const btn = e.target.querySelector('button[type="submit"]');
-  btn.disabled = true; btn.textContent = 'Saving...';
+  setBusy(btn, 'Saving');
   
   try {
     backgroundWrite(updateDoc(doc(db, 'habits', id), { name, category, frequency }), 'update the habit');
@@ -1963,7 +1980,7 @@ document.getElementById('edit-habit-form').addEventListener('submit', async e =>
   } catch (err) {
     toast('Failed to update: ' + err.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Save Changes';
+    setBusy(btn, null);
   }
 });
 

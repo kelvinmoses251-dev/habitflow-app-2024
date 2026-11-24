@@ -176,16 +176,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
   font-family: inherit; font-size: var(--fs-base); font-weight: 500; line-height: 1.2;
   border-radius: var(--r-md); border: 1px solid transparent;
   padding: .6rem 1rem; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  min-height: 40px;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), transform var(--t-fast);
 }
+/* Sizes: small 32, default 40, large 48. On phones and touch screens nothing is shorter than 44. */
+.btn-sm { min-height: 32px; padding: .35rem .75rem; font-size: var(--fs-sm); }
+.btn-lg { min-height: 48px; padding: .8rem 1.25rem; font-size: var(--fs-md); }
+/* States, shared by every button: pressed, unavailable, busy */
+.btn-primary:active, .btn-secondary:active, .btn-ghost:active, .btn-link:active, .btn-google:active { transform: translateY(1px); }
+.btn-primary:disabled, .btn-secondary:disabled, .btn-ghost:disabled, .btn-link:disabled, .btn-google:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+.btn-primary[aria-busy="true"], .btn-secondary[aria-busy="true"], .btn-ghost[aria-busy="true"], .btn-link[aria-busy="true"] { cursor: progress; }
 .btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-primary:hover { background: var(--primary-hover); }
-.btn-primary:disabled { opacity: .55; cursor: not-allowed; }
+.btn-primary:active { background: var(--a-800); }
+.btn-secondary:active, .btn-google:active { background: var(--border); }
 .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
 .btn-secondary:hover { background: var(--surface-2); }
 .btn-ghost { background: transparent; color: var(--text-2); }
 .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
-.btn-link { background: none; color: var(--primary-ink); padding: .35rem .5rem; font-weight: 500; }
+.btn-link { background: none; color: var(--primary-ink); padding: .35rem .5rem; font-weight: 500; min-height: 32px; }
 .btn-link:hover { background: var(--primary-soft); }
 .btn-link.danger { color: var(--danger); }
 .setting-row .btn-link { margin-right: -.5rem; }
@@ -203,6 +212,14 @@ input[type="text"], input[type="email"], input[type="password"], input[type="num
 }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); outline: none; }
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], select { min-height: 40px; }
+/* A field with a problem: danger border and ring, with the reason on the line below (see setFieldError in ui.js) */
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+.field-msg { font-size: var(--fs-sm); color: var(--danger); line-height: var(--lh-snug); margin-top: calc(var(--sp-1) * -1); text-align: left; }
+@media (pointer: coarse), (max-width: 640px) {
+  .btn-primary, .btn-secondary, .btn-ghost, .btn-google, .btn-lg { min-height: 44px; }
+  input[type="text"], input[type="email"], input[type="password"], input[type="number"], select { min-height: 44px; }
+}
 select { cursor: pointer; }
 textarea { resize: none; }
 .habit-form { display: flex; flex-direction: column; gap: var(--sp-3); }

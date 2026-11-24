@@ -15,7 +15,8 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { setBusy, setFieldError, clearFieldError, enhanceSelect } from "./ui.js?v=2";
+import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs } from "./ui.js?v=3";
+watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
 // ── Firebase Init ────────────────────────────────────────
 const firebaseApp = initializeApp(firebaseConfig);

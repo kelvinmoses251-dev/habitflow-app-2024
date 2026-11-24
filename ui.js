@@ -202,3 +202,95 @@ export function enhanceSelect(select, opts = {}) {
 
   sync();
 }
+
+// ── Dialogs ───────────────────────────────────────────────
+// watchDialogs() gives every .modal the same behaviour without changing how they are opened: the app still
+// shows and hides a dialog by removing and adding the `hidden` class, and this watches for that.
+//   opening: remembers where focus was, stops the page behind from scrolling, moves focus into the dialog
+//   closing: lets the page scroll again and puts focus back
+//   Tab stays inside the top-most dialog
+//   a click on the backdrop, or dragging a phone sheet down, presses that dialog's own [data-dismiss] button,
+//   so each dialog's cancel logic runs exactly as if the person had tapped Cancel
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+export function watchDialogs(root = document) {
+  const stack = [];                                   // open modals, top-most last
+  const isOpen = m => !m.classList.contains('hidden');
+  const focusables = m => [...m.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0);
+  const dismiss = m => { const b = m.querySelector('[data-dismiss]'); if (b && isOpen(m)) b.click(); };
+
+  function opened(m) {
+    if (stack.some(e => e.modal === m)) return;
+    stack.push({ modal: m, returnTo: document.activeElement });
+    document.documentElement.classList.add('dialog-open');
+    // The code that opened the dialog may focus a field itself straight afterwards: only step in if it did not.
+    requestAnimationFrame(() => {
+      if (!isOpen(m) || m.contains(document.activeElement)) return;
+      const dlg = m.querySelector('.dialog') || m;
+      const target = dlg.querySelector('[autofocus]') || focusables(dlg)[0];
+      if (target) target.focus({ preventScroll: true });
+    });
+  }
+
+  function closed(m) {
+    const i = stack.findIndex(e => e.modal === m);
+    if (i < 0) return;
+    const [{ returnTo }] = stack.splice(i, 1);
+    const dlg = m.querySelector('.dialog');
+    if (dlg) { dlg.style.transform = ''; dlg.style.transition = ''; dlg.style.animation = ''; }    // undo any drag
+    if (!stack.length) document.documentElement.classList.remove('dialog-open');
+    if (returnTo && returnTo.isConnected && returnTo.focus) returnTo.focus({ preventScroll: true });
+  }
+
+  const watcher = new MutationObserver(records => records.forEach(r => (isOpen(r.target) ? opened(r.target) : closed(r.target))));
+  root.querySelectorAll('.modal').forEach(m => {
+    watcher.observe(m, { attributes: true, attributeFilter: ['class'] });
+    if (isOpen(m)) opened(m);
+  });
+
+  // Keep Tab inside the top-most dialog
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || !stack.length) return;
+    const dlg = stack[stack.length - 1].modal;
+    const f = focusables(dlg);
+    if (!f.length) { e.preventDefault(); return; }
+    const first = f[0], last = f[f.length - 1], inside = dlg.contains(document.activeElement);
+    if (e.shiftKey && (!inside || document.activeElement === first)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (!inside || document.activeElement === last)) { e.preventDefault(); first.focus(); }
+  }, true);
+
+  // A click on the dimmed backdrop itself (not on the dialog). Dialogs with their own backdrop handler have
+  // already closed by the time this runs, so nothing is pressed twice.
+  document.addEventListener('click', e => {
+    if (e.target instanceof Element && e.target.classList.contains('modal')) dismiss(e.target);
+  });
+
+  // Phone sheets: drag down from the handle (or the top edge) to dismiss; a short drag springs back.
+  let drag = null;
+  document.addEventListener('pointerdown', e => {
+    if (!stack.length || !matchMedia('(max-width: 640px)').matches || !(e.target instanceof Element)) return;
+    const m = stack[stack.length - 1].modal, dlg = m.querySelector('.dialog');
+    if (!dlg || !dlg.contains(e.target) || !m.querySelector('[data-dismiss]')) return;
+    const onHandle = !!e.target.closest('.sheet-handle');
+    const nearTop = e.clientY - dlg.getBoundingClientRect().top <= 48 && !e.target.closest('button, a, input, textarea, select');
+    if (!onHandle && !nearTop) return;
+    drag = { m, dlg, startY: e.clientY, dy: 0 };
+    dlg.style.animation = 'none';                     // a running or finished entrance animation would override the transform
+    dlg.style.transition = 'none';
+  });
+  addEventListener('pointermove', e => {
+    if (!drag) return;
+    drag.dy = Math.max(0, e.clientY - drag.startY);
+    drag.dlg.style.transform = `translateY(${drag.dy}px)`;
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    const { m, dlg, dy } = drag;
+    drag = null;
+    if (dy > 80) { dismiss(m); return; }              // closed() clears the inline styles
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    dlg.style.transition = still ? 'none' : 'transform .16s ease';
+    dlg.style.transform = '';
+  };
+  addEventListener('pointerup', endDrag);
+  addEventListener('pointercancel', endDrag);
+}

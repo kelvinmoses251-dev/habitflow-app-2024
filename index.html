@@ -47,12 +47,12 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
-  <link rel="modulepreload" href="ui.js?v=2" />
+  <link rel="modulepreload" href="ui.js?v=3" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=41" />
+  <link rel="stylesheet" href="style.css?v=42" />
 </head>
 <body>
 
@@ -119,12 +119,13 @@
 <!-- All habits done -->
 <div id="all-done-overlay" class="modal all-done-overlay hidden" role="dialog" aria-modal="true" aria-label="All habits done">
   <div class="dialog all-done-card">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <svg class="done-ring" viewBox="0 0 80 80" aria-hidden="true"><circle class="done-ring-bg" cx="40" cy="40" r="34"/><circle class="done-ring-fg" cx="40" cy="40" r="34"/><polyline class="done-check" points="26 41 36 51 55 30"/></svg>
     <h2 class="dialog-title">All habits done for today</h2>
     <p class="dialog-text" id="all-done-text">You completed every daily habit.</p>
     <div class="dialog-actions">
       <button id="all-done-share" class="btn-secondary" type="button">Share progress</button>
-      <button id="all-done-close" class="btn-primary" type="button">Close</button>
+      <button id="all-done-close" data-dismiss class="btn-primary" type="button">Close</button>
     </div>
   </div>
 </div>
@@ -571,10 +572,11 @@
 <!-- Crop picture -->
 <div id="crop-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Crop your picture">
   <div class="dialog">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Crop your picture</h2>
     <div class="crop-box"><img id="crop-image" src="" alt="" /></div>
     <div class="dialog-actions">
-      <button id="crop-cancel" class="btn-secondary" type="button">Cancel</button>
+      <button id="crop-cancel" data-dismiss class="btn-secondary" type="button">Cancel</button>
       <button id="crop-save" class="btn-primary" type="button">Save picture</button>
     </div>
   </div>
@@ -583,6 +585,7 @@
 <!-- Edit habit -->
 <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Edit habit">
   <div class="dialog">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Edit habit</h2>
     <form id="edit-habit-form" class="habit-form">
       <input type="hidden" id="edit-habit-id" />
@@ -610,7 +613,7 @@
         </select>
       </div>
       <div class="dialog-actions">
-        <button type="button" id="edit-cancel" class="btn-secondary">Cancel</button>
+        <button type="button" id="edit-cancel" data-dismiss class="btn-secondary">Cancel</button>
         <button type="submit" id="edit-save" class="btn-primary">Save changes</button>
       </div>
     </form>
@@ -620,11 +623,12 @@
 <!-- Recently deleted -->
 <div id="recovery-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Recently deleted habits">
   <div class="dialog dialog-scroll">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Recently deleted</h2>
     <p class="dialog-text">Habits are permanently deleted after 1 hour.</p>
     <div id="deleted-habits-list" class="deleted-list"></div>
     <div class="dialog-actions">
-      <button id="recovery-close" class="btn-secondary" type="button">Close</button>
+      <button id="recovery-close" data-dismiss class="btn-secondary" type="button">Close</button>
     </div>
   </div>
 </div>
@@ -632,6 +636,7 @@
 <!-- Focus timer -->
 <div id="timer-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Focus timer">
   <div class="dialog dialog-narrow">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Focus timer</h2>
     <p id="timer-habit-name" class="dialog-text">Habit</p>
     <div id="timer-display" class="timer-display">25:00</div>
@@ -640,7 +645,7 @@
       <input type="number" id="timer-input" value="25" min="1" max="120">
     </div>
     <div class="dialog-actions">
-      <button id="timer-close" class="btn-secondary" type="button">Cancel</button>
+      <button id="timer-close" data-dismiss class="btn-secondary" type="button">Cancel</button>
       <button id="timer-start" class="btn-primary" type="button">Start</button>
       <button id="timer-pause" class="btn-primary hidden" type="button">Pause</button>
     </div>
@@ -650,6 +655,7 @@
 <!-- Habit details -->
 <div id="details-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Habit details">
   <div class="dialog dialog-scroll">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <h2 id="details-habit-name" class="dialog-title">Habit</h2>
 
     <dl class="details-stats">
@@ -667,7 +673,7 @@
     <div id="details-journal-list" class="journal-list"></div>
 
     <div class="dialog-actions">
-      <button id="details-close" class="btn-secondary" type="button">Close</button>
+      <button id="details-close" data-dismiss class="btn-secondary" type="button">Close</button>
     </div>
   </div>
 </div>
@@ -675,11 +681,12 @@
 <!-- Confirm completion -->
 <div id="confirm-check-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Mark habit complete">
   <div class="dialog dialog-narrow">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Mark as complete?</h2>
     <p class="dialog-text">Did you complete <strong id="confirm-habit-name">this habit</strong>?</p>
     <p class="dialog-note">You can undo this for 1 hour.</p>
     <div class="dialog-actions">
-      <button id="confirm-check-cancel" class="btn-secondary" type="button">Cancel</button>
+      <button id="confirm-check-cancel" data-dismiss class="btn-secondary" type="button">Cancel</button>
       <button id="confirm-check-yes" class="btn-primary" type="button">Mark complete</button>
     </div>
   </div>
@@ -688,11 +695,12 @@
 <!-- Confirm export -->
 <div id="confirm-export-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Export PDF report">
   <div class="dialog dialog-narrow">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title">Download report</h2>
     <p class="dialog-text">Generate a PDF with your habits, streaks and completion history.</p>
     <p id="export-habit-summary" class="dialog-note">Includes statistics and notes.</p>
     <div class="dialog-actions">
-      <button id="confirm-export-cancel" class="btn-secondary" type="button">Cancel</button>
+      <button id="confirm-export-cancel" data-dismiss class="btn-secondary" type="button">Cancel</button>
       <button id="confirm-export-yes" class="btn-primary" type="button">Download PDF</button>
     </div>
   </div>
@@ -701,12 +709,13 @@
 <!-- Level up -->
 <div id="level-up-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Level up">
   <div class="dialog dialog-narrow">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <p class="dialog-eyebrow">Level reached</p>
     <h2 class="dialog-title level-title" id="level-up-new-level">Level 2</h2>
     <p class="dialog-sub" id="level-up-new-title">Builder</p>
     <p class="dialog-text" id="level-up-perk-text">Your consistency is paying off.</p>
     <div class="dialog-actions">
-      <button id="level-up-claim-btn" class="btn-primary btn-full" type="button">Continue</button>
+      <button id="level-up-claim-btn" data-dismiss class="btn-primary btn-full" type="button">Continue</button>
     </div>
   </div>
 </div>
@@ -714,6 +723,7 @@
 <!-- Share progress -->
 <div id="share-card-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Share progress story">
   <div class="dialog share-modal-container">
+    <span class="sheet-handle" aria-hidden="true"></span>
     <div class="share-head">
       <h2 class="dialog-title">Share progress</h2>
       <span class="share-format">1080 x 1920</span>
@@ -722,7 +732,7 @@
       <canvas id="share-story-canvas" width="1080" height="1920"></canvas>
     </div>
     <div class="dialog-actions share-actions">
-      <button id="share-card-close" class="btn-ghost" type="button">Close</button>
+      <button id="share-card-close" data-dismiss class="btn-ghost" type="button">Close</button>
       <button id="share-card-download" class="btn-secondary" type="button">Save</button>
       <button id="share-card-share" class="btn-primary" type="button">Share</button>
     </div>
@@ -730,6 +740,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=40"></script>
+<script type="module" src="app.js?v=41"></script>
 </body>
 </html>

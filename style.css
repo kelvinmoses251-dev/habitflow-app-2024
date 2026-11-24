@@ -285,6 +285,26 @@ textarea { resize: none; }
 }
 .dialog-narrow { max-width: 360px; }
 .dialog-scroll { max-height: 90vh; overflow-y: auto; }
+
+/* One dialog system (ui.js watchDialogs). Desktop: centred, fades in. Phones: a sheet that rises from the bottom
+   edge and can be dragged down by its handle. Both run once; reduced motion gets no animation at all. */
+html.dialog-open { overflow: hidden; }
+.sheet-handle { display: none; }
+.modal:not(.hidden) .dialog { animation: dialogIn .16s ease both; }
+@keyframes dialogIn { from { opacity: 0; transform: scale(.98); } }
+@keyframes sheetIn { from { transform: translateY(100%); } }
+@media (max-width: 640px) {
+  .modal { align-items: flex-end; padding: 0; }
+  .modal .dialog, .modal .dialog-narrow, .modal .share-modal-container {
+    max-width: none; width: 100%; max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain;
+    border-radius: var(--r-2xl) var(--r-2xl) 0 0; border-bottom: 0;
+    padding: var(--sp-3) var(--sp-5) calc(var(--sp-6) + env(safe-area-inset-bottom, 0px));
+  }
+  .modal:not(.hidden) .dialog { animation: sheetIn var(--t-sheet) both; }
+  .sheet-handle { display: block; flex: none; align-self: center; width: 36px; height: 4px; border-radius: var(--r-full); background: var(--border-strong); margin-bottom: var(--sp-2); touch-action: none; }
+  .modal .dialog .dialog-actions > button { flex: 1; }     /* full-width actions are easier to hit with a thumb */
+}
+@media (prefers-reduced-motion: reduce) { .modal:not(.hidden) .dialog { animation: none; } }
 .dialog-icon {
   width: 40px; height: 40px; border-radius: var(--r-md); display: grid; place-items: center;
   background: var(--primary-soft); color: var(--primary-ink);

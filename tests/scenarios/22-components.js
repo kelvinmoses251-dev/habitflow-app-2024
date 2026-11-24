@@ -66,4 +66,74 @@ module.exports = (scenario, c) => {
     await ev(`document.dispatchEvent(new Event('scroll'))`); await sleep(100);
     check('the page scrolling closes the list', await ev(`!${openList}`));
   });
+
+  // ── Dialogs ──────────────────────────────────────────────
+  const withHabit = (extra = {}) => signedIn({ ...extra, mock_fb_db: { users: {}, habits: {
+    a: { userId: 'u-test', name: 'Read', category: 'reading', frequency: 'daily', completedDates: [], createdAt: '2026-01-05T10:00:00Z', order: 1 } } } });
+  const confirmDlg = `document.querySelector('#confirm-check-modal .dialog')`;
+  const openConfirm = async () => {
+    await waitFor(`!!document.querySelector('.habit-item:not(.skel-row) .habit-check')`);
+    await ev(`(() => { const cb = document.querySelector('.habit-check'); cb.focus(); cb.click(); })()`);
+    await waitFor(`!document.getElementById('confirm-check-modal').classList.contains('hidden')`, 3000);
+    await sleep(350);                                             // entrance finished
+  };
+  const drag = (sel, dx, dy) => ev(`(async () => { const el = document.querySelector(${JSON.stringify(sel)}), r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const fire = (t, px, py) => (t === 'pointerdown' ? el : window).dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: px, clientY: py }));
+    fire('pointerdown', x, y);
+    for (let i = 1; i <= 4; i++) { fire('pointermove', x + ${dx} * i / 4, y + ${dy} * i / 4); await new Promise(r => setTimeout(r, 16)); }
+    fire('pointerup', x + ${dx}, y + ${dy}); return 1; })()`);
+
+  scenario('components: dialogs are bottom sheets on phones and centred on desktop', async () => {
+    await boot({ seed: withHabit() }); await openConfirm();
+    const r = JSON.parse(await ev(`JSON.stringify((() => { const d = ${confirmDlg}.getBoundingClientRect(); return { bottom: Math.round(d.bottom), width: Math.round(d.width), vh: innerHeight, vw: innerWidth }; })())`));
+    check('phone: the sheet sits on the bottom edge', r.bottom === r.vh, `${r.bottom} vs ${r.vh}`);
+    check('phone: the sheet is full width', r.width === r.vw, `${r.width} vs ${r.vw}`);
+    check('phone: it shows a drag handle', await visible('#confirm-check-modal .sheet-handle'));
+    check('phone: the top corners are rounded and the bottom ones square', await ev(`(() => { const s = getComputedStyle(${confirmDlg}); return parseFloat(s.borderTopLeftRadius) >= 16 && parseFloat(s.borderBottomLeftRadius) === 0; })()`));
+    check('the page behind cannot scroll', (await ev(`getComputedStyle(document.documentElement).overflow`)) === 'hidden');
+    check('every dialog has a handle and a way to dismiss it', await ev(`[...document.querySelectorAll('.modal')].every(m => m.querySelector('.dialog > .sheet-handle') && m.querySelector('[data-dismiss]'))`));
+    await boot({ seed: withHabit(), mobile: false }); await openConfirm();
+    check('desktop: the dialog is centred', await ev(`(() => { const d = ${confirmDlg}.getBoundingClientRect(); return Math.abs((d.left + d.right) / 2 - innerWidth / 2) < 2 && d.bottom < innerHeight - 40 && d.top > 40; })()`));
+    check('desktop: no drag handle', !(await visible('#confirm-check-modal .sheet-handle')));
+    noExceptions();
+  });
+
+  scenario('components: dialogs trap focus, restore it, and dismiss through their own cancel', async () => {
+    await boot({ seed: withHabit(), mobile: false }); await openConfirm();
+    check('focus moved into the dialog', await ev(`${confirmDlg}.contains(document.activeElement)`));
+    for (let i = 0; i < 5; i++) await key('Tab');
+    check('Tab stays inside', await ev(`${confirmDlg}.contains(document.activeElement)`));
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', modifiers: 8 }); await sleep(60);
+    check('Shift+Tab stays inside', await ev(`${confirmDlg}.contains(document.activeElement)`));
+    await key('Escape'); await sleep(250);
+    check('Escape closed it', !(await visible('#confirm-check-modal')));
+    check('its cancel logic ran (habit not completed, box un-ticked)', await ev(`!document.querySelector('.habit-check').checked && __mockDB.habits.a.completedDates.length === 0`));
+    check('focus went back to where it was', await ev(`document.activeElement.classList.contains('habit-check')`));
+    check('the page scrolls again', (await ev(`getComputedStyle(document.documentElement).overflow`)) !== 'hidden');
+    await ev(`document.getElementById('export-data-btn').click()`); await sleep(350);
+    await ev(`document.getElementById('confirm-export-modal').dispatchEvent(new MouseEvent('click', { bubbles: true }))`); await sleep(200);
+    check('a click on the backdrop dismisses', !(await visible('#confirm-export-modal')));
+    await ev(`document.getElementById('recovery-modal').classList.remove('hidden')`); await sleep(350);
+    await ev(`document.getElementById('recovery-modal').dispatchEvent(new MouseEvent('click', { bubbles: true }))`); await sleep(200);
+    check('that works for dialogs that had no backdrop handling before', !(await visible('#recovery-modal')));
+    noExceptions();
+  });
+
+  scenario('components: a sheet can be dragged down to dismiss, and respects reduced motion', async () => {
+    await boot({ seed: withHabit() }); await openConfirm();
+    await drag('#confirm-check-modal .sheet-handle', 0, 40); await sleep(350);
+    check('a short drag springs back', await visible('#confirm-check-modal'));
+    check('and the sheet is back on the bottom edge', await ev(`Math.round(${confirmDlg}.getBoundingClientRect().bottom) === innerHeight`));
+    await drag('#confirm-check-modal .sheet-handle', 0, 140); await sleep(350);
+    check('a long drag dismisses', !(await visible('#confirm-check-modal')));
+    check('dismissing by drag runs the cancel logic too', await ev(`__mockDB.habits.a.completedDates.length === 0`));
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    try {
+      await openConfirm();
+      check('reduced motion: the sheet does not animate in', (await ev(`getComputedStyle(${confirmDlg}).animationName`)) === 'none');
+    } finally { await send('Emulation.setEmulatedMedia', { features: [] }); }
+    await boot({ seed: withHabit({ theme: 'dark' }) }); await openConfirm();
+    check('dark: the sheet is on the raised surface', await ev(`(() => { const d = document.createElement('i'); d.style.color = 'var(--surface-3)'; document.body.appendChild(d); const col = getComputedStyle(d).color; d.remove(); return getComputedStyle(${confirmDlg}).backgroundColor === col; })()`));
+    noExceptions();
+  });
 };

@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { setBusy, setFieldError, clearFieldError } from "./ui.js?v=1";
+import { setBusy, setFieldError, clearFieldError, enhanceSelect } from "./ui.js?v=2";
 
 // ── Firebase Init ────────────────────────────────────────
 const firebaseApp = initializeApp(firebaseConfig);
@@ -250,6 +250,11 @@ const CATS = {
 };
 Object.keys(CATS).forEach(key => { CATS[key].icon = catIcon(key); });
 const catColor = cat => (isDarkTheme() ? cat.dark : cat.color);
+
+// The four dropdowns become designed lists (ui.js). Category ones show each category's icon in its colour.
+const catChip = value => (CATS[value] ? `<span class="cat-ico" style="--cat:${catColor(CATS[value])}">${CATS[value].icon}</span>` : '');
+['habit-category', 'edit-habit-category'].forEach(id => enhanceSelect(document.getElementById(id), { iconFor: catChip }));
+['habit-frequency', 'edit-habit-frequency'].forEach(id => enhanceSelect(document.getElementById(id)));
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [

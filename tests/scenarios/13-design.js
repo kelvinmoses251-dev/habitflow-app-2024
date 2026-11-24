@@ -73,6 +73,17 @@ module.exports = (scenario, c) => {
         if (s.textShadow && s.textShadow !== 'none') bad.push('text-shadow: ' + id);
         if (s.filter && s.filter !== 'none') bad.push('filter: ' + id);
         if (s.animationName !== 'none' && s.animationIterationCount === 'infinite') bad.push('infinite animation: ' + id);
+        // Depth must stay soft and neutral: a blurred shadow may not be coloured or wider than 48px.
+        // (Zero-blur rings are outlines, not shadows. No backslashes here: this runs inside a template string.)
+        if (s.boxShadow && s.boxShadow !== 'none') {
+          s.boxShadow.split(/,(?![^(]*[)])/).forEach(layer => {
+            const col = (layer.match(/rgba?[(][^)]+[)]/) || ['rgb(0,0,0)'])[0].match(/[0-9.]+/g).map(Number);
+            const px = (layer.replace(/rgba?[(][^)]+[)]/, '').match(/-?[0-9.]+px/g) || []).map(parseFloat);   // x, y, blur, spread
+            if (!px[2]) return;
+            if (Math.max(col[0], col[1], col[2]) - Math.min(col[0], col[1], col[2]) > 12) bad.push('coloured shadow: ' + id);
+            if (px[2] > 48) bad.push('shadow blur over 48px: ' + id);
+          });
+        }
       });
       return bad;
     })()`);

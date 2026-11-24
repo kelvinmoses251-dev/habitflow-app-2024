@@ -94,3 +94,4 @@ Roadmap: `docs/superpowers/specs/2026-11-24-habitly-100-improvements-design.md`.
 | # | Area | What changed | Why |
 |---|------|--------------|-----|
 | R1 | Design system | One scale for type (12 steps on whole pixels), corners and colour. Every font size, radius and colour in the stylesheet is now a named token, and a test fails if a one-off value is added | 31 slightly different text sizes and 8 corner sizes had crept in, which is what makes an interface feel unpolished |
+| R2 | Design system | Three levels of depth (cards, floating things, dialogs) built from soft neutral shadows and hairline borders. A new guardrail fails the build if any shadow is coloured or blurrier than 48px | Depth was assigned ad hoc with four overlapping shadow styles; nothing stopped it drifting into glow |

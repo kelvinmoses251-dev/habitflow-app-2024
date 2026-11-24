@@ -17,4 +17,14 @@ module.exports = (scenario, c) => {
     const hex = [...body.matchAll(/#[0-9A-Fa-f]{3,8}\b/g)].map(m => m[0]);
     check('no colour is written outside the token blocks', hex.length === 0, [...new Set(hex)].slice(0, 6).join(' '));
   });
+
+  scenario('foundation: three elevation levels and nothing else', async () => {
+    const shadows = [...rules().matchAll(/box-shadow:\s*([^;}]+)/g)].map(m => m[1].trim())
+      .filter(v => !/^(none|var\(--elev-[123]\)|0 0 0 [\d.]+(px|vmax) var\()/.test(v));          // an elevation token, or a zero-blur ring
+    check('every shadow is an elevation token or a ring', shadows.length === 0, shadows.slice(0, 4).join(' | '));
+    check('the old shadow names are gone', !/--sh-(sm|md|card|lg)/.test(css()));
+    await boot({ seed: signedIn() });
+    await waitFor(`!document.getElementById('app').classList.contains('hidden')`);
+    check('cards sit on the first level', (await ev(`getComputedStyle(document.querySelector('.card')).boxShadow`)) !== 'none');
+  });
 };

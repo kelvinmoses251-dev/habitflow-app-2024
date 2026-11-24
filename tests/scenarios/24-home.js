@@ -163,7 +163,56 @@ module.exports = (scenario, c) => {
     await waitFor(`!!document.querySelector('#habits-week .habit-item')`); await sleep(300);
     check('weekly habits only: Today explains itself instead of sitting empty', /no daily habits/i.test(await ev(`document.getElementById('page-home').innerText`)) && !(await visible('#empty-state')));
     await boot({ seed: seed(mixed()), mobile: false }); await rows(); await sleep(300);
-    check('desktop: the sections sit in the list column beside the summary', await ev(`(() => { const w = document.getElementById('week-card').getBoundingClientRect(), s = document.getElementById('summary').getBoundingClientRect(), t = document.getElementById('habits').getBoundingClientRect(); return Math.abs(w.left - t.left) < 40 && w.right <= s.left; })()`));
+    check('desktop: the sections sit in the list column beside the summary', /* geometry */await ev(`(() => { const w = document.getElementById('week-card').getBoundingClientRect(), s = document.getElementById('summary').getBoundingClientRect(), t = document.getElementById('habits').getBoundingClientRect(); return Math.abs(w.left - t.left) < 40 && w.right <= s.left; })()`));
+    noExceptions();
+  });
+
+  // ── 12: Today grouped by time of day ─────────────────────
+  // A fixed local hour, by moving the clock (same trick as the streak-risk scenario).
+  const atHour = h => `(() => { const R = Date; const base = new R(); base.setHours(${h}, 15, 0, 0); const skew = base.getTime() - R.now();
+    window.Date = class extends R { constructor(...a) { if (a.length) super(...a); else super(R.now() + skew); } static now() { return R.now() + skew; } }; })();`;
+  const timed = () => ({
+    a: H('Stretch', { order: 1, timeOfDay: 'morning' }),
+    b: H('Walk', { order: 2, timeOfDay: 'afternoon' }),
+    c: H('Read', { order: 3, timeOfDay: 'evening' }),
+    d: H('Drink water', { order: 4 }),
+    e: H('Vitamins', { order: 5, timeOfDay: 'morning' }),
+  });
+  const layout = () => ev(`[...document.querySelectorAll('#habits > li')].map(li => li.classList.contains('group-head') ? '[' + li.textContent.trim() + ']' : li.querySelector('.habit-name').textContent.trim()).join(' ')`);
+
+  scenario('home: Today is grouped by time of day, with the current part of the day first', async () => {
+    await boot({ seed: seed(six()) }); await rows(); await sleep(300);
+    check('no group headings when no habit has a time', (await count('#habits .group-head')) === 0);
+    await boot({ seed: seed(timed()), initScript: atHour(9) }); await rows(); await sleep(300);
+    check('morning: Morning first', (await layout()) === '[Morning] Stretch Vitamins [Afternoon] Walk [Evening] Read [Any time] Drink water', await layout());
+    await boot({ seed: seed(timed()), initScript: atHour(19) }); await rows(); await sleep(300);
+    check('evening: Evening first', (await layout()) === '[Evening] Read [Morning] Stretch Vitamins [Afternoon] Walk [Any time] Drink water', await layout());
+    check('headings are slim (28px or less)', (await ev(`Math.max(...[...document.querySelectorAll('#habits .group-head')].map(e => e.getBoundingClientRect().height))`)) <= 28);
+    check('headings are not announced as list items to tick', await ev(`[...document.querySelectorAll('#habits .group-head')].every(e => !e.querySelector('input, button'))`));
+    for (const [w, h] of [[375, 667], [320, 568]]) {
+      await size(w, h); await ev(`scrollTo(0, 0)`); await sleep(250);
+      check(`${w}x${h}: the first habit is still on the first screen with headings`, (await firstRowTop()) <= 320, await firstRowTop());
+    }
+    noExceptions();
+  });
+
+  scenario('home: a habit can be given a time of day when it is created or edited', async () => {
+    await boot({ seed: seed({}) }); await waitFor(`!document.getElementById('habit-form').hidden`); await sleep(300);
+    check('the form offers a time of day, defaulting to any time', (await ev(`document.getElementById('habit-time').value`)) === 'any' && (await count('#habit-form .select-btn')) === 3);
+    await ev(`(() => { document.getElementById('habit-input').value = 'Evening walk'; document.getElementById('habit-category').value = 'fitness'; document.getElementById('habit-frequency').value = 'daily'; document.getElementById('habit-time').value = 'evening'; document.getElementById('habit-form').requestSubmit(); })()`);
+    await waitFor(`Object.keys(__mockDB.habits || {}).length === 1`, 3000);
+    check('it is saved with the habit', (await ev(`Object.values(__mockDB.habits)[0].timeOfDay`)) === 'evening');
+    check('and it appears under Evening', /\[Evening\] Evening walk/.test(await layout()), await layout());
+    await ev(`(() => { document.getElementById('habit-input').value = 'Water'; document.getElementById('habit-category').value = 'health'; document.getElementById('habit-frequency').value = 'daily'; document.getElementById('habit-time').value = 'any'; document.getElementById('habit-form').requestSubmit(); })()`);
+    await waitFor(`Object.keys(__mockDB.habits || {}).length === 2`, 3000);
+    check('"any time" stores nothing extra', await ev(`Object.values(__mockDB.habits).filter(h => 'timeOfDay' in h).length === 1`));
+    await ev(`document.querySelector('.habit-item [data-action="edit"]').click()`); await sleep(350);
+    const id = await ev(`document.querySelector('.habit-item [data-action="edit"]').dataset.id`);
+    check('editing shows the saved time', (await ev(`document.getElementById('edit-habit-time').value`)) === (await ev(`__mockDB.habits[${JSON.stringify(id)}].timeOfDay || 'any'`)));
+    await ev(`(() => { document.getElementById('edit-habit-time').value = 'morning'; document.getElementById('edit-habit-form').requestSubmit(); })()`); await sleep(400);
+    check('and saves a change', (await ev(`__mockDB.habits[${JSON.stringify(id)}].timeOfDay`)) === 'morning');
+    const fs = require('fs'), path = require('path');
+    check('the privacy policy says a habit can store a time of day', /time of day/i.test(fs.readFileSync(path.resolve(__dirname, '..', '..', 'privacy.html'), 'utf8')));
     noExceptions();
   });
 };

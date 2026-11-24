@@ -568,6 +568,11 @@ html.dialog-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .summary-more, .bar-chev { transition: none; } }
 .today-add { display: none; }
 .period-card.hidden { display: none; }
+/* Time-of-day headings inside Today: slim, quiet, never taller than 28px */
+.group-head { list-style: none; display: flex; align-items: center; gap: 6px; height: 26px; margin-top: var(--sp-2); font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.group-head:first-child { margin-top: 0; }
+.group-head .icon { width: 14px; height: 14px; }
+.group-head + .habit-item { border-top: 0; }
 .period-card .section-title { font-size: var(--fs-xl); }
 .empty-note { color: var(--muted); font-size: var(--fs-ui); padding: var(--sp-3) 0; }
 @media (max-width: 640px) {

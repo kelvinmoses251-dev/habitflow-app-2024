@@ -15,6 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { timeSlot, currentSlot, slotOrder, SLOT_LABEL } from "./home.js?v=1";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=5";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -255,7 +256,7 @@ const catColor = cat => (isDarkTheme() ? cat.dark : cat.color);
 // The four dropdowns become designed lists (ui.js). Category ones show each category's icon in its colour.
 const catChip = value => (CATS[value] ? `<span class="cat-ico" style="--cat:${catColor(CATS[value])}">${CATS[value].icon}</span>` : '');
 ['habit-category', 'edit-habit-category'].forEach(id => enhanceSelect(document.getElementById(id), { iconFor: catChip }));
-['habit-frequency', 'edit-habit-frequency'].forEach(id => enhanceSelect(document.getElementById(id)));
+['habit-frequency', 'edit-habit-frequency', 'habit-time', 'edit-habit-time'].forEach(id => enhanceSelect(document.getElementById(id)));
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
@@ -1376,7 +1377,7 @@ document.getElementById('crop-save').addEventListener('click', async () => {
 
 
 // ── Firestore CRUD ────────────────────────────────────────
-function addHabit(name, category, frequency) {
+function addHabit(name, category, frequency, timeOfDay) {
   if (!currentUser) return Promise.resolve();
   return addDoc(collection(db, 'habits'), {
     userId:         currentUser.uid,
@@ -1385,7 +1386,8 @@ function addHabit(name, category, frequency) {
     frequency:      frequency || 'daily',
     completedDates: [],
     createdAt:      new Date().toISOString(),
-    order:          Date.now()
+    order:          Date.now(),
+    ...(timeOfDay && timeOfDay !== 'any' ? { timeOfDay } : {})          // optional: absent means any time
   });
 }
 
@@ -1544,6 +1546,15 @@ function renderHabits() {
     return aOrder - bOrder;
   });
 
+  // Today is grouped by time of day as soon as one daily habit has a time. The part of the day it is now
+  // comes first. (A stable sort keeps the order above inside each group.)
+  const isDaily = h => !h.frequency || h.frequency === 'daily';
+  const grouped = sorted.some(h => isDaily(h) && timeSlot(h) !== 'any');
+  const slotRank = slotOrder(currentSlot(new Date().getHours()));
+  if (grouped) sorted.sort((a, b) => (isDaily(a) && isDaily(b) ? slotRank.indexOf(timeSlot(a)) - slotRank.indexOf(timeSlot(b)) : 0));
+  const SLOT_ICON = { morning: 'i-sunrise', afternoon: 'i-sun', evening: 'i-moon', any: 'i-clock' };
+  let lastSlot = null;
+
   // Daily habits go in Today; weekly and monthly ones each get their own section with a count for the period.
   const sections = {
     daily:   { list, done: 0, total: 0 },
@@ -1574,6 +1585,14 @@ function renderHabits() {
     const section = sections[freq] || sections.daily;
     section.total++;
     if (isDone) section.done++;
+    if (grouped && section === sections.daily && timeSlot(h) !== lastSlot) {
+      lastSlot = timeSlot(h);
+      const head = document.createElement('li');
+      head.className = 'group-head';
+      head.setAttribute('role', 'presentation');
+      head.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#${SLOT_ICON[lastSlot]}"/></svg><span>${SLOT_LABEL[lastSlot]}</span>`;
+      section.list.appendChild(head);
+    }
     const cat = CATS[h.category] || CATS.health;
 
     // Check if habit was created in the last 1 hour
@@ -1870,12 +1889,13 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   const category = document.getElementById('habit-category').value;
   const freqEl   = document.getElementById('habit-frequency');
   const frequency = freqEl ? freqEl.value : 'daily';
+  const timeOfDay = document.getElementById('habit-time')?.value || 'any';
   if (!name) return;
   const btn = e.target.querySelector('button[type="submit"]');
   setBusy(btn, 'Adding');
   
   try {
-    backgroundWrite(addHabit(name, category, frequency), 'add the habit');
+    backgroundWrite(addHabit(name, category, frequency, timeOfDay), 'add the habit');
     track('habit_added', { category, frequency, source: 'form' });
     document.getElementById('habit-input').value = '';
     toast('Habit added', 'success');
@@ -1910,6 +1930,7 @@ document.getElementById('page-home').addEventListener('click', async e => {
     document.getElementById('edit-habit-name').value = h.name;
     document.getElementById('edit-habit-category').value = h.category || 'health';
     document.getElementById('edit-habit-frequency').value = h.frequency || 'daily';
+    document.getElementById('edit-habit-time').value = timeSlot(h);
     document.getElementById('edit-modal').classList.remove('hidden');
     return;
   }
@@ -2054,13 +2075,14 @@ document.getElementById('edit-habit-form').addEventListener('submit', async e =>
   const name = document.getElementById('edit-habit-name').value.trim();
   const category = document.getElementById('edit-habit-category').value;
   const frequency = document.getElementById('edit-habit-frequency').value;
+  const editTime = document.getElementById('edit-habit-time').value;
   
   if (!name || !id) return;
   const btn = e.target.querySelector('button[type="submit"]');
   setBusy(btn, 'Saving');
   
   try {
-    backgroundWrite(updateDoc(doc(db, 'habits', id), { name, category, frequency }), 'update the habit');
+    backgroundWrite(updateDoc(doc(db, 'habits', id), { name, category, frequency, timeOfDay: editTime === 'any' ? deleteField() : editTime }), 'update the habit');
     document.getElementById('edit-modal').classList.add('hidden');
     toast('Habit updated', 'success');
   } catch (err) {

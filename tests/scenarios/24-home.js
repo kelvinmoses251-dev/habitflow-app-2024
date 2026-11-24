@@ -127,4 +127,43 @@ module.exports = (scenario, c) => {
     } finally { await send('Emulation.setEmulatedMedia', { features: [] }); }
     noExceptions();
   });
+
+  // ── 17: weekly and monthly habits have their own sections ─
+  const mixed = () => ({
+    a: H('Drink water', { order: 1 }),
+    b: H('Read', { order: 2, category: 'reading' }),
+    w1: H('Review budget', { order: 3, category: 'saving', frequency: 'weekly', completedDates: [day(0)], completedTimestamps: { [day(0)]: Date.now() - 5000 } }),
+    w2: H('Call family', { order: 4, category: 'social', frequency: 'weekly' }),
+    m1: H('Back up photos', { order: 5, category: 'project', frequency: 'monthly' }),
+  });
+  const count = sel => ev(`document.querySelectorAll(${JSON.stringify(sel)}).length`);
+  const txt = id => ev(`document.getElementById(${JSON.stringify(id)}).textContent.trim()`);
+
+  scenario('home: weekly and monthly habits have their own sections', async () => {
+    await boot({ seed: seed(mixed()) }); await rows(); await sleep(300);
+    check('Today lists only the daily habits', (await count('#habits .habit-item')) === 2);
+    check('This week lists the weekly ones', (await count('#habits-week .habit-item')) === 2 && await visible('#week-card'));
+    check('This week says how many are done', (await txt('week-count')) === '1 of 2', await txt('week-count'));
+    check('This month lists the monthly one', (await count('#habits-month .habit-item')) === 1 && (await txt('month-count')) === '0 of 1');
+    check('each habit appears exactly once', (await count('.habit-item')) === 5);
+    check('the sections have headings', (await ev(`[...document.querySelectorAll('#week-card h2, #month-card h2')].map(h => h.textContent.trim()).join('|')`)) === 'This week|This month');
+    await ev(`document.querySelector('.habit-item[data-id="w2"] .habit-check').click()`);
+    check('completing a weekly habit works from its section', await waitFor(`(__mockDB.habits.w2.completedDates || []).length === 1`, 3000));
+    check('and its count updates', await waitFor(`document.getElementById('week-count').textContent.trim() === '2 of 2'`, 3000));
+    await ev(`document.querySelector('.habit-item[data-id="m1"] [data-action="details"]').click()`); await sleep(300);
+    check('row actions work in the other sections too', await visible('#details-modal'));
+    check('no horizontal scroll', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    noExceptions();
+  });
+
+  scenario('home: the extra sections only appear when they are needed', async () => {
+    await boot({ seed: seed(six()) }); await rows(); await sleep(300);
+    check('daily habits only: no This week or This month', !(await visible('#week-card')) && !(await visible('#month-card')));
+    await boot({ seed: seed({ w1: H('Review budget', { frequency: 'weekly' }) }) });
+    await waitFor(`!!document.querySelector('#habits-week .habit-item')`); await sleep(300);
+    check('weekly habits only: Today explains itself instead of sitting empty', /no daily habits/i.test(await ev(`document.getElementById('page-home').innerText`)) && !(await visible('#empty-state')));
+    await boot({ seed: seed(mixed()), mobile: false }); await rows(); await sleep(300);
+    check('desktop: the sections sit in the list column beside the summary', await ev(`(() => { const w = document.getElementById('week-card').getBoundingClientRect(), s = document.getElementById('summary').getBoundingClientRect(), t = document.getElementById('habits').getBoundingClientRect(); return Math.abs(w.left - t.left) < 40 && w.right <= s.left; })()`));
+    noExceptions();
+  });
 };

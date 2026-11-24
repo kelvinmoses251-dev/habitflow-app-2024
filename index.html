@@ -54,7 +54,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=46" />
+  <link rel="stylesheet" href="style.css?v=47" />
 </head>
 <body>
 
@@ -386,12 +386,29 @@
             <button type="button" id="today-add" class="btn-icon today-add" aria-label="New habit"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
           </div>
           <ul id="habits" class="habits-list"></ul>
+          <p id="no-daily" class="empty-note hidden">No daily habits yet. Your weekly and monthly habits are below.</p>
           <div id="empty-state" class="empty-state hidden">
             <p class="empty-title">Start with a ready-made set</p>
             <span class="empty-text">Each one adds three habits. You can edit or delete them later.</span>
             <div id="starter-packs" class="pack-grid"></div>
             <span class="empty-or">Or add your own habit above.</span>
           </div>
+        </div>
+
+        <!-- Weekly and monthly habits: each in its own section, with how many are done this period -->
+        <div class="card period-card hidden" id="week-card">
+          <div class="card-header">
+            <h2 class="card-title section-title">This week</h2>
+            <span id="week-count" class="today-date"></span>
+          </div>
+          <ul id="habits-week" class="habits-list"></ul>
+        </div>
+        <div class="card period-card hidden" id="month-card">
+          <div class="card-header">
+            <h2 class="card-title section-title">This month</h2>
+            <span id="month-count" class="today-date"></span>
+          </div>
+          <ul id="habits-month" class="habits-list"></ul>
         </div>
 
       </div>
@@ -774,6 +791,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=46"></script>
+<script type="module" src="app.js?v=47"></script>
 </body>
 </html>

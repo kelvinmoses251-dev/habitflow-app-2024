@@ -1521,6 +1521,8 @@ function renderHabits() {
   list.innerHTML = '';
 
   if (!allHabits.length) {
+    ['week-card', 'month-card', 'no-daily'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    ['habits-week', 'habits-month'].forEach(id => { document.getElementById(id).innerHTML = ''; });
     empty.classList.remove('hidden');
     renderStarterPacks();
     updateProgress(0, 0);
@@ -1542,6 +1544,15 @@ function renderHabits() {
     return aOrder - bOrder;
   });
 
+  // Daily habits go in Today; weekly and monthly ones each get their own section with a count for the period.
+  const sections = {
+    daily:   { list, done: 0, total: 0 },
+    weekly:  { list: document.getElementById('habits-week'),  card: document.getElementById('week-card'),  count: document.getElementById('week-count'),  done: 0, total: 0 },
+    monthly: { list: document.getElementById('habits-month'), card: document.getElementById('month-card'), count: document.getElementById('month-count'), done: 0, total: 0 },
+  };
+  sections.weekly.list.innerHTML = '';
+  sections.monthly.list.innerHTML = '';
+
   let done = 0;
   const animateRows = !habitsEntered;
   sorted.forEach((h, rowIdx) => {
@@ -1560,6 +1571,9 @@ function renderHabits() {
     }
     
     if (isDone) done++;
+    const section = sections[freq] || sections.daily;
+    section.total++;
+    if (isDone) section.done++;
     const cat = CATS[h.category] || CATS.health;
 
     // Check if habit was created in the last 1 hour
@@ -1611,8 +1625,15 @@ function renderHabits() {
           <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
         </button>
       </div>`;
-    list.appendChild(li);
+    section.list.appendChild(li);
   });
+
+  for (const key of ['weekly', 'monthly']) {
+    const sec = sections[key];
+    sec.card.classList.toggle('hidden', sec.total === 0);
+    sec.count.textContent = `${sec.done} of ${sec.total}`;
+  }
+  document.getElementById('no-daily').classList.toggle('hidden', sections.daily.total > 0);
 
   habitsEntered = true;
   if (nudgeFirstHabit && done === 0) {
@@ -1868,7 +1889,7 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
 });
 
 // ── Habit List Events (delegation) ───────────────────────
-document.getElementById('habits').addEventListener('click', async e => {
+document.getElementById('page-home').addEventListener('click', async e => {
   // Delete
   const del = e.target.closest('[data-action="delete"]');
   if (del) {
@@ -1995,7 +2016,7 @@ function completeHabit(id, dateToRm, checkboxEl) {
 }
 
 // ── Checkbox Click Handler with Confirmation ──────────────
-document.getElementById('habits').addEventListener('change', async e => {
+document.getElementById('page-home').addEventListener('change', async e => {
   const cb = e.target.closest('.habit-check');
   if (!cb) return;
 
@@ -2017,7 +2038,7 @@ document.getElementById('habits').addEventListener('change', async e => {
 });
 
 // ── Double-click to Open Details ────────────────────────
-document.getElementById('habits').addEventListener('dblclick', async e => {
+document.getElementById('page-home').addEventListener('dblclick', async e => {
   const item = e.target.closest('.habit-item');
   if (item) {
     const h = allHabits.find(x => x.id === item.dataset.id);

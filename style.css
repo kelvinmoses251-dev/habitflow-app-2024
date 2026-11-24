@@ -567,9 +567,12 @@ html.dialog-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .summary-more, .bar-chev { transition: none; } }
 .today-add { display: none; }
+.period-card.hidden { display: none; }
+.period-card .section-title { font-size: var(--fs-xl); }
+.empty-note { color: var(--muted); font-size: var(--fs-ui); padding: var(--sp-3) 0; }
 @media (max-width: 640px) {
   /* Once there are habits, the list comes first on a phone: New habit moves below it and the Today header gets a + button */
-  #page-home.has-habits .new-habit { order: 5; }
+  #page-home.has-habits .new-habit { order: 9; }
   #page-home.has-habits .today-add { display: grid; width: 44px; height: 44px; margin: -10px -10px -10px var(--sp-1); color: var(--primary-ink); }
   #page-home.has-habits .card-header { align-items: center; }
   #page-home.has-habits .today-date { margin-left: auto; }
@@ -931,7 +934,7 @@ html.dialog-open { overflow: hidden; }
     column-gap: 40px; row-gap: var(--sp-4); align-items: start;
   }
   #page-home .page-content > * { grid-column: 1; }
-  #page-home .summary { grid-column: 2; grid-row: 1 / span 4; position: sticky; top: calc(var(--topnav-h) + var(--sp-6)); }
+  #page-home .summary { grid-column: 2; grid-row: 1 / span 8; position: sticky; top: calc(var(--topnav-h) + var(--sp-6)); }
   #page-stats .page-content { max-width: 1040px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); align-items: start; }
   #page-stats .page-content > .page-title, #page-stats .stats-grid, #page-stats .card-wide { grid-column: 1 / -1; }
   #page-stats .insights-card.hidden + .weekly-report-card { grid-column: 1 / -1; }

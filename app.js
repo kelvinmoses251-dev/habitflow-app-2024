@@ -1153,8 +1153,19 @@ function updateOnlineStatus(announce = false) {
 window.addEventListener('offline', () => updateOnlineStatus());
 window.addEventListener('online', () => updateOnlineStatus(true));
 
+// Until the first habits arrive, Today shows four still placeholder rows instead of an empty list.
+function showHabitPlaceholders() {
+  if (habitsLoaded) return;
+  const list = document.getElementById('habits');
+  list.setAttribute('aria-busy', 'true');
+  list.innerHTML = Array.from({ length: 4 }, () =>
+    '<li class="skel-row" aria-hidden="true"><span class="skel skel-dot"></span><span class="skel-lines"><span class="skel skel-line"></span><span class="skel skel-line short"></span></span></li>').join('');
+  document.getElementById('empty-state').classList.add('hidden');
+}
+
 function showApp() {
   updateOnlineStatus();
+  showHabitPlaceholders();
   if (!riskTimer) riskTimer = setInterval(updateStreakRisk, 60000);   // keep the countdown fresh
   // Warm up Chart.js when the browser is idle so the Stats tab opens instantly
   (window.requestIdleCallback || (cb => setTimeout(cb, 4000)))(() => ensureLib('chart').catch(() => {}));
@@ -1468,11 +1479,11 @@ function subscribeToHabits() {
       }
     });
 
+    habitsLoaded = true;
     renderHabits();
     if (userDocLoaded) updateStreak();   // before that, shield data is still defaults
     syncUserStats();
 
-    habitsLoaded = true;
     seedXPFromHistory();
     updateXPUI();
     checkAndApplyStreakShield();
@@ -1492,6 +1503,9 @@ function renderHabits() {
   const empty = document.getElementById('empty-state');
   const t     = todayStr();
 
+  // Nothing is known yet: keep the placeholders, and do not show the empty state or open the form on a guess.
+  if (!habitsLoaded) return;
+  list.removeAttribute('aria-busy');
   if (!userSetNewHabit) setNewHabitOpen(!allHabits.length);   // open for an empty list, one tidy row otherwise
   list.innerHTML = '';
 

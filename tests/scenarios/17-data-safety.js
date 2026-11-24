@@ -39,7 +39,11 @@ module.exports = (scenario, c) => {
     check('XP is 50', (await xp()) === 50, await xp());
   });
 
-  const clickDelete = () => ev(`window.confirm = () => true; document.getElementById('delete-account-btn').click(); 0`);
+  // Wait until the app is signed in and its habits have arrived: a fixed delay was occasionally too short on a busy machine.
+  const clickDelete = async () => {
+    await waitFor(`!document.getElementById('app').classList.contains('hidden') && document.getElementById('habits').getAttribute('aria-busy') !== 'true'`, 8000);
+    return ev(`window.confirm = () => true; document.getElementById('delete-account-btn').click(); 0`);
+  };
   const state = async () => JSON.parse(await ev(`JSON.stringify({ h: Object.keys(__mockDB.habits || {}), u: Object.keys(__mockDB.users || {}), user: !!__mockAuth.currentUser })`));
   const habits = () => ({ a: habit(), trashed: habit({ deletedAt: Date.now() }), other: habit({ userId: 'someone-else' }) });
 

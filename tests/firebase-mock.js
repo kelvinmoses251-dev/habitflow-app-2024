@@ -98,7 +98,8 @@ function notify(name) {
 export function onSnapshot(ref, ...rest) {
   const cb = typeof rest[0] === 'function' ? rest[0] : rest[1];   // (ref, cb) or (ref, options, cb)
   const l = { ref, cb };
-  const delay = ref.kind === 'doc' && ref.name === 'users' ? (W.__mockProfileDelay || 0) : 0;
+  const delay = ref.kind === 'doc' && ref.name === 'users' ? (W.__mockProfileDelay || 0)
+    : (ref.name === 'habits' ? (W.__mockSnapshotDelay || 0) : 0);          // __mockSnapshotDelay: habits arrive late, as on a slow connection
   let stopped = false;
   if (!delay) dbListeners.add(l);
   setTimeout(() => { if (!stopped) { dbListeners.add(l); cb(snapFor(ref)); } }, delay);

@@ -259,17 +259,34 @@ textarea { resize: none; }
 
 /* ── Loading ────────────────────────────────────────── */
 .loading-screen {
-  position: fixed; inset: 0; z-index: 9999; background: var(--bg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-5);
+  position: fixed; inset: 0; z-index: 9999; background: var(--bg); overflow: hidden;
+  display: flex; flex-direction: column;
   transition: opacity .3s ease, visibility .3s ease;
 }
 .loading-screen.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
-.loading-spinner {
-  width: 22px; height: 22px; border-radius: 50%;
-  border: 2px solid var(--border-strong); border-top-color: var(--primary);
-  animation: spin .8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+/* Placeholders are still blocks in the shape of what is loading. They never animate. */
+.skel { background: var(--surface-2); border-radius: var(--r-lg); }
+.skel-top { display: flex; align-items: center; gap: var(--sp-2); height: var(--topnav-h); padding: 0 var(--sp-4); font-weight: 700; background: var(--surface); border-bottom: 1px solid var(--border); }
+.skel-page { width: 100%; max-width: var(--max-w); margin: 0 auto; padding: var(--sp-5) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
+.skel-for-app { display: none; }
+html[data-returning] .skel-for-app { display: flex; }
+html[data-returning] .skel-for-landing { display: none; }
+.skel-hero { height: 180px; border-radius: var(--r-2xl); background: var(--hero-bg); }
+.skel-bar { height: 56px; }
+.skel-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.skel-item { height: 52px; }
+.skel-kicker { width: 110px; height: 12px; }
+.skel-headline { height: 56px; width: 85%; }
+.skel-text { height: 14px; }
+.skel-text.short { width: 60%; }
+.skel-card { height: 260px; margin-top: var(--sp-3); }
+/* Rows shown in Today until the first habits arrive */
+.skel-row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) 0; list-style: none; }
+.skel-row + .skel-row { border-top: 1px solid var(--border); }
+.skel-row .skel-dot { flex: none; width: 24px; height: 24px; border-radius: var(--r-full); }
+.skel-row .skel-lines { flex: 1; display: flex; flex-direction: column; gap: var(--sp-2); }
+.skel-row .skel-line { height: 12px; width: 55%; }
+.skel-row .skel-line.short { width: 28%; height: 10px; }
 
 /* ── Modals ─────────────────────────────────────────── */
 .modal {

@@ -121,4 +121,24 @@ module.exports = (scenario, c) => {
     check('desktop buttons are 40px', Math.round(await h('#email-signin-btn')) === 40, await h('#email-signin-btn'));
     noExceptions();
   });
+
+  scenario('foundation: loading shows the shape of the page, with no spinner', async () => {
+    check('the stylesheet has no endless animation at all', !/infinite/.test(css()));
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const block = html.slice(html.indexOf('id="loading-screen"'), html.indexOf('<!-- All habits done -->'));
+    check('the loading screen is built from placeholder blocks', (block.match(/class="[^"]*\bskel\b/g) || []).length >= 5, (block.match(/class="[^"]*\bskel\b/g) || []).length);
+    check('the spinner is gone', !/loading-spinner/.test(html) && !/loading-spinner/.test(css()));
+    check('first paint knows whether to draw the app or the landing page', /habitly_returning/.test(html.slice(0, html.indexOf('</head>'))) && /data-returning/.test(html.slice(0, html.indexOf('</head>'))));
+    await boot({ seed: signedIn(), initScript: 'window.__mockSnapshotDelay = 2500;' });
+    check('rows are placeholders while habits load', (await ev(`document.querySelectorAll('#habits .skel-row').length`)) === 4);
+    check('placeholders are not animated', await ev(`[...document.querySelectorAll('#habits .skel-row, #habits .skel-row *')].every(e => getComputedStyle(e).animationName === 'none')`));
+    check('the list is marked busy', (await ev(`document.getElementById('habits').getAttribute('aria-busy')`)) === 'true');
+    check('the empty state is not shown yet', !(await visible('#empty-state')));
+    check('the New habit form does not pop open before we know the list is empty', await ev(`document.getElementById('habit-form').hidden`));
+    await sleep(2900);
+    check('placeholders are gone once data arrives', (await ev(`document.querySelectorAll('#habits .skel-row').length`)) === 0);
+    check('the list is no longer busy', (await ev(`document.getElementById('habits').getAttribute('aria-busy')`)) !== 'true');
+    check('an empty account then shows its empty state', await visible('#empty-state'));
+    noExceptions();
+  });
 };

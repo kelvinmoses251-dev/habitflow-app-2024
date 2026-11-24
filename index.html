@@ -28,6 +28,8 @@
       var t = localStorage.getItem('theme');
       var dark = t ? t === 'dark' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
       if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+      // Someone who has used the app before most likely lands in it: draw the app's shape while it loads, not the landing page's
+      if (localStorage.getItem('habitly_returning')) document.documentElement.setAttribute('data-returning', '1');
     } catch (e) {} })();
   </script>
 
@@ -52,7 +54,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=43" />
+  <link rel="stylesheet" href="style.css?v=44" />
 </head>
 <body>
 
@@ -112,9 +114,29 @@
 </svg>
 
 <!-- Loading -->
-<div id="loading-screen" class="loading-screen">
-  <svg class="loading-logo logo-mark" width="44" height="44" aria-hidden="true"><use href="#i-logo"/></svg>
-  <div class="loading-spinner"></div>
+<!-- The shape of the page that is about to appear, drawn as still blocks. No spinner: nothing here moves. -->
+<div id="loading-screen" class="loading-screen" role="status" aria-label="Loading Habitly">
+  <div class="skel-top">
+    <svg class="logo-mark" width="28" height="28" aria-hidden="true"><use href="#i-logo"/></svg>
+    <span class="brand-name">Habitly</span>
+  </div>
+  <div class="skel-page skel-for-app" aria-hidden="true">
+    <div class="skel skel-hero"></div>
+    <div class="skel skel-bar"></div>
+    <div class="skel-list">
+      <div class="skel skel-item"></div>
+      <div class="skel skel-item"></div>
+      <div class="skel skel-item"></div>
+      <div class="skel skel-item"></div>
+    </div>
+  </div>
+  <div class="skel-page skel-for-landing" aria-hidden="true">
+    <div class="skel skel-kicker"></div>
+    <div class="skel skel-headline"></div>
+    <div class="skel skel-text"></div>
+    <div class="skel skel-text short"></div>
+    <div class="skel skel-card"></div>
+  </div>
 </div>
 
 <!-- All habits done -->
@@ -741,6 +763,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=42"></script>
+<script type="module" src="app.js?v=43"></script>
 </body>
 </html>

@@ -86,3 +86,11 @@ _Verified against the real Firestore SDK (not the mock): the offline cache keeps
 | 61 | Charts | Weekly bars are rounded and solid with today in the full accent, quiet grid with no axis lines, readable tooltip; the category chart has separated segments | The outlined pale bars looked like a default chart |
 | 62 | Tour | The spotlight cut-out follows each target's own corner radius | The rounder summary card exposed a square cut-out |
 | 63 | Quality | `tests/scenarios/16-layout.js`: no horizontal scroll from 320 to 1536px on landing, home, stats and profile; dashboard columns and the stacking breakpoint; ink summary in both themes; quick add by button and key; hover/focus reveal; landing structure | Layout regressions are invisible to the other tests |
+
+### Roadmap batch 1: visual foundation
+
+Roadmap: `docs/superpowers/specs/2026-11-24-habitly-100-improvements-design.md`.
+
+| # | Area | What changed | Why |
+|---|------|--------------|-----|
+| R1 | Design system | One scale for type (12 steps on whole pixels), corners and colour. Every font size, radius and colour in the stylesheet is now a named token, and a test fails if a one-off value is added | 31 slightly different text sizes and 8 corner sizes had crept in, which is what makes an interface feel unpolished |

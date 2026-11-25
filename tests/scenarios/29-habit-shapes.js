@@ -216,7 +216,7 @@ module.exports = (scenario, c) => {
     await setField('habit-target-amount', ''); await save();
     check('a unit with no number is refused', /number for the goal/.test(await fieldMsg()) && (await habitCount()) === n, await fieldMsg());
     await setField('habit-target-amount', '2000'); await setField('habit-target-unit', 'ml'); await setField('habit-target-step', '5000'); await save();
-    check('a step bigger than the goal is refused', /no bigger than the goal/.test(await fieldMsg()) && (await habitCount()) === n, await fieldMsg());
+    check('a step bigger than the goal is refused', /up to the goal/.test(await fieldMsg()) && (await habitCount()) === n, await fieldMsg());
     await setField('habit-target-step', '250'); await save();
     const ml = await byName('Bad unit');
     check('a goal with its own step size is saved', JSON.stringify(await ev(`__mockDB.habits[${JSON.stringify(ml)}].target`)) === JSON.stringify({ amount: 2000, unit: 'ml', step: 250 }));

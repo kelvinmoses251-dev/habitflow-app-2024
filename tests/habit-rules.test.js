@@ -304,3 +304,87 @@ test('pause: since when', async () => {
   assert.equal(r.pausedSince({ pauses: [{ from: '2026-11-01', to: '2026-11-05' }] }, '2026-11-25'), null);
   assert.equal(r.pausedSince({}, '2026-11-25'), null);
 });
+
+// ── Found in review: a rule change must never raise or wipe a streak ──
+const D = n => { const d = new Date(Date.UTC(2026, 10, 25) - n * 86400000); return d.toISOString().slice(0, 10); };   // D(0) = Wed 25 Nov 2026
+const NOW = D(0);
+
+test('review: a start date never excuses the misses before it', async () => {
+  const r = await load();
+  const scattered = { completedDates: [D(400), D(300), D(200), D(100), D(50), D(20)] };
+  assert.equal(r.habitStreak(scattered, NOW), 0);
+  assert.equal(r.habitStreak({ ...scattered, startDate: NOW }, NOW), 0);                 // the "30 days" chip on an old habit
+  assert.equal(r.habitLongestStreak({ ...scattered, startDate: NOW, endDate: D(-29) }, NOW), 1);
+  const run = { completedDates: [D(1), D(2), D(3)], startDate: D(3) };
+  assert.equal(r.habitStreak(run, NOW), 3);                                               // a real run from its start still counts
+});
+
+test('review: archiving is dated, so it freezes a streak instead of inventing or wiping one', async () => {
+  const r = await load();
+  const scattered = { completedDates: [D(400), D(300), D(200), D(100), D(50), D(20)] };
+  assert.equal(r.habitStreak({ ...scattered, archivedAt: 1, archivedOn: NOW }, NOW), 0);
+  assert.equal(r.habitLongestStreak({ ...scattered, archivedAt: 1, archivedOn: NOW }, NOW), 1);
+  const five = { completedDates: [D(6), D(7), D(8), D(9), D(10)] };
+  const archived = { ...five, archivedAt: 1, archivedOn: D(5) };
+  assert.equal(r.habitStreak(archived, NOW), 5);                                          // frozen while archived
+  assert.equal(r.isDueOn(archived, D(6)), true);                                          // it was due before it was put away
+  assert.equal(r.isDueOn(archived, D(5)), false);
+  assert.equal(r.isOpenOn(archived, NOW), false);
+  const restored = { ...five, pauses: r.withRestore(archived, NOW) };
+  assert.deepEqual(restored.pauses, [{ from: D(5), to: D(1) }]);
+  assert.equal(r.habitStreak(restored, NOW), 5);                                          // and still there after restoring
+  assert.equal(r.isOpenOn(restored, NOW), true);
+  assert.equal(r.habitStreak({ ...restored, completedDates: [...five.completedDates, NOW] }, NOW), 6);
+  assert.deepEqual(r.withRestore({ archivedAt: 1, archivedOn: NOW }, NOW), []);           // archived and restored the same day
+});
+
+test('review: restoring a finished habit keeps the streak it ended with', async () => {
+  const r = await load();
+  const done = { startDate: D(9), endDate: D(5), completedDates: [D(5), D(6), D(7), D(8), D(9)] };
+  const pauses = r.withRestore(done, NOW);
+  assert.deepEqual(pauses, [{ from: D(4), to: D(1) }]);
+  const restored = { startDate: D(9), completedDates: done.completedDates, pauses };       // the app also removes endDate
+  assert.equal(r.habitStreak(restored, NOW), 5);
+});
+
+test('review: a pause protects weekly streaks too', async () => {
+  const r = await load();
+  // Monday 16 Nov is D(9). Weeks of 2 Nov and 9 Nov met (3 each); week of 16 Nov paused Mon to Sat, nothing done.
+  const base = { frequency: 'weekly', schedule: { type: 'times', times: 3 }, completedDates: ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-09', '2026-11-10', '2026-11-11'] };
+  assert.equal(r.habitStreak(base, NOW), 0);                                              // no pause: last week was a miss
+  const paused = { ...base, pauses: [{ from: '2026-11-16', to: '2026-11-21' }] };
+  assert.equal(r.habitStreak(paused, NOW), 2);
+  assert.equal(r.habitLongestStreak(paused, NOW), 2);
+  assert.equal(r.habitStreak({ ...base, pauses: [{ from: '2026-11-18', to: '2026-11-18' }], completedDates: [...base.completedDates, '2026-11-16', '2026-11-17', '2026-11-19'] }, NOW), 3);   // a met week counts even with a paused day in it
+});
+
+test('review: a pause protects monthly streaks, and switching to monthly does not invent one', async () => {
+  const r = await load();
+  const monthly = { frequency: 'monthly', completedDates: ['2026-08-10', '2026-09-12'] };
+  assert.equal(r.habitStreak(monthly, NOW), 0);                                           // October missed
+  const paused = { ...monthly, pauses: [{ from: '2026-09-28', to: '2026-11-20' }] };
+  assert.equal(r.habitStreak(paused, NOW), 2);                                            // October skipped, November still open
+  assert.equal(r.habitStreak({ ...paused, completedDates: [...monthly.completedDates, '2026-11-24'] }, NOW), 3);
+  assert.equal(r.habitLongestStreak({ ...paused, completedDates: [...monthly.completedDates, '2026-11-24'] }, NOW), 3);
+  const daily400 = Array.from({ length: 400 }, (_, i) => D(i));
+  const switched = { frequency: 'monthly', completedDates: daily400, scheduleHistory: [{ from: '0000-00-00', schedule: { type: 'daily' } }, { from: NOW, schedule: { type: 'monthly' } }] };
+  assert.equal(r.habitStreak(switched, NOW), 1);                                          // not "14 months" on the day of the switch
+});
+
+test('review: a shield day only counts on a day the habit was due', async () => {
+  const r = await load();
+  // Mon 23, Wed 25 (today, open), Fri 20, Wed 18 done. Tuesday 24 is frozen by an account shield.
+  const mwf = { schedule: { type: 'days', days: [1, 3, 5] }, completedDates: ['2026-11-18', '2026-11-20', '2026-11-23'] };
+  assert.equal(r.habitStreak(mwf, NOW, []), 3);
+  assert.equal(r.habitStreak(mwf, NOW, ['2026-11-24']), 3);                               // a rest day: the shield adds nothing
+  const paused = { completedDates: [D(6), D(7)], pauses: [{ from: D(5), to: D(1) }] };
+  assert.equal(r.habitStreak(paused, NOW, [D(2), D(3)]), 2);                              // paused days never add, shield or not
+  const plain = { completedDates: [D(1), D(3)] };
+  assert.equal(r.habitStreak(plain, NOW, [D(2)]), 3);                                     // an ordinary missed day: the shield still bridges and counts, as before
+});
+
+test('review: a step too small to count is not a step', async () => {
+  const r = await load();
+  assert.equal(r.targetOf({ target: { amount: 5, unit: 'km', step: 0.0001 } }).step, 1);
+  assert.equal(r.targetOf({ target: { amount: 5, unit: 'km', step: 0.001 } }).step, 0.001);
+});

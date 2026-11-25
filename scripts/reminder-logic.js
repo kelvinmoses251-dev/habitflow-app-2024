@@ -70,21 +70,35 @@ function dueReminders(user, habits, now, isOpen) {
   const stillOpen = isOpen ? h => isOpen(h, day) : h => !isHabitDone(h, now, user.tz);
   const live = (habits || []).filter(h => h && !h.deletedAt);
 
-  const timedKey = `${day}-h${String(hour).padStart(2, '0')}`;
-  if (user.lastTimedReminder !== timedKey) {
-    const names = live.filter(h => hasHour(h) && h.reminderHour === hour && stillOpen(h)).map(h => String(h.name || 'your habit'));
-    if (names.length) return { key: timedKey, field: 'lastTimedReminder', habitNames: names };
-  }
-
+  // The general windows, for the habits that have no hour of their own
   const slot = reminderSlot(hour);
-  if (!slot) return null;
-  const key = `${day}-${slot}`;
-  if (user.lastReminder === key) return null;
-  return live.filter(h => !hasHour(h)).some(stillOpen) ? { key, field: 'lastReminder', habitNames: [] } : null;
+  const windowKey = slot ? `${day}-${slot}` : null;
+  const windowDue = !!windowKey && user.lastReminder !== windowKey && live.filter(h => !hasHour(h)).some(stillOpen);
+
+  // Habits with their own hour. The job is scheduled hourly but a run can start late or be dropped, so the hour
+  // before is still honoured if nothing was sent for it. The key remembered is always the current hour's, and
+  // keys of one day sort in time order, so "already sent" is a plain comparison.
+  const hourKey = h => `${day}-h${String(h).padStart(2, '0')}`;
+  const last = typeof user.lastTimedReminder === 'string' ? user.lastTimedReminder : '';
+  const owed = [hour - 1, hour].filter(h => h >= 0 && !(last.startsWith(day) && last >= hourKey(h)));
+  const names = live.filter(h => hasHour(h) && owed.includes(h.reminderHour) && stillOpen(h))
+    .sort((a, b) => a.reminderHour - b.reminderHour).map(h => String(h.name || 'your habit'));
+  if (names.length) {
+    // One notification. If the general reminder is due in this same run it rides along, and both are marked sent,
+    // so timed habits in every hour of a window can never crowd it out.
+    const marks = { lastTimedReminder: hourKey(hour) };
+    if (windowDue) marks.lastReminder = windowKey;
+    return { key: hourKey(hour), field: 'lastTimedReminder', habitNames: names, more: windowDue, marks };
+  }
+  return windowDue ? { key: windowKey, field: 'lastReminder', habitNames: [], more: false, marks: { lastReminder: windowKey } } : null;
 }
 
 // "Time for Stretch, Read and 2 more." Up to three names; a long name is cut so the notification stays short.
-function reminderBody(names) {
+function reminderBody(names, more) {
+  const body = namedBody(names);
+  return body && more ? body + ' Your other habits are still open too.' : body;
+}
+function namedBody(names) {
   const list = (names || []).map(n => (n.length > 40 ? n.slice(0, 39).trimEnd() + '…' : n));
   if (!list.length) return null;
   if (list.length === 1) return `Time for ${list[0]}.`;

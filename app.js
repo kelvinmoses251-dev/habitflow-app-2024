@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import * as rules from "./habit-rules.js?v=5";
+import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -386,13 +386,16 @@ const streakShort = (habit, n) => ({ daily: String(n), weekly: n + ' wk', monthl
 
 // The headline streak on Home, the share card and the tiers are in DAYS, so only daily habits count towards it.
 function calcStreak(habits) {
-  const daily = (habits || []).filter(h => habitFreq(h) === 'daily');
+  const today = todayStr();
+  const daily = (habits || []).filter(h => habitFreq(h) === 'daily' && inPlay(h, today));
   if (!daily.length) return 0;
   return Math.max(...daily.map(calcHabitStreak));
 }
 
 // The rules themselves (what is due, what is done, what counts as a streak) live in habit-rules.js, which the
 // reminder job uses too. These two only supply today's date and the account's shield days.
+// Archived habits, and ones whose run has ended, keep their history but are no longer "in play".
+const inPlay = (h, today) => !h.archivedAt && !rules.hasEndedOn(h, today);
 function calcHabitStreak(habit) {
   return rules.habitStreak(habit, todayStr(), userFrozenDates || []);
 }
@@ -592,9 +595,14 @@ async function checkAndApplyStreakShield() {
   // 2) Protect yesterday only if there was a streak to protect. A shield guards an existing streak;
   //    it must not conjure one for a brand-new user or "rescue" a streak that already ended.
   const yesterdayStr = dayKeyOffset(-1);
-  const covered = ds => userFrozenDates.includes(ds) || allHabits.some(h => (h.completedDates || []).includes(ds));
-  if (covered(yesterdayStr)) return;            // nothing was missed
-  if (!covered(dayKeyOffset(-2))) return;       // no streak running into yesterday
+  const isDailyHabit = h => habitFreq(h) === 'daily';
+  if (userFrozenDates.includes(yesterdayStr) || allHabits.some(h => (h.completedDates || []).includes(yesterdayStr))) return;   // nothing was missed
+  const owed = allHabits.filter(h => isDailyHabit(h) && rules.isDueOn(h, yesterdayStr));
+  if (!owed.length) return;                     // nothing was due yesterday (a rest day, everything paused): no shield needed
+  // Covering yesterday must join today to a streak that was running (worth at least the day itself plus one more)
+  const today = todayStr();
+  const rescues = h => rules.habitStreak(h, today, [...userFrozenDates, yesterdayStr]) - rules.habitStreak(h, today, userFrozenDates) >= 2;
+  if (!owed.some(rescues)) return;              // no streak running into yesterday
 
   userStreakShields--;
   userFrozenDates = [...userFrozenDates, yesterdayStr];
@@ -1648,7 +1656,7 @@ function renderHabits() {
       const doneToday = (h.completedDates || []).includes(t);
       periodDone = prog.done >= prog.target;
       isDone = periodDone || doneToday;
-      completedDateForToggle = doneToday ? t : ((h.completedDates || []).find(isSameWeek) || t);
+      completedDateForToggle = doneToday || !periodDone ? t : ((h.completedDates || []).find(isSameWeek) || t);
     } else if (freq === 'monthly') {
       isDone = (h.completedDates || []).some(isSameMonth);
       completedDateForToggle = (h.completedDates || []).find(isSameMonth) || t;
@@ -1689,7 +1697,7 @@ function renderHabits() {
 
     const habitStreak = calcHabitStreak(h);
     const goal = rules.targetOf(h);                       // a counting habit: "5 / 8 glasses"
-    const counted = goal ? rules.progressOn(h, t) : 0;
+    const counted = goal ? rules.progressOn(h, isDone ? completedDateForToggle : t) : 0;   // counts are per day; a finished one shows the day it was finished
     const goalText = goal ? countLabel(counted, goal) : '';
     const goalSay = goal ? `${fmtCount(counted)} of ${fmtCount(goal.amount)}${goal.unit ? ' ' + goal.unit : ''}` : '';
 
@@ -2055,7 +2063,7 @@ function renderDayHeader() {
 // What the Today card shows for a past day: the daily habits that existed then, ticked or not, and nothing to press.
 function renderPastDay(day) {
   const list = document.getElementById('habits');
-  const items = habitsOnDay([...allHabits].sort((a, b) => (a.order || 0) - (b.order || 0)), day).filter(x => rules.isDueOn(x.habit, day));
+  const items = habitsOnDay([...allHabits].sort((a, b) => (a.order || 0) - (b.order || 0)), day).filter(x => x.done || rules.isDueOn(x.habit, day));
   ['week-card', 'month-card', 'no-daily'].forEach(id => document.getElementById(id).classList.add('hidden'));
   list.innerHTML = items.length ? items.map(({ habit: h, done }) => {
     const cat = CATS[h.category] || CATS.health;
@@ -2338,7 +2346,7 @@ function readTarget() {
   let step = 1;
   if (stepRaw || st.validity.badInput) {
     step = Number(stepRaw);
-    if (st.validity.badInput || !(step > 0) || step > amount) return { error: [st, 'Count by a number above 0 and no bigger than the goal.'] };
+    if (st.validity.badInput || !(step >= 0.001) || step > amount) return { error: [st, 'Count by a number from 0.001 up to the goal.'] };
   }
   return { target: { amount, unit, step } };
 }
@@ -2411,10 +2419,10 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   const nameEl = sheetField('habit-input');
   const name = nameEl.value.trim();
   if (!name) { setFieldError(nameEl, 'Give the habit a name.'); nameEl.focus(); return; }
-  if (!form.checkValidity()) {                       // a required dropdown is empty: its own handler says so under the field
-    form.querySelectorAll('select').forEach(sel => sel.checkValidity());
-    return;
-  }
+  // A required dropdown is empty: its own handler says so under the field. (Only the dropdowns are checked here.
+  // form.checkValidity() also fails on a half-typed number or date, and returning on that left Save doing nothing;
+  // those are explained by readTarget() and readDates() below.)
+  if ([...form.querySelectorAll('select')].filter(sel => !sel.checkValidity()).length) return;
   const category = sheetField('habit-category').value;
   const frequency = sheetField('habit-frequency').value || 'daily';
   const read = readSchedule();
@@ -2850,7 +2858,14 @@ function setPaused(id, paused) {
   track(paused ? 'habit_paused' : 'habit_resumed');
 }
 function setArchived(id, archived) {
-  return backgroundWrite(updateDoc(doc(db, 'habits', id), { archivedAt: archived ? Date.now() : deleteField() }), archived ? 'archive the habit' : 'restore the habit');
+  const h = allHabits.find(x => x.id === id);
+  if (!h) return;
+  const today = todayStr();
+  const changes = archived
+    ? { archivedAt: Date.now(), archivedOn: today }
+    : { archivedAt: deleteField(), archivedOn: deleteField(), pauses: rules.withRestore(h, today) };
+  if (!archived && rules.hasEndedOn(h, today)) changes.endDate = deleteField();   // a finished run comes back without its end date, so it runs on
+  return backgroundWrite(updateDoc(doc(db, 'habits', id), changes), archived ? 'archive the habit' : 'restore the habit');
 }
 const closeDetails = () => { document.getElementById('details-modal').classList.add('hidden'); currentDetailsHabitId = null; };
 document.getElementById('details-pause')?.addEventListener('click', () => {
@@ -2903,9 +2918,7 @@ document.getElementById('archive-list')?.addEventListener('click', e => {
   if (!h) return;
   if (btn.dataset.action === 'unarchive') {
     // An archived habit comes back as it was. One whose run ended comes back without its end date, so it runs on.
-    const changes = { archivedAt: deleteField() };
-    if (rules.hasEndedOn(h, todayStr())) changes.endDate = deleteField();
-    backgroundWrite(updateDoc(doc(db, 'habits', h.id), changes), 'restore the habit');
+    setArchived(h.id, false);
     toast('Habit restored', 'success');
     track('habit_unarchived');
   } else if (btn.dataset.action === 'archive-delete') {
@@ -2976,11 +2989,12 @@ function renderStats() {
   const { labels, counts } = getWeeklyData(allHabits);
 
   // Weekly completion rate
-  const maxPossible = allHabits.length * 7;
+  let maxPossible = 0;                                   // what was due over the same seven days (not "every habit, every day")
+  for (let i = 0; i < 7; i++) { const ds = dayKeyOffset(-i); maxPossible += allHabits.filter(h => rules.isDueOn(h, ds)).length; }
   const weeklySum   = counts.reduce((a, b) => a + b, 0);
-  const rate        = maxPossible > 0 ? Math.round((weeklySum / maxPossible) * 100) : 0;
+  const rate        = maxPossible > 0 ? Math.min(100, Math.round((weeklySum / maxPossible) * 100)) : 0;
 
-  document.getElementById('stat-today').textContent  = `${doneToday}/${allHabits.length}`;
+  document.getElementById('stat-today').textContent  = `${doneToday}/${allHabits.filter(h => (h.completedDates || []).includes(t) || rules.isDueOn(h, t)).length}`;
   animCount('stat-streak', streak);
   animCount('stat-total',  total);
   document.getElementById('stat-rate').textContent   = rate + '%';
@@ -3259,7 +3273,8 @@ function renderWeeklyReport() {
 
   days30.forEach(({ ds, date }) => {
     const doneThatDay = allHabits.filter(h => (h.completedDates || []).includes(ds)).length;
-    if (dailyHabits.length > 0 && doneThatDay >= dailyHabits.length && dailyHabits.every(h => (h.completedDates||[]).includes(ds))) perfectDays++;
+    const dueThatDay = dailyHabits.filter(h => rules.isDueOn(h, ds));           // rest days, pauses and archived habits are not owed
+    if (dueThatDay.length > 0 && dueThatDay.every(h => (h.completedDates||[]).includes(ds))) perfectDays++;
     if (doneThatDay > bestDayCount) { bestDayCount = doneThatDay; bestDayName = DAYS[date.getDay()]; }
     const dayName = DAYS[date.getDay()];
     dayTotals[dayName] = (dayTotals[dayName] || 0) + doneThatDay;
@@ -3288,8 +3303,8 @@ function renderWeeklyReport() {
 
   // Summary sentence
   const total30 = days30.reduce((s, {ds}) => s + allHabits.filter(h => (h.completedDates||[]).includes(ds)).length, 0);
-  const possible30 = dailyHabits.length * 30;
-  const pct30 = possible30 > 0 ? Math.round((total30 / possible30) * 100) : 0;
+  const possible30 = days30.reduce((sum, { ds }) => sum + dailyHabits.filter(h => rules.isDueOn(h, ds)).length, 0);
+  const pct30 = possible30 > 0 ? Math.min(100, Math.round((total30 / possible30) * 100)) : 0;
   let summary = '';
   if (pct30 >= 80) summary = `You completed ${pct30}% of your habits over the last 30 days. Excellent consistency.`;
   else if (pct30 >= 50) summary = `You completed ${pct30}% of your habits over the last 30 days. Solid progress.`;
@@ -3765,7 +3780,7 @@ async function syncUserStats() {
   let totalStreak = 0;
   let badgesCount = 0;
   
-  allHabits.forEach(h => {
+  allHabits.filter(h => inPlay(h, todayStr())).forEach(h => {
     const habitStreak = calcHabitStreak(h);
     totalStreak += habitStreak;
     const badge = getUserBadge(habitStreak);

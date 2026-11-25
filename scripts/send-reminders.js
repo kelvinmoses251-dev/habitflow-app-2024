@@ -56,10 +56,11 @@ async function runReminders() {
     // Cheap check first, so habits are only read for users who could be due right now: inside a reminder window,
     // or at an hour one of their habits asks for (the app keeps that list on the profile as reminderHours).
     const hour = localParts(now, user.tz).hour;
-    if (!reminderSlot(hour) && !(Array.isArray(user.reminderHours) && user.reminderHours.includes(hour))) continue;
+    const timedHours = Array.isArray(user.reminderHours) ? user.reminderHours : [];
+    if (!reminderSlot(hour) && !timedHours.includes(hour) && !timedHours.includes(hour - 1)) continue;   // the hour before too: a late run still delivers
     const habitsSnap = await db.collection('habits').where('userId', '==', userDoc.id).get();
     const hit = dueReminders(user, habitsSnap.docs.map(d => d.data()), now, isOpen);
-    if (hit) due.push({ ref: userDoc.ref, token: user.fcmToken, slot: hit.key, field: hit.field, body: reminderBody(hit.habitNames) });
+    if (hit) due.push({ ref: userDoc.ref, token: user.fcmToken, slot: hit.key, marks: hit.marks, body: reminderBody(hit.habitNames, hit.more) });
   }
 
   if (!due.length) { console.log('Nobody is due a reminder this hour.'); return; }
@@ -72,7 +73,7 @@ async function runReminders() {
     const res = await messaging.sendEach(messages.slice(i, i + 500));
     await Promise.all(res.responses.map((r, j) => {
       const d = due[i + j];
-      if (r.success) { sent++; return d.ref.set({ [d.field]: d.slot }, { merge: true }); }
+      if (r.success) { sent++; return d.ref.set(d.marks, { merge: true }); }
       failed++;
       const code = r.error && r.error.code;
       console.error(`  failed for ${d.ref.id}: ${code}`);                 // never log the token itself

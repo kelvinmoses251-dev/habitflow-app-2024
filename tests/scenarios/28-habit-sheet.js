@@ -86,7 +86,7 @@ module.exports = (scenario, c) => {
     await boot({ seed: seed({ a: H('Read') }) }); await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 568, deviceScaleFactor: 1, mobile: true }); await rows(); await sleep(300);
     await ev(`document.getElementById('today-add').click()`); await sleep(450);
     check('320x568: no horizontal scroll, and the sheet fits the screen', await ev(`document.documentElement.scrollWidth <= innerWidth && document.querySelector('#habit-sheet .dialog').getBoundingClientRect().bottom <= innerHeight + 1`));
-    check('the Add button can be reached (visible, or by scrolling inside the sheet)', await ev(`(() => { const b = document.getElementById('habit-save'); b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()`));
+    check('the Add button can be reached (visible, or by scrolling inside the sheet)', await ev(`(() => { const b = document.getElementById('habit-save'); b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1; })()`));
     await fill('   '); await ev(`document.getElementById('habit-form').requestSubmit()`); await sleep(300);
     check('a blank name is not saved', (await ev(`Object.keys(__mockDB.habits).length`)) === 1 && await sheetOpen());
     await fill('Stretch'); await ev(`document.getElementById('habit-form').requestSubmit()`); await sleep(300);

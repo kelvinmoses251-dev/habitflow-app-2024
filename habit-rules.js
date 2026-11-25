@@ -61,8 +61,15 @@ const doneSet = habit => new Set((habit && habit.completedDates) || []);
 // not active, or is paused, it is simply not expected: such days are skipped by streaks, never counted as misses.
 const isDayKey = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
+// Archiving is dated (archivedOn, the local day it was put away), so the days before it are judged as they were.
+// An archived habit with no usable day is treated as archived throughout.
+export const archivedDay = habit => (!habit || !habit.archivedAt ? null
+  : isDayKey(habit.archivedOn) ? habit.archivedOn
+  : Number.isFinite(habit.archivedAt) && habit.archivedAt > 86400000 ? dayKey(Math.floor(habit.archivedAt / 86400000)) : '0000-00-00');
+
 export function isActiveOn(habit, day) {
-  if (!habit || habit.archivedAt || habit.deletedAt) return false;
+  if (!habit || habit.deletedAt) return false;
+  if (habit.archivedAt && day >= archivedDay(habit)) return false;
   if (isDayKey(habit.startDate) && day < habit.startDate) return false;
   if (isDayKey(habit.endDate) && day > habit.endDate) return false;
   return true;
@@ -96,6 +103,14 @@ export function withResume(habit, day) {
     return p.from === day ? [] : [{ from: p.from, to: shiftDay(day, -1) }];
   });
 }
+// The pauses list after restoring an archived habit, or one whose run had ended, on `day`: the stretch it was
+// away (from the day it was archived, or the day after its end date) up to yesterday is recorded as a pause.
+export function withRestore(habit, day) {
+  const pauses = cleanPauses(habit);
+  const from = [archivedDay(habit), hasEndedOn(habit, day) ? shiftDay(habit.endDate, 1) : null].filter(isDayKey).sort()[0];
+  const to = shiftDay(day, -1);
+  return from && from <= to ? [...pauses, { from, to }] : pauses;
+}
 // The first day of the pause that covers `day`, or null.
 export function pausedSince(habit, day) {
   const hit = cleanPauses(habit).filter(p => p.from <= day && (!p.to || day <= p.to)).map(p => p.from).sort();
@@ -107,13 +122,29 @@ export const hasEndedOn = (habit, day) => !!habit && isDayKey(habit.endDate) && 
 
 const isOffOn = (habit, day) => !isActiveOn(habit, day) || isPausedOn(habit, day);
 
+// Days a streak steps over without counting or breaking: paused, archived, or after the habit's end date.
+// The days before a start date are NOT among them: a start date set later must never excuse old misses.
+const streakSkips = (habit, day) => isPausedOn(habit, day) || (!!habit.archivedAt && day >= archivedDay(habit)) || hasEndedOn(habit, day);
+// Was any day from `from` to `to` such a day? (For weeks and months, without walking every day.)
+function skipsBetween(habit, from, to) {
+  if (habit.archivedAt && archivedDay(habit) <= to) return true;
+  if (isDayKey(habit.endDate) && habit.endDate < to) return true;
+  const pauses = Array.isArray(habit.pauses) ? habit.pauses : [];
+  return pauses.some(p => p && isDayKey(p.from) && p.from <= to && (!isDayKey(p.to) || p.to >= from));
+}
+const monthBounds = m => {
+  const y = Math.floor(m / 12), mo = m % 12;
+  const start = `${y}-${pad2(mo + 1)}-01`, next = `${mo === 11 ? y + 1 : y}-${pad2(mo === 11 ? 1 : mo + 2)}-01`;
+  return { start, end: shiftDay(next, -1) };
+};
+
 // ── Measurable targets ────────────────────────────────────
 // target: { amount, unit, step }. progress: { [day]: number }. Reaching the target is what completes the habit
 // (the app then adds the day to completedDates); a count below it is progress, not "done".
 export function targetOf(habit) {
   const t = habit && habit.target;
   if (!t || typeof t !== 'object' || !Number.isFinite(t.amount) || t.amount < 1 || t.amount > 100000) return null;
-  const step = Number.isFinite(t.step) && t.step > 0 && t.step <= t.amount ? t.step : 1;
+  const step = Number.isFinite(t.step) && t.step >= 0.001 && t.step <= t.amount ? t.step : 1;   // counts are kept to 3 decimals
   return { amount: t.amount, unit: typeof t.unit === 'string' ? t.unit.trim().slice(0, 12).trim() : '', step };
 }
 export function progressOn(habit, day) {
@@ -154,7 +185,7 @@ export function periodProgress(habit, today) {
 // Is there still something to do for this habit today? The single answer used by the ring, "N left today",
 // focus view and the reminder job.
 export function isOpenOn(habit, today) {
-  if (!habit || habit.deletedAt || isOffOn(habit, today)) return false;
+  if (!habit || habit.deletedAt || habit.archivedAt || isOffOn(habit, today)) return false;
   const s = scheduleOn(habit, today);
   if (s.type === 'daily' || s.type === 'days') return isDueOn(habit, today) && !isDoneOn(habit, today);
   const { done, target } = periodProgress(habit, today);
@@ -177,13 +208,14 @@ function dailyStreak(habit, today, frozen) {
     const day = dayKey(n);
     const s = scheduleOn(habit, day);
     if (bucketOf(s) !== 'daily') break;                         // it was a weekly or monthly habit back then: a different unit
-    if (done.has(day) || frozen.has(day)) {
-      if (s.type === 'days' && !s.days.includes(weekdayOf(day)) && !frozen.has(day)) continue;   // done on a rest day: a bonus, not a streak day
-      streak++;
+    const rest = s.type === 'days' && !s.days.includes(weekdayOf(day));
+    if (done.has(day)) {
+      if (!rest) streak++;                                       // done on a rest day: a bonus, not a streak day
       continue;
     }
-    if (s.type === 'days' && !s.days.includes(weekdayOf(day))) continue;   // a rest day: skip
-    if (isOffOn(habit, day)) continue;                           // paused, not started, or ended: skip
+    if (rest) continue;                                          // a rest day: skip
+    if (streakSkips(habit, day)) continue;                       // paused, archived or ended: skip (a shield adds nothing here)
+    if (frozen.has(day)) { streak++; continue; }                 // a due day covered by a shield
     if (day === today) continue;                                 // today is still open
     break;
   }
@@ -202,7 +234,7 @@ function weeklyStreak(habit, today) {
     if (countInWeek(habit, w) >= s.times) { streak++; continue; }
     if (w === weekIndex(today)) continue;                        // this week is still open
     const monday = weekStart(w);
-    if ([0, 1, 2, 3, 4, 5, 6].every(i => isOffOn(habit, shiftDay(monday, i)))) continue;   // a whole week paused or outside its dates: skip
+    if (skipsBetween(habit, monday, shiftDay(monday, 6))) continue;   // paused, archived or over for part of that week: skip
     break;
   }
   return streak;
@@ -210,10 +242,17 @@ function weeklyStreak(habit, today) {
 
 function monthlyStreak(habit, today) {
   const months = new Set(((habit.completedDates) || []).map(monthIndex));
-  let m = monthIndex(today);
-  if (!months.has(m)) m--;
+  if (!months.size) return 0;
+  const first = Math.min(...months), current = monthIndex(today);
   let streak = 0;
-  while (months.has(m)) { streak++; m--; }
+  for (let m = current; m >= first; m--) {
+    const { start, end } = monthBounds(m);
+    if (scheduleOn(habit, m === current ? today : end).type !== 'monthly') break;   // it was not a monthly habit back then
+    if (months.has(m)) { streak++; continue; }
+    if (m === current) continue;                                 // this month is still open
+    if (skipsBetween(habit, start, end)) continue;               // paused, archived or over for part of that month: skip
+    break;
+  }
   return streak;
 }
 
@@ -233,13 +272,19 @@ export function habitLongestStreak(habit, today, frozenDays = []) {
   const bucket = bucketOf(scheduleOn(habit, today));
   let longest = 0, run = 0;
   if (bucket === 'monthly') {
-    const ms = [...new Set(dates.map(monthIndex))].sort((a, b) => a - b);
-    ms.forEach((m, i) => { run = i > 0 && m === ms[i - 1] + 1 ? run + 1 : 1; if (run > longest) longest = run; });
+    const months = new Set(dates.map(monthIndex));
+    for (let m = Math.min(...months); m <= monthIndex(today); m++) {
+      const { start, end } = monthBounds(m);
+      if (scheduleOn(habit, m === monthIndex(today) ? today : end).type !== 'monthly') { run = 0; continue; }
+      if (months.has(m)) { run++; if (run > longest) longest = run; }
+      else if (m !== monthIndex(today) && !skipsBetween(habit, start, end)) run = 0;
+    }
   } else if (bucket === 'weekly') {
     const first = Math.min(...dates.map(weekIndex));
     for (let w = first; w <= weekIndex(today); w++) {
       const s = scheduleOn(habit, w === weekIndex(today) ? today : shiftDay(weekStart(w), 6));
-      if (s.type === 'times' && countInWeek(habit, w) >= s.times) { run++; if (run > longest) longest = run; } else run = 0;
+      if (s.type === 'times' && countInWeek(habit, w) >= s.times) { run++; if (run > longest) longest = run; }
+      else if (s.type !== 'times' || !skipsBetween(habit, weekStart(w), shiftDay(weekStart(w), 6))) run = 0;
     }
   } else {
     const done = doneSet(habit);
@@ -249,7 +294,7 @@ export function habitLongestStreak(habit, today, frozenDays = []) {
       const s = scheduleOn(habit, day);
       const rest = s.type === 'days' && !s.days.includes(weekdayOf(day));
       if (done.has(day)) { if (!rest) { run++; if (run > longest) longest = run; } }
-      else if (!rest && !isOffOn(habit, day)) run = 0;
+      else if (!rest && !streakSkips(habit, day)) run = 0;
     }
   }
   return Math.max(current, longest);

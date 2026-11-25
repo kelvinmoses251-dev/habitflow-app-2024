@@ -126,7 +126,7 @@ const timed = (name, reminderHour, o = {}) => habit({ name, reminderHour, ...o }
 test('timed: a habit is reminded in the hour chosen, in the user\'s own time zone', () => {
   const now = at('2026-11-23T06:10:00Z');                                    // 07:10 in Lagos, 15:10 in Tokyo
   assert.deepEqual(dueReminders({ fcmToken: 't', tz: 'Africa/Lagos' }, [timed('Stretch', 7)], now),
-    { key: '2026-11-23-h07', field: 'lastTimedReminder', habitNames: ['Stretch'] });
+    { key: '2026-11-23-h07', field: 'lastTimedReminder', habitNames: ['Stretch'], more: false, marks: { lastTimedReminder: '2026-11-23-h07' } });
   assert.equal(dueReminders({ fcmToken: 't', tz: 'Asia/Tokyo' }, [timed('Stretch', 7)], now), null);
   assert.deepEqual(dueReminders({ fcmToken: 't', tz: 'Asia/Tokyo' }, [timed('Tea', 15), timed('Stretch', 7), timed('Walk', 15)], now).habitNames, ['Tea', 'Walk']);
   assert.equal(dueReminders({ tz: 'Africa/Lagos' }, [timed('Stretch', 7)], now), null);                 // no token, no reminder
@@ -169,7 +169,7 @@ test('timed: habits without a time keep the morning and evening reminders, exact
   for (const [user, habits, when] of cases) {
     const got = dueReminders(user, habits, at(when));
     assert.equal(got ? got.key : null, dueSlot(user, habits, at(when)), when);
-    if (got) assert.deepEqual([got.field, got.habitNames], ['lastReminder', []]);
+    if (got) assert.deepEqual([got.field, got.habitNames, got.marks], ['lastReminder', [], { lastReminder: got.key }]);
   }
 });
 
@@ -203,4 +203,29 @@ test('timed: the message names the habits, up to three', () => {
   assert.equal(reminderBody(['Stretch', 'Read', 'Walk', 'Tea']), 'Time for Stretch, Read and 2 more.');
   assert.equal(reminderBody(['A'.repeat(200)]).length <= 120, true);                                   // a very long name is cut, not sent whole
   assert.equal(reminderBody([]), null);
+});
+
+// ── Found in review ──
+test('review: a run that starts late still sends the timed reminder of the hour before, once', () => {
+  const user = { fcmToken: 't', tz: 'UTC' };
+  const late = dueReminders(user, [timed('Stretch', 7)], at('2026-11-23T08:10:00Z'));                  // the 07:00 run never happened
+  assert.deepEqual([late.key, late.habitNames], ['2026-11-23-h08', ['Stretch']]);
+  assert.equal(dueReminders({ ...user, lastTimedReminder: '2026-11-23-h07' }, [timed('Stretch', 7)], at('2026-11-23T08:10:00Z')), null);   // it was sent on time
+  assert.equal(dueReminders({ ...user, lastTimedReminder: late.key }, [timed('Stretch', 7)], at('2026-11-23T08:40:00Z')), null);            // never twice
+  assert.equal(dueReminders(user, [timed('Stretch', 7)], at('2026-11-23T09:10:00Z')), null);          // two hours late is too late
+  assert.deepEqual(dueReminders(user, [timed('Stretch', 7), timed('Read', 8)], at('2026-11-23T08:10:00Z')).habitNames, ['Stretch', 'Read']);
+  assert.equal(dueReminders({ ...user, lastTimedReminder: '2026-11-22-h23' }, [timed('Stretch', 7)], at('2026-11-23T07:10:00Z')).key, '2026-11-23-h07');   // yesterday's key does not block today
+});
+
+test('review: timed habits in every morning hour do not swallow the morning reminder for the others', () => {
+  const user = { fcmToken: 't', tz: 'UTC' };
+  const habits = [timed('A', 8), timed('B', 9), timed('C', 10), habit({ name: 'Read' })];
+  const first = dueReminders(user, habits, at('2026-11-23T08:10:00Z'));
+  assert.deepEqual(first.habitNames, ['A']);
+  assert.equal(first.more, true);                                                                        // one notification covers both
+  assert.deepEqual(first.marks, { lastTimedReminder: '2026-11-23-h08', lastReminder: '2026-11-23-am' });
+  assert.equal(reminderBody(first.habitNames, first.more), 'Time for A. Your other habits are still open too.');
+  const second = dueReminders({ ...user, ...first.marks }, habits, at('2026-11-23T09:10:00Z'));
+  assert.deepEqual([second.habitNames, second.more, second.marks], [['B'], false, { lastTimedReminder: '2026-11-23-h09' }]);
+  assert.equal(dueReminders(user, [timed('A', 8), habit({ name: 'Read', completedDates: ['2026-11-23'] })], at('2026-11-23T08:10:00Z')).more, false);   // nothing else open
 });

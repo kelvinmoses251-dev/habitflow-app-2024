@@ -50,13 +50,13 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
   <link rel="modulepreload" href="ui.js?v=6" />
-  <link rel="modulepreload" href="habit-rules.js?v=2" />
+  <link rel="modulepreload" href="habit-rules.js?v=3" />
   <link rel="modulepreload" href="home.js?v=7" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=59" />
+  <link rel="stylesheet" href="style.css?v=60" />
 </head>
 <body>
 
@@ -728,6 +728,11 @@
         </select>
       </div>
       <input type="text" id="habit-cue" aria-label="Cue: what will remind you to do it (optional)" maxlength="80" placeholder="Cue (optional), for example: After I pour my coffee" autocomplete="off" />
+      <div class="form-row sheet-goal" id="habit-goal">
+        <input type="number" id="habit-target-amount" inputmode="decimal" step="any" aria-label="Goal: a number to reach each time (optional)" placeholder="Goal, e.g. 8" autocomplete="off" />
+        <input type="text" id="habit-target-unit" maxlength="12" aria-label="Unit for the goal, for example glasses" placeholder="Unit, e.g. glasses" autocomplete="off" />
+        <input type="number" id="habit-target-step" inputmode="decimal" step="any" aria-label="Count by: how much one tap adds (optional, normally 1)" placeholder="Count by 1" autocomplete="off" />
+      </div>
       <!-- Optional extras sit in sections that open when wanted, so the sheet stays short -->
       <details class="sheet-more" id="habit-look">
         <summary><span>Icon and colour</span><span class="sheet-more-val" id="habit-look-val">Automatic</span></summary>
@@ -872,6 +877,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=61"></script>
+<script type="module" src="app.js?v=62"></script>
 </body>
 </html>

@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import * as rules from "./habit-rules.js?v=2";
+import * as rules from "./habit-rules.js?v=3";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -1435,15 +1435,25 @@ async function toggleHabit(id, currentlyDone, dateToRemove) {
     const updatePayload = {
       completedDates: arrayRemove(d)
     };
+    const goal = h && rules.targetOf(h);
+    if (goal) {                                          // a counting habit goes back one step, to where it was before the last tap
+      const fallback = Math.max(0, Math.round((goal.amount - goal.step) * 1000) / 1000);
+      const was = stepBack.has(id) && stepBack.get(id) < goal.amount ? stepBack.get(id) : fallback;
+      stepBack.delete(id);
+      updatePayload[`progress.${d}`] = was > 0 ? was : deleteField();
+    }
     if (h && h.completedTimestamps && h.completedTimestamps[d]) {
       updatePayload[`completedTimestamps.${d}`] = deleteField();
     }
     backgroundWrite(updateDoc(habitRef, updatePayload), 'update your habit');
   } else {
-    // Checking the habit
+    // Checking the habit. A counting habit completed by any route (the last +, focus view, a swipe) has its count filled.
+    const h = allHabits.find(x => x.id === id);
+    const goal = h && rules.targetOf(h);
     backgroundWrite(updateDoc(habitRef, {
       completedDates: arrayUnion(d),
-      [`completedTimestamps.${d}`]: now
+      [`completedTimestamps.${d}`]: now,
+      ...(goal ? { [`progress.${d}`]: Math.max(goal.amount, rules.progressOn(h, d)) } : {})
     }), 'save your check-in');
   }
   return true;
@@ -1532,7 +1542,7 @@ function renderHabits() {
   if (!habitsLoaded) return;
   // The list is rebuilt on every change. Remember which control in which row had keyboard focus, and give it back.
   const act = document.activeElement, actRow = act?.closest?.('#page-home .habit-item');
-  const focusSel = !actRow ? null : act.classList.contains('row-grip') ? '.row-grip' : act.classList.contains('habit-check') ? '.habit-check'
+  const focusSel = !actRow ? null : act.classList.contains('row-grip') ? '.row-grip' : act.classList.contains('habit-check') ? '.habit-check' : act.classList.contains('habit-step') ? '.habit-step'
     : act.dataset.action ? `[data-action="${act.dataset.action}"]` : null;
   const focusRowId = focusSel ? actRow.dataset.id : null;
   document.getElementById('page-home').classList.toggle('has-habits', allHabits.length > 0);
@@ -1667,6 +1677,10 @@ function renderHabits() {
     }
 
     const habitStreak = calcHabitStreak(h);
+    const goal = rules.targetOf(h);                       // a counting habit: "5 / 8 glasses"
+    const counted = goal ? rules.progressOn(h, t) : 0;
+    const goalText = goal ? countLabel(counted, goal) : '';
+    const goalSay = goal ? `${fmtCount(counted)} of ${fmtCount(goal.amount)}${goal.unit ? ' ' + goal.unit : ''}` : '';
 
     // The last seven days at a glance (daily habits only). Days before the habit existed are left blank.
     let dotsHTML = '';
@@ -1688,12 +1702,13 @@ function renderHabits() {
     li.innerHTML = `
       <button class="row-grip" type="button" aria-label="Reorder ${escHtml(h.name)}" title="Drag to reorder, or use the arrow keys"><svg class="icon" aria-hidden="true"><use href="#i-grip"/></svg></button>
       <div class="habit-label">
-        <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" aria-label="Mark ${escHtml(h.name)} complete" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} />
+        ${goal ? `<button type="button" class="habit-step${isDone ? ' is-done' : ''}" data-action="step" data-id="${h.id}" ${isDone ? 'aria-disabled="true"' : ''} aria-label="${escHtml(isDone ? `${h.name}: goal reached, ${goalSay}` : `Add ${fmtCount(goal.step)}${goal.unit ? ' ' + goal.unit : ''} to ${h.name}: ${goalSay}`)}"><svg class="step-ring" viewBox="0 0 36 36" aria-hidden="true"><circle class="track" cx="18" cy="18" r="15"/><circle class="fill" cx="18" cy="18" r="15" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${100 - Math.round(Math.min(1, counted / goal.amount) * 100)}"/></svg><svg class="icon" aria-hidden="true"><use href="#i-${isDone ? 'check' : 'plus'}"/></svg></button>` : ''}
+        <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" aria-label="Mark ${escHtml(h.name)} complete" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} ${goal ? 'hidden tabindex="-1"' : ''} />
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name ${isDone ? 'done' : ''}">${escHtml(h.name)}</span>
           ${(typeof h.cue === 'string' && h.cue.trim() ? `<span class="habit-cue">${escHtml(h.cue.trim().slice(0, 80))}</span>` : '')}
           <div class="badges-row">
-            <span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>
+            <span class="cat-badge"><span class="cat-ico">${look.icon}</span>${goal ? `<span class="target-count">${escHtml(goalText)}</span>` : cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + (prog && prog.target > 1 ? prog.done + ' of ' + prog.target + ' this week' : freq) + '</span>' : ''}
             ${freq === 'daily' && rules.scheduleOn(h, t).type === 'days' ? '<span class="freq-badge">' + scheduleLabel(rules.scheduleOn(h, t)) + '</span>' : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
@@ -1703,6 +1718,7 @@ function renderHabits() {
         </div>
       </div>
       <div class="habit-actions">
+        ${goal && counted > 0 ? `<button class="btn-icon" data-id="${h.id}" data-action="step-down" title="Take one step back" aria-label="Take ${escHtml(fmtCount(goal.step) + (goal.unit ? ' ' + goal.unit : ''))} off ${escHtml(h.name)}"><svg class="icon" aria-hidden="true"><use href="#i-minus"/></svg></button>` : ''}
         <button class="btn-icon row-move" data-id="${h.id}" data-action="move-up" aria-label="Move ${escHtml(h.name)} up"><svg class="icon" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
         <button class="btn-icon row-move" data-id="${h.id}" data-action="move-down" aria-label="Move ${escHtml(h.name)} down"><svg class="icon" aria-hidden="true"><use href="#i-arrow-down"/></svg></button>
         <button class="btn-icon" data-id="${h.id}" data-action="timer" title="Start Focus Timer" aria-label="Start focus timer for ${escHtml(h.name)}">
@@ -2176,6 +2192,11 @@ function openHabitSheet(habit = null) {
   sheetField('habit-frequency').value = habit ? (habit.frequency || 'daily') : 'daily';
   sheetField('habit-time').value = habit ? timeSlot(habit) : 'any';
   sheetField('habit-cue').value = habit && typeof habit.cue === 'string' ? habit.cue : '';
+  const goal = habit ? rules.targetOf(habit) : null;
+  sheetField('habit-target-amount').value = goal ? goal.amount : '';
+  sheetField('habit-target-unit').value = goal ? goal.unit : '';
+  sheetField('habit-target-step').value = goal && goal.step !== 1 ? goal.step : '';
+  ['habit-target-amount', 'habit-target-unit', 'habit-target-step'].forEach(id => clearFieldError(sheetField(id)));
   setScheduleFields(habit);
   clearFieldError(sheetField('schedule-days'));
   setHabitLook(habit);
@@ -2240,6 +2261,22 @@ function setHabitLook(habit) {
 function setNewHabitOpen(open) { if (open) openHabitSheet(); else closeHabitSheet(); }
 
 // The preview is the row Today will show, built from what is in the fields right now. It is a picture, not a control.
+// The goal fields: { target } (an object, or '' for none) or { error: [field, message] }.
+function readTarget() {
+  const a = sheetField('habit-target-amount'), u = sheetField('habit-target-unit'), st = sheetField('habit-target-step');
+  const raw = a.value.trim(), unit = u.value.trim(), stepRaw = st.value.trim();
+  if (a.validity.badInput) return { error: [a, 'Use a number from 1 to 100,000.'] };
+  if (!raw) return unit || stepRaw ? { error: [a, 'Add a number for the goal, or clear the other goal boxes.'] } : { target: '' };
+  const amount = Number(raw);
+  if (!Number.isFinite(amount) || amount < 1 || amount > 100000) return { error: [a, 'Use a number from 1 to 100,000.'] };
+  if (unit.length > 12) return { error: [u, 'Keep the unit to 12 characters or fewer.'] };
+  let step = 1;
+  if (stepRaw || st.validity.badInput) {
+    step = Number(stepRaw);
+    if (st.validity.badInput || !(step > 0) || step > amount) return { error: [st, 'Count by a number above 0 and no bigger than the goal.'] };
+  }
+  return { target: { amount, unit, step } };
+}
 function renderHabitPreview() {
   const box = sheetField('habit-preview');
   if (!box) return;
@@ -2251,6 +2288,7 @@ function renderHabitPreview() {
   syncScheduleFields();
   const sched = readSchedule().schedule;
   const chosen = readHabitLook();
+  const goal = rules.targetOf({ target: readTarget().target });     // shown only when the goal boxes make sense
   const look = habitLook({ category: catKey, ...chosen });
   const custom = [chosen.icon && ICON_NAME(chosen.icon), chosen.color && chosen.color.charAt(0).toUpperCase() + chosen.color.slice(1)].filter(Boolean);
   sheetField('habit-look-val').textContent = custom.length ? custom.join(', ') : 'Automatic';
@@ -2261,7 +2299,7 @@ function renderHabitPreview() {
         <span class="habit-name${name ? '' : ' is-empty'}">${name ? escHtml(name) : 'Your habit'}</span>
         ${cue ? `<span class="habit-cue">${escHtml(cue)}</span>` : ''}
         <div class="badges-row">
-          ${cat ? `<span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>` : `<span class="cat-badge">${chosen.icon ? `<span class="cat-ico">${look.icon}</span>` : ''}Category</span>`}
+          ${cat ? `<span class="cat-badge"><span class="cat-ico">${look.icon}</span>${goal ? `<span class="target-count">${escHtml(countLabel(0, goal))}</span>` : cat.label}</span>` : `<span class="cat-badge">${chosen.icon ? `<span class="cat-ico">${look.icon}</span>` : ''}Category</span>`}
           ${sched ? `<span class="freq-badge">${scheduleLabel(sched)}</span>` : freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
           ${slot && slot !== 'any' ? `<span class="freq-badge">${SLOT_LABEL[slot]}</span>` : ''}
         </div>
@@ -2309,9 +2347,12 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   const read = readSchedule();
   if (read.error) { setFieldError(sheetField('schedule-days'), read.error); return; }
   clearFieldError(sheetField('schedule-days'));
+  ['habit-target-amount', 'habit-target-unit', 'habit-target-step'].forEach(id => clearFieldError(sheetField(id)));
+  const goalRead = readTarget();
+  if (goalRead.error) { setFieldError(goalRead.error[0], goalRead.error[1]); goalRead.error[0].focus(); return; }
   const timeOfDay = sheetField('habit-time').value || 'any';
   const editId = sheetField('habit-edit-id').value;
-  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), schedule: read.schedule || '', ...readHabitLook() };     // the optional fields, as the sheet has them now
+  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), schedule: read.schedule || '', target: goalRead.target, ...readHabitLook() };     // the optional fields, as the sheet has them now
   if (editId) {
     // Editing changes what the habit is called, how it is filed and how it looks. Its completions are never touched.
     // An optional field that has been cleared is removed from the habit, not stored empty.
@@ -2389,6 +2430,7 @@ attachSwipe(document.getElementById('page-home'), {
     const h = allHabits.find(x => x.id === id);
     if (!cb || !h || cb.disabled) return;
     setRevealed(null);
+    if (rules.targetOf(h)) { stepHabit(id, 1); return; }   // a counting habit: a swipe is one step
     if (cb.checked) { if (uncompleteHabit(id, cb.dataset.date)) cb.checked = false; }
     else if (confirmFirst()) openConfirmCheckModal(h, cb.dataset.date, cb);
     else completeHabit(id, cb.dataset.date, cb);
@@ -2406,6 +2448,9 @@ document.getElementById('page-home').addEventListener('click', async e => {
     return;
   }
   // More (phones): show or hide this row's actions
+  const stepBtn = e.target.closest('[data-action="step"], [data-action="step-down"]');
+  if (stepBtn) { stepHabit(stepBtn.dataset.id, stepBtn.dataset.action === 'step' ? 1 : -1); return; }
+
   const more = e.target.closest('[data-action="more"]');
   if (more) { setRevealed(revealedId === more.dataset.id ? null : more.dataset.id); return; }
   // Delete
@@ -2499,6 +2544,7 @@ const confirmFirst = () => { try { return localStorage.getItem('habitly_confirm'
 // maps hold what is still on its way, so that the second tap cancels the first instead of racing it.
 const pendingComplete = new Map();                    // habit id -> timer
 const pendingUncomplete = new Map();                  // habit id -> timer
+const stepBack = new Map();                           // counting habits: habit id -> the count before the step that completed it
 function uncompleteHabit(id, date) {
   const h = allHabits.find(x => x.id === id);
   if (!h) return false;
@@ -2539,6 +2585,7 @@ function completeHabit(id, dateToRm, checkboxEl) {
   }
   if (pendingComplete.has(id) || isHabitDoneNow(habit)) return;   // already completed or on its way: never count it twice
   if (checkboxEl) checkboxEl.checked = true;
+  if (rules.targetOf(habit)) stepBack.set(id, rules.progressOn(habit, dateToRm || todayStr()));   // so Undo removes exactly this step
   nudgeFirstHabit = false;
   justCompletedId = id;
   setTimeout(() => { if (justCompletedId === id) justCompletedId = null; }, 1600);
@@ -2556,6 +2603,32 @@ function completeHabit(id, dateToRm, checkboxEl) {
     maybeAskForReminders();
   }, 300));
 }
+
+// Counting habits ("5 / 8 glasses"): each tap of + adds one step. Steps on the way are saved at once and earn
+// nothing; the step that reaches the target is an ordinary completion (25 XP once, Undo, locked after an hour).
+// Minus takes a step back: from a finished count that is the normal take-back, with the normal one-hour rule.
+function stepHabit(id, dir) {
+  const h = allHabits.find(x => x.id === id), goal = h && rules.targetOf(h);
+  if (!h || !goal) return;
+  const day = todayStr(), next = rules.stepProgress(h, day, dir);
+  if (dir > 0) {
+    if (pendingUncomplete.has(id)) { completeHabit(id, day, null); return; }      // taken back a moment ago: call that off
+    if (pendingComplete.has(id) || isHabitDoneNow(h)) return;
+    if (next >= goal.amount) { completeHabit(id, day, null); return; }
+    playPop();
+    buzz(20);
+    backgroundWrite(updateDoc(doc(db, 'habits', id), { [`progress.${day}`]: next }), 'save your progress');
+    track('habit_step');
+    return;
+  }
+  if (pendingComplete.has(id) || (h.completedDates || []).includes(day)) { uncompleteHabit(id, day); return; }
+  if (rules.progressOn(h, day) <= 0) return;
+  playUncheck();
+  buzz(20);
+  backgroundWrite(updateDoc(doc(db, 'habits', id), { [`progress.${day}`]: next > 0 ? next : deleteField() }), 'save your progress');
+}
+const fmtCount = n => Number(n).toLocaleString('en', { maximumFractionDigits: 2 });
+const countLabel = (count, goal) => `${fmtCount(count)} / ${fmtCount(goal.amount)}${goal.unit ? ' ' + goal.unit : ''}`;
 
 // ── Checkbox Click Handler with Confirmation ──────────────
 document.getElementById('page-home').addEventListener('change', async e => {

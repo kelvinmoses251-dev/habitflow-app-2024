@@ -126,4 +126,124 @@ module.exports = (scenario, c) => {
     check('nothing is left today', /All done|0 left/i.test(await ev(`document.getElementById('summary-line').textContent`)), await ev(`document.getElementById('summary-line').textContent`));
     noExceptions();
   });
+
+  // ── 23: measurable targets ───────────────────────────────
+  const xp = () => ev(`__mockDB.users['u-test'].xp`);
+  const count = id => ev(`(document.querySelector('.habit-item[data-id="${id}"] .target-count') || {}).textContent`);
+  const stepUp = async id => { await ev(`document.querySelector('.habit-item[data-id="${id}"] .habit-step').click()`); await sleep(250); };
+  const stepDown = async id => { await ev(`document.querySelector('.habit-item[data-id="${id}"] [data-action="step-down"]').click()`); await sleep(250); };
+  const prog = id => ev(`(__mockDB.habits[${JSON.stringify(id)}].progress || {})[${JSON.stringify(day(0))}]`);
+  const doneToday = id => ev(`(__mockDB.habits[${JSON.stringify(id)}].completedDates || []).includes(${JSON.stringify(day(0))})`);
+  const water = (o = {}) => H('Water', { order: 2, target: { amount: 3, unit: 'glasses' }, progress: { [day(0)]: 1 }, ...o });
+
+  scenario('target: a counting habit fills one tap at a time and completes on the last', async () => {
+    await boot({ seed: seed({ a: H('Read'), w: water() }) }); await rows(); await sleep(300);
+    check('a counting habit shows a + button in place of the tick box', await ev(`(() => { const r = document.querySelector('.habit-item[data-id="w"]'); const b = r.querySelector('.habit-step'); return !!b && b.getClientRects().length > 0 && r.querySelector('.habit-check').getClientRects().length === 0; })()`));
+    check('an ordinary habit keeps its tick box', await ev(`!document.querySelector('.habit-item[data-id="a"] .habit-step') && document.querySelector('.habit-item[data-id="a"] .habit-check').getClientRects().length > 0`));
+    check('the row says how far along it is', (await count('w')) === '1 / 3 glasses', await count('w'));
+    check('the button says what it does and where things stand', /Add 1.*Water.*1 of 3 glasses/.test(await ev(`document.querySelector('.habit-item[data-id="w"] .habit-step').getAttribute('aria-label')`)));
+    const ring = () => ev(`+document.querySelector('.habit-item[data-id="w"] .step-ring .fill').getAttribute('stroke-dashoffset')`);
+    const before = await ring();
+    await stepUp('w');
+    check('+ adds one and saves it', (await prog('w')) === 2, await prog('w'));
+    check('the label follows', (await count('w')) === '2 / 3 glasses');
+    check('the ring fills further', (await ring()) < before, `${before} -> ${await ring()}`);
+    check('part of the way is not done: no completion, no XP', !(await doneToday('w')) && (await xp()) === 300);
+    await stepUp('w');
+    check('the last step completes the habit', await waitFor(`(__mockDB.habits.w.completedDates || []).includes(${JSON.stringify(day(0))})`, 3000));
+    check('with the count at the target', (await prog('w')) === 3);
+    check('and 25 XP, once', await waitFor(`__mockDB.users['u-test'].xp === 325`, 3000), await xp());
+    check('the row shows it done', await ev(`document.querySelector('.habit-item[data-id="w"] .habit-name').classList.contains('done') && document.querySelector('.habit-item[data-id="w"] .habit-step').classList.contains('is-done')`));
+    await stepUp('w'); await stepUp('w'); await sleep(500);
+    check('tapping again adds nothing', (await prog('w')) === 3 && (await xp()) === 325);
+    check('the toast offers Undo', /Undo/.test(await ev(`(document.querySelector('#toast-container .toast-action') || {}).textContent || ''`)));
+    await ev(`document.querySelector('#toast-container .toast-action').click()`); await sleep(700);
+    check('Undo takes back the last step only', !(await doneToday('w')) && (await prog('w')) === 2, await prog('w'));
+    check('and the 25 XP', (await xp()) === 300, await xp());
+    check('the row is open again at 2 / 3', (await count('w')) === '2 / 3 glasses' && await ev(`!document.querySelector('.habit-item[data-id="w"] .habit-step').classList.contains('is-done')`));
+    noExceptions();
+  });
+
+  scenario('target: the minus step takes one back, and a finished count locks after an hour', async () => {
+    const now = Date.now();
+    await boot({ seed: seed({
+      w: water({ progress: { [day(0)]: 3 }, completedDates: [day(0)], completedTimestamps: { [day(0)]: now - 10 * 60000 } }),
+      x: H('Pages', { order: 3, target: { amount: 20, unit: 'pages', step: 5 }, progress: { [day(0)]: 20 }, completedDates: [day(0)], completedTimestamps: { [day(0)]: now - 2 * 3600000 } }),
+      y: H('Steps', { order: 4, target: { amount: 2000, unit: 'ml', step: 750 }, progress: { [day(0)]: 750 } }),
+      z: H('Fresh', { order: 5, target: { amount: 4, unit: '' } }),
+      a: H('Read', { order: 6 }),
+    }), mobile: false }); await rows(); await sleep(300);
+    check('a counting habit with something counted has a minus action', await ev(`!!document.querySelector('.habit-item[data-id="y"] [data-action="step-down"]')`));
+    check('one with nothing counted, and an ordinary habit, do not', await ev(`!document.querySelector('.habit-item[data-id="z"] [data-action="step-down"]') && !document.querySelector('.habit-item[data-id="a"] [data-action="step-down"]')`));
+    check('a count with no unit reads cleanly', (await count('z')) === '0 / 4', await count('z'));
+    check('big numbers are easy to read', (await count('y')) === '750 / 2,000 ml', await count('y'));
+    await stepDown('w'); await sleep(600);
+    check('minus within the hour re-opens the habit one step back', !(await doneToday('w')) && (await prog('w')) === 2, await prog('w'));
+    check('and refunds the 25 XP', (await xp()) === 275, await xp());
+    await stepDown('x'); await sleep(600);
+    check('after an hour the finished count is locked', (await doneToday('x')) && (await prog('x')) === 20 && (await xp()) === 275);
+    check('and the app says why', /Locked/.test(await ev(`document.getElementById('toast-container').innerText`)));
+    await stepDown('y');
+    check('minus on a part-way count removes a step and stores nothing at zero', await ev(`!(${JSON.stringify(day(0))} in (__mockDB.habits.y.progress || {}))`), await prog('y'));
+    await stepUp('y'); await stepUp('y');
+    check('steps of 750 towards 2,000 go 750, 1,500', (await prog('y')) === 1500, await prog('y'));
+    await stepUp('y');
+    check('and the last step stops at the target, not past it', await waitFor(`(__mockDB.habits.y.progress || {})[${JSON.stringify(day(0))}] === 2000 && (__mockDB.habits.y.completedDates || []).length === 1`, 3000), await prog('y'));
+    noExceptions();
+  });
+
+  scenario('target: the sheet sets a goal, checks it, and shows it in the preview', async () => {
+    await boot({ seed: seed({ a: H('Read') }) }); await rows(); await sleep(300);
+    await openNew();
+    await setField('habit-input', 'Water'); await setField('habit-category', 'health');
+    await setField('habit-target-amount', '8'); await setField('habit-target-unit', 'glasses'); await sleep(150);
+    check('the preview shows the count as it will look', /0 \/ 8 glasses/.test(await ev(`document.getElementById('habit-preview').innerText`)), await ev(`document.getElementById('habit-preview').innerText`));
+    await save();
+    const id = await byName('Water');
+    check('the goal is saved', JSON.stringify(await ev(`__mockDB.habits[${JSON.stringify(id)}].target`)) === JSON.stringify({ amount: 8, unit: 'glasses', step: 1 }), JSON.stringify(await ev(`__mockDB.habits[${JSON.stringify(id)}].target`)));
+    check('the new row counts from zero', (await count(id)) === '0 / 8 glasses');
+    check('a habit made without a goal stores none', await ev(`!('target' in __mockDB.habits.a)`));
+    const fieldMsg = () => ev(`[...document.querySelectorAll('#habit-sheet .field-msg')].map(m => m.textContent).join(' | ')`);
+    const habitCount = () => ev(`Object.keys(__mockDB.habits).length`);
+    const n = await habitCount();
+    await openNew(); await setField('habit-input', 'Bad unit'); await setField('habit-category', 'health');
+    await setField('habit-target-amount', '5'); await setField('habit-target-unit', 'x'.repeat(60)); await save();
+    check('a 60-character unit is refused with a reason', /12 characters/.test(await fieldMsg()) && (await habitCount()) === n && await visible('#habit-sheet'), await fieldMsg());
+    await setField('habit-target-unit', 'cups'); await setField('habit-target-amount', '0'); await save();
+    check('zero is refused', /1 to 100,000/.test(await fieldMsg()) && (await habitCount()) === n, await fieldMsg());
+    await setField('habit-target-amount', '1000000'); await save();
+    check('a million is refused', /1 to 100,000/.test(await fieldMsg()) && (await habitCount()) === n);
+    await setField('habit-target-amount', ''); await save();
+    check('a unit with no number is refused', /number for the goal/.test(await fieldMsg()) && (await habitCount()) === n, await fieldMsg());
+    await setField('habit-target-amount', '2000'); await setField('habit-target-unit', 'ml'); await setField('habit-target-step', '5000'); await save();
+    check('a step bigger than the goal is refused', /no bigger than the goal/.test(await fieldMsg()) && (await habitCount()) === n, await fieldMsg());
+    await setField('habit-target-step', '250'); await save();
+    const ml = await byName('Bad unit');
+    check('a goal with its own step size is saved', JSON.stringify(await ev(`__mockDB.habits[${JSON.stringify(ml)}].target`)) === JSON.stringify({ amount: 2000, unit: 'ml', step: 250 }));
+    await openEdit(id);
+    check('Edit shows the saved goal', (await ev(`document.getElementById('habit-target-amount').value + ' ' + document.getElementById('habit-target-unit').value`)) === '8 glasses');
+    await setField('habit-target-amount', ''); await setField('habit-target-unit', ''); await save();
+    check('clearing the goal turns it back into a tick-box habit', await ev(`!('target' in __mockDB.habits[${JSON.stringify(id)}]) && !document.querySelector('.habit-item[data-id=${JSON.stringify(id)}] .habit-step')`));
+    await openNew(); await setField('habit-input', 'Sneaky'); await setField('habit-category', 'health'); await setField('habit-target-amount', '2'); await setField('habit-target-unit', '<b id=u>x</b>'); await save();
+    check('markup in a unit is shown as text', await ev(`!document.getElementById('u')`));
+    check('the privacy policy mentions goals and counts', /goal/i.test(privacy()));
+    noExceptions();
+  });
+
+  scenario('target: counting works offline, on a small phone, by swipe and from focus view', async () => {
+    await boot({ seed: seed({ w: water({ name: 'Drink plenty of water every single day', cue: 'After each meal' }), a: H('Read', { order: 3 }) }) }); await size(320, 568); await rows(); await sleep(300);
+    check('320px: no horizontal scroll', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    check('320px: a counting row is no taller than an ordinary row with a cue would be', await ev(`(() => { const w = document.querySelector('.habit-item[data-id="w"]'), b = w.querySelector('.badges-row'); return b.getBoundingClientRect().height < 30 && Math.abs(w.querySelector('.target-count').getBoundingClientRect().top - w.querySelector('.cat-ico').getBoundingClientRect().top) < 12; })()`));
+    check('the + is a 44px target on a phone', (await ev(`(() => { const b = document.querySelector('.habit-item[data-id="w"] .habit-step'); const r = b.getBoundingClientRect(); const p = getComputedStyle(b, '::before'); return Math.min(r.width - parseFloat(p.left) - parseFloat(p.right), r.height - parseFloat(p.top) - parseFloat(p.bottom)); })()`)) >= 44);
+    await ev(`window.__mockOffline = true; 0`);
+    await stepUp('w');
+    check('offline: the count moves at once', (await count('w')) === '2 / 3 glasses', await count('w'));
+    await ev(`window.__mockOffline = false; 0`);
+    await ev(`document.getElementById('focus-open').click()`); await sleep(450);
+    check('focus view opens on the counting habit', /water/i.test(await ev(`document.getElementById('focus-view').innerText`)));
+    await ev(`document.getElementById('focus-done').click()`); await sleep(900);
+    check('Done in focus view fills the count and completes it', (await doneToday('w')) && (await prog('w')) === 3, await prog('w'));
+    check('for 25 XP', (await xp()) === 325, await xp());
+    noExceptions();
+  });
 };

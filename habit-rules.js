@@ -90,11 +90,18 @@ export function targetOf(habit) {
   const t = habit && habit.target;
   if (!t || typeof t !== 'object' || !Number.isFinite(t.amount) || t.amount < 1 || t.amount > 100000) return null;
   const step = Number.isFinite(t.step) && t.step > 0 && t.step <= t.amount ? t.step : 1;
-  return { amount: t.amount, unit: typeof t.unit === 'string' ? t.unit.trim().slice(0, 12) : '', step };
+  return { amount: t.amount, unit: typeof t.unit === 'string' ? t.unit.trim().slice(0, 12).trim() : '', step };
 }
 export function progressOn(habit, day) {
   const v = habit && habit.progress && habit.progress[day];
   return Number.isFinite(v) && v > 0 ? v : 0;
+}
+// The count after one step up (dir 1) or down (dir -1): never below zero, never past the target.
+export function stepProgress(habit, day, dir) {
+  const t = targetOf(habit);
+  if (!t) return 0;
+  const next = Math.round((progressOn(habit, day) + (dir < 0 ? -1 : 1) * t.step) * 1000) / 1000;   // rounded, so 0.1 + 0.2 is 0.3
+  return Math.max(0, Math.min(t.amount, next));
 }
 export function isTargetMet(habit, day) {
   const t = targetOf(habit);

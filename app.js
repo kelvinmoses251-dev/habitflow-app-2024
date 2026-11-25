@@ -255,8 +255,8 @@ const catColor = cat => (isDarkTheme() ? cat.dark : cat.color);
 
 // The four dropdowns become designed lists (ui.js). Category ones show each category's icon in its colour.
 const catChip = value => (CATS[value] ? `<span class="cat-ico" style="--cat:${catColor(CATS[value])}">${CATS[value].icon}</span>` : '');
-['habit-category', 'edit-habit-category'].forEach(id => enhanceSelect(document.getElementById(id), { iconFor: catChip }));
-['habit-frequency', 'edit-habit-frequency', 'habit-time', 'edit-habit-time', 'details-time'].forEach(id => enhanceSelect(document.getElementById(id)));
+enhanceSelect(document.getElementById('habit-category'), { iconFor: catChip });
+['habit-frequency', 'habit-time', 'details-time'].forEach(id => enhanceSelect(document.getElementById(id)));
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
@@ -857,7 +857,7 @@ async function runGuidedTour(userKey) {
     try { ({ completed, step } = await startTour()); } finally { summaryForcedOpen = false; applySummaryState(); }
     try { localStorage.setItem(userKey, '1'); } catch (_) { /* storage unavailable */ }
     track(completed ? 'tour_completed' : 'tour_skipped', { step });
-    if (completed && !allHabits.length) setNewHabitOpen(true, { focus: true });   // the tour ends on the first action to take
+    if (completed && !allHabits.length) openHabitSheet();   // the tour ends on the first action to take
   } catch (err) {
     console.warn('Guided tour unavailable:', err);
   } finally {
@@ -955,7 +955,7 @@ const ESC_CLOSERS = [   // ordered top of the stack first
   ['share-card-modal', 'share-card-close'], ['level-up-modal', 'level-up-claim-btn'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['details-modal', 'details-close'],
-  ['edit-modal', 'edit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
+  ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
   ['focus-view', 'focus-exit'],
   ['notif-ask', 'notif-ask-no'],
 ];
@@ -1536,7 +1536,6 @@ function renderHabits() {
   const focusRowId = focusSel ? actRow.dataset.id : null;
   document.getElementById('page-home').classList.toggle('has-habits', allHabits.length > 0);
   list.removeAttribute('aria-busy');
-  if (!userSetNewHabit) setNewHabitOpen(!allHabits.length);   // open for an empty list, one tidy row otherwise
   list.innerHTML = '';
 
   if (!allHabits.length) {
@@ -2097,22 +2096,68 @@ function escHtml(s) {
 // New habit stays a single row once the list has items, so the list is what you see first.
 const newHabitToggle = document.getElementById('new-habit-toggle');
 const habitFormEl = document.getElementById('habit-form');
-let userSetNewHabit = false;
-function setNewHabitOpen(open, { focus = false } = {}) {
-  if (!newHabitToggle || !habitFormEl) return;
-  newHabitToggle.setAttribute('aria-expanded', String(open));
-  habitFormEl.hidden = !open;
-  if (open && focus) document.getElementById('habit-input').focus();
+// ── The habit sheet: create and edit in one place ─────────
+// openHabitSheet() starts a new habit; openHabitSheet(habit) edits one. The dialog system (ui.js) puts the
+// cursor in the name field and gives focus back afterwards. It is "sticky": only Cancel, Save or Escape close it.
+const habitSheet = document.getElementById('habit-sheet');
+const sheetField = id => document.getElementById(id);
+function openHabitSheet(habit = null) {
+  if (!habitSheet || !habitFormEl) return;
+  habitFormEl.reset();
+  ['habit-input', 'habit-category', 'habit-frequency'].forEach(id => clearFieldError(sheetField(id)));
+  habitSheet.querySelectorAll('.select-btn').forEach(clearFieldError);
+  sheetField('habit-edit-id').value = habit ? habit.id : '';
+  sheetField('habit-sheet-title').textContent = habit ? 'Edit habit' : 'New habit';
+  sheetField('habit-save').textContent = habit ? 'Save changes' : 'Add habit';
+  sheetField('habit-input').value = habit ? habit.name : '';
+  sheetField('habit-category').value = habit ? (CATS[habit.category] ? habit.category : 'health') : '';
+  sheetField('habit-frequency').value = habit ? (habit.frequency || 'daily') : 'daily';
+  sheetField('habit-time').value = habit ? timeSlot(habit) : 'any';
+  habitFormEl.hidden = false;
+  newHabitToggle?.setAttribute('aria-expanded', 'true');
+  renderHabitPreview();
+  habitSheet.classList.remove('hidden');
 }
-newHabitToggle?.addEventListener('click', () => { userSetNewHabit = true; setNewHabitOpen(habitFormEl.hidden, { focus: true }); });
+function closeHabitSheet() {
+  if (!habitSheet) return;
+  habitSheet.classList.add('hidden');
+  habitFormEl.hidden = true;
+  newHabitToggle?.setAttribute('aria-expanded', 'false');
+}
+// Kept for callers that think of it as "the New habit form" (the tour, the quick-add key)
+function setNewHabitOpen(open) { if (open) openHabitSheet(); else closeHabitSheet(); }
+
+// The preview is the row Today will show, built from what is in the fields right now. It is a picture, not a control.
+function renderHabitPreview() {
+  const box = sheetField('habit-preview');
+  if (!box) return;
+  const name = sheetField('habit-input').value.trim();
+  const catKey = sheetField('habit-category').value, cat = CATS[catKey];
+  const freq = sheetField('habit-frequency').value || 'daily';
+  const slot = sheetField('habit-time').value;
+  box.innerHTML = `<div class="habit-item is-preview" style="--cat:${cat ? catColor(cat) : 'var(--muted)'}">
+    <div class="habit-label">
+      <span class="preview-check"></span>
+      <div class="habit-meta">
+        <span class="habit-name${name ? '' : ' is-empty'}">${name ? escHtml(name) : 'Your habit'}</span>
+        <div class="badges-row">
+          ${cat ? `<span class="cat-badge"><span class="cat-ico">${cat.icon}</span>${cat.label}</span>` : '<span class="cat-badge">Category</span>'}
+          ${freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
+          ${slot && slot !== 'any' ? `<span class="freq-badge">${SLOT_LABEL[slot]}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+habitFormEl?.addEventListener('input', renderHabitPreview);
+habitFormEl?.addEventListener('change', renderHabitPreview);
+newHabitToggle?.addEventListener('click', () => openHabitSheet());
+document.getElementById('habit-cancel')?.addEventListener('click', closeHabitSheet);
+document.getElementById('empty-create')?.addEventListener('click', () => openHabitSheet());
 
 // Quick add: the top-bar button and the N key take you home and open the form with the cursor in it.
 function quickAddHabit() {
-  const open = () => {
-    userSetNewHabit = true;
-    setNewHabitOpen(true, { focus: true });
-    document.getElementById('new-habit-toggle')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  };
+  const open = () => openHabitSheet();
   if (!location.hash || location.hash === '#home') return open();      // already on Home (no hash means Home)
   location.hash = '#home';
   setTimeout(open, 60);                         // the page is hidden until the route change lands, and hidden fields cannot take focus
@@ -2131,27 +2176,29 @@ document.addEventListener('keydown', e => {
 
 document.getElementById('habit-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const name     = document.getElementById('habit-input').value.trim();
-  const category = document.getElementById('habit-category').value;
-  const freqEl   = document.getElementById('habit-frequency');
-  const frequency = freqEl ? freqEl.value : 'daily';
-  const timeOfDay = document.getElementById('habit-time')?.value || 'any';
-  if (!name) return;
-  const btn = e.target.querySelector('button[type="submit"]');
-  setBusy(btn, 'Adding');
-  
-  try {
-    backgroundWrite(addHabit(name, category, frequency, timeOfDay), 'add the habit');
-    track('habit_added', { category, frequency, source: 'form' });
-    document.getElementById('habit-input').value = '';
-    toast('Habit added', 'success');
-    userSetNewHabit = true;
-    setNewHabitOpen(allHabits.length + 1 < 3, { focus: true });   // stay open while someone is still building their first few
-  } catch (err) {
-    toast('Failed to add habit: ' + err.message, 'error');
-  } finally {
-    setBusy(btn, null);
+  const form = e.target;
+  const nameEl = sheetField('habit-input');
+  const name = nameEl.value.trim();
+  if (!name) { setFieldError(nameEl, 'Give the habit a name.'); nameEl.focus(); return; }
+  if (!form.checkValidity()) {                       // a required dropdown is empty: its own handler says so under the field
+    form.querySelectorAll('select').forEach(sel => sel.checkValidity());
+    return;
   }
+  const category = sheetField('habit-category').value;
+  const frequency = sheetField('habit-frequency').value || 'daily';
+  const timeOfDay = sheetField('habit-time').value || 'any';
+  const editId = sheetField('habit-edit-id').value;
+  if (editId) {
+    // Editing changes what the habit is called and how it is filed. Its completions are never touched.
+    backgroundWrite(updateDoc(doc(db, 'habits', editId), { name, category, frequency, timeOfDay: timeOfDay === 'any' ? deleteField() : timeOfDay }), 'update the habit');
+    toast('Habit updated', 'success');
+    track('habit_edited');
+  } else {
+    backgroundWrite(addHabit(name, category, frequency, timeOfDay), 'add the habit');
+    toast('Habit added', 'success');
+    track('habit_added', { category, frequency, source: 'form' });
+  }
+  closeHabitSheet();
 });
 
 // ── Habit List Events (delegation) ───────────────────────
@@ -2238,12 +2285,8 @@ document.getElementById('page-home').addEventListener('click', async e => {
   if (editBtn) {
     const h = allHabits.find(x => x.id === editBtn.dataset.id);
     if (!h) return;
-    document.getElementById('edit-habit-id').value = h.id;
-    document.getElementById('edit-habit-name').value = h.name;
-    document.getElementById('edit-habit-category').value = h.category || 'health';
-    document.getElementById('edit-habit-frequency').value = h.frequency || 'daily';
-    document.getElementById('edit-habit-time').value = timeSlot(h);
-    document.getElementById('edit-modal').classList.remove('hidden');
+    setRevealed(null);
+    openHabitSheet(h);
     return;
   }
   // Timer
@@ -2407,33 +2450,6 @@ document.getElementById('page-home').addEventListener('dblclick', async e => {
   }
 });
 
-// Edit Habit Form
-document.getElementById('edit-habit-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const id = document.getElementById('edit-habit-id').value;
-  const name = document.getElementById('edit-habit-name').value.trim();
-  const category = document.getElementById('edit-habit-category').value;
-  const frequency = document.getElementById('edit-habit-frequency').value;
-  const editTime = document.getElementById('edit-habit-time').value;
-  
-  if (!name || !id) return;
-  const btn = e.target.querySelector('button[type="submit"]');
-  setBusy(btn, 'Saving');
-  
-  try {
-    backgroundWrite(updateDoc(doc(db, 'habits', id), { name, category, frequency, timeOfDay: editTime === 'any' ? deleteField() : editTime }), 'update the habit');
-    document.getElementById('edit-modal').classList.add('hidden');
-    toast('Habit updated', 'success');
-  } catch (err) {
-    toast('Failed to update: ' + err.message, 'error');
-  } finally {
-    setBusy(btn, null);
-  }
-});
-
-document.getElementById('edit-cancel').addEventListener('click', () => {
-  document.getElementById('edit-modal').classList.add('hidden');
-});
 
 // ── Recovery Modal Events ──────────────────────────────────
 document.getElementById('open-recovery-btn').addEventListener('click', () => {

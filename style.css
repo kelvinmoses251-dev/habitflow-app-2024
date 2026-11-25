@@ -567,6 +567,16 @@ html.dialog-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .summary-more, .bar-chev { transition: none; } }
 .today-add { display: none; }
+/* The habit sheet: preview on top, fields below */
+.modal .dialog.habit-sheet { max-width: 480px; }
+.habit-preview-wrap { display: flex; flex-direction: column; gap: 6px; }
+.habit-preview-label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.habit-preview { background: var(--surface-2); border-radius: var(--r-lg); padding: 0 var(--sp-3); }
+.habit-preview .habit-item { margin: 0; padding: var(--sp-3) 0; }
+.habit-preview .habit-item:hover { background: none; }
+.preview-check { flex: none; width: 24px; height: 24px; border-radius: var(--r-full); border: 1.5px solid var(--border-strong); background: var(--surface); }
+.habit-preview .habit-name.is-empty { color: var(--muted); }
+.empty-create { margin-top: var(--sp-2); }
 /* Focus view: a calm full-screen layer with one habit on it */
 .focus-open { margin-top: var(--sp-3); }
 .focus-open.hidden { display: none; }
@@ -965,7 +975,6 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .new-habit-toggle .plus { width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--primary); color: var(--on-primary); display: grid; place-items: center; }
 .new-habit-toggle .plus .icon { width: 16px; height: 16px; stroke-width: 2.4; }
 .new-habit-toggle .chev { margin-left: auto; color: var(--muted); transition: transform var(--t-base); }
-.new-habit-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
 .new-habit .habit-form { padding: 0 var(--sp-5) var(--sp-5); }
 .habit-form[hidden] { display: none; }
 .help-btn { margin-right: var(--sp-2); }

@@ -55,7 +55,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=55" />
+  <link rel="stylesheet" href="style.css?v=56" />
 </head>
 <body>
 
@@ -375,45 +375,11 @@
 
         <!-- Add habit -->
         <div class="card new-habit">
-          <button type="button" id="new-habit-toggle" class="new-habit-toggle" aria-expanded="false" aria-controls="habit-form">
+          <button type="button" id="new-habit-toggle" class="new-habit-toggle" aria-expanded="false" aria-haspopup="dialog" aria-controls="habit-sheet">
             <span class="plus"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span>
             <span>New habit</span>
-            <svg class="icon chev" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+            <svg class="icon chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
           </button>
-          <form id="habit-form" class="habit-form" hidden>
-            <input type="text" id="habit-input" aria-label="Habit name" maxlength="60" placeholder="For example: Drink 2 litres of water" required autocomplete="off" />
-            <div class="form-row">
-              <select id="habit-category" aria-label="Category" required>
-                <option value="" disabled selected>Category</option>
-                <option value="health">Health</option>
-                <option value="mind">Mind</option>
-                <option value="social">Social</option>
-                <option value="growth">Growth</option>
-                <option value="productive">Productive</option>
-                <option value="nutrition">Nutrition</option>
-                <option value="fitness">Fitness</option>
-                <option value="reading">Reading</option>
-                <option value="saving">Saving</option>
-                <option value="relaxation">Relaxation</option>
-                <option value="project">Project</option>
-              </select>
-              <select id="habit-frequency" aria-label="Frequency" required>
-                <option value="" disabled selected>Frequency</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <select id="habit-time" aria-label="Time of day">
-                <option value="any" selected>Any time</option>
-                <option value="morning">Morning</option>
-                <option value="afternoon">Afternoon</option>
-                <option value="evening">Evening</option>
-              </select>
-            </div>
-            <button type="submit" class="btn-primary btn-full">Add habit</button>
-          </form>
         </div>
 
         <!-- Habit list -->
@@ -442,7 +408,7 @@
             <p class="empty-title">Start with a ready-made set</p>
             <span class="empty-text">Each one adds three habits. You can edit or delete them later.</span>
             <div id="starter-packs" class="pack-grid"></div>
-            <span class="empty-or">Or add your own habit above.</span>
+            <button type="button" id="empty-create" class="btn-secondary empty-create"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Create your own</button>
           </div>
         </div>
 
@@ -685,15 +651,20 @@
 </div>
 
 <!-- Edit habit -->
-<div id="edit-modal" class="modal hidden" data-sticky role="dialog" aria-modal="true" aria-label="Edit habit">
-  <div class="dialog">
+<!-- The habit sheet: one place to create a habit and to edit one, with a live preview of its row -->
+<div id="habit-sheet" class="modal hidden" data-sticky role="dialog" aria-modal="true" aria-labelledby="habit-sheet-title">
+  <div class="dialog dialog-scroll habit-sheet">
     <span class="sheet-handle" aria-hidden="true"></span>
-    <h2 class="dialog-title">Edit habit</h2>
-    <form id="edit-habit-form" class="habit-form">
-      <input type="hidden" id="edit-habit-id" />
-      <input type="text" id="edit-habit-name" aria-label="Habit name" maxlength="60" class="input" placeholder="Habit name" required />
+    <h2 class="dialog-title" id="habit-sheet-title">New habit</h2>
+    <div class="habit-preview-wrap">
+      <span class="habit-preview-label">Preview</span>
+      <div id="habit-preview" class="habit-preview" aria-hidden="true"></div>
+    </div>
+    <form id="habit-form" class="habit-form" hidden novalidate>
+      <input type="hidden" id="habit-edit-id" />
+      <input type="text" id="habit-input" autofocus aria-label="Habit name" maxlength="60" placeholder="For example: Drink 2 litres of water" required autocomplete="off" />
       <div class="form-row">
-        <select id="edit-habit-category" aria-label="Category" required>
+        <select id="habit-category" aria-label="Category" required>
           <option value="" disabled selected>Category</option>
           <option value="health">Health</option>
           <option value="mind">Mind</option>
@@ -707,7 +678,7 @@
           <option value="relaxation">Relaxation</option>
           <option value="project">Project</option>
         </select>
-        <select id="edit-habit-frequency" aria-label="Frequency" required>
+        <select id="habit-frequency" aria-label="Frequency" required>
           <option value="" disabled selected>Frequency</option>
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
@@ -715,7 +686,7 @@
         </select>
       </div>
       <div class="form-row">
-        <select id="edit-habit-time" aria-label="Time of day">
+        <select id="habit-time" aria-label="Time of day">
           <option value="any" selected>Any time</option>
           <option value="morning">Morning</option>
           <option value="afternoon">Afternoon</option>
@@ -723,8 +694,8 @@
         </select>
       </div>
       <div class="dialog-actions">
-        <button type="button" id="edit-cancel" data-dismiss class="btn-secondary">Cancel</button>
-        <button type="submit" id="edit-save" class="btn-primary">Save changes</button>
+        <button type="button" id="habit-cancel" data-dismiss class="btn-secondary">Cancel</button>
+        <button type="submit" id="habit-save" class="btn-primary">Add habit</button>
       </div>
     </form>
   </div>
@@ -860,6 +831,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=56"></script>
+<script type="module" src="app.js?v=57"></script>
 </body>
 </html>

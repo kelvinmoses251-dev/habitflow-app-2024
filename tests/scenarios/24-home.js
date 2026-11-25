@@ -208,8 +208,8 @@ module.exports = (scenario, c) => {
     check('"any time" stores nothing extra', await ev(`Object.values(__mockDB.habits).filter(h => 'timeOfDay' in h).length === 1`));
     await ev(`document.querySelector('.habit-item [data-action="edit"]').click()`); await sleep(350);
     const id = await ev(`document.querySelector('.habit-item [data-action="edit"]').dataset.id`);
-    check('editing shows the saved time', (await ev(`document.getElementById('edit-habit-time').value`)) === (await ev(`__mockDB.habits[${JSON.stringify(id)}].timeOfDay || 'any'`)));
-    await ev(`(() => { document.getElementById('edit-habit-time').value = 'morning'; document.getElementById('edit-habit-form').requestSubmit(); })()`); await sleep(400);
+    check('editing shows the saved time', (await ev(`document.getElementById('habit-time').value`)) === (await ev(`__mockDB.habits[${JSON.stringify(id)}].timeOfDay || 'any'`)));
+    await ev(`(() => { document.getElementById('habit-time').value = 'morning'; document.getElementById('habit-form').requestSubmit(); })()`); await sleep(400);
     check('and saves a change', (await ev(`__mockDB.habits[${JSON.stringify(id)}].timeOfDay`)) === 'morning');
     const fs = require('fs'), path = require('path');
     check('the privacy policy says a habit can store a time of day', /time of day/i.test(fs.readFileSync(path.resolve(__dirname, '..', '..', 'privacy.html'), 'utf8')));

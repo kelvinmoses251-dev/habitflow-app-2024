@@ -43,8 +43,8 @@ module.exports = (scenario, c) => {
     check('Add button is not stuck on "Adding…"', await waitFor(`document.querySelector('#habit-form button[type=submit]').textContent.includes('Add habit') && !document.querySelector('#habit-form button[type=submit]').disabled`, 4000), await text('#habit-form button[type=submit]'));
 
     await ev(`document.querySelector('#habits [data-action="edit"]').click()`);
-    await ev(`document.getElementById('edit-habit-name').value='Floss daily'; document.getElementById('edit-habit-form').requestSubmit()`);
-    check('edit modal closes (not stuck on "Saving…")', await waitFor(`document.getElementById('edit-modal').classList.contains('hidden')`, 4000));
+    await ev(`document.getElementById('habit-input').value='Floss daily'; document.getElementById('habit-form').requestSubmit()`);
+    check('edit modal closes (not stuck on "Saving…")', await waitFor(`document.getElementById('habit-sheet').classList.contains('hidden')`, 4000));
 
     await ev(`document.querySelector('#habits [data-action="delete"]').click()`);
     check('delete reflects immediately', await waitFor(`document.querySelectorAll('#habits .habit-item').length === 1`, 4000));

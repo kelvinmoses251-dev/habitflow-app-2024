@@ -19,15 +19,15 @@ module.exports = (scenario, c) => {
   scenario('a11y: modals are dialogs and Escape closes the top-most one', async () => {
     await boot({ seed: { ...signedIn(), mock_fb_db: { habits: { h1: habit('Evening Run') } } } });
     await ready();
-    const modals = ['edit-modal', 'recovery-modal', 'timer-modal', 'details-modal', 'confirm-check-modal', 'confirm-export-modal', 'level-up-modal', 'share-card-modal', 'crop-modal'];
-    const ok = await ev(`${JSON.stringify(modals)}.every(id => { const m = document.getElementById(id); return m.getAttribute('role') === 'dialog' && m.getAttribute('aria-modal') === 'true' && !!m.getAttribute('aria-label'); })`);
+    const modals = ['habit-sheet', 'recovery-modal', 'timer-modal', 'details-modal', 'confirm-check-modal', 'confirm-export-modal', 'level-up-modal', 'share-card-modal', 'crop-modal'];
+    const ok = await ev(`${JSON.stringify(modals)}.every(id => { const m = document.getElementById(id); return m.getAttribute('role') === 'dialog' && m.getAttribute('aria-modal') === 'true' && !!(m.getAttribute('aria-label') || m.getAttribute('aria-labelledby')); })`);
     check('all 9 modals declare role=dialog + aria-modal + label', ok === true);
 
     await waitFor(`document.querySelectorAll('#habits .habit-item').length === 1`);
     await ev(`document.querySelector('#habits [data-action="edit"]').click()`);
-    check('edit modal opens', await waitFor(`!document.getElementById('edit-modal').classList.contains('hidden')`));
+    check('edit modal opens', await waitFor(`!document.getElementById('habit-sheet').classList.contains('hidden')`));
     await press('Escape');
-    check('Escape closes it', await waitFor(`document.getElementById('edit-modal').classList.contains('hidden')`));
+    check('Escape closes it', await waitFor(`document.getElementById('habit-sheet').classList.contains('hidden')`));
 
     await ev(`document.querySelector('#habits .habit-check').click()`);
     check('confirm dialog opens', await waitFor(`!document.getElementById('confirm-check-modal').classList.contains('hidden')`));

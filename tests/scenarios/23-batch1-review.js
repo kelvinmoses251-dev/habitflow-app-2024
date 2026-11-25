@@ -28,13 +28,13 @@ module.exports = (scenario, c) => {
     check('its sheet shows no drag handle', !(await visible('#timer-modal .sheet-handle')));
     await ev(`document.getElementById('timer-close').click()`); await sleep(200);
     await ev(`document.querySelector('.habit-item [data-action="edit"]').click()`); await sleep(350);
-    await ev(`document.getElementById('edit-habit-name').value = 'Read 20 pages'`);
-    await backdropClick('edit-modal'); await sleep(200);
-    check('the edit form survives a tap outside, text intact', await visible('#edit-modal') && (await ev(`document.getElementById('edit-habit-name').value`)) === 'Read 20 pages');
+    await ev(`document.getElementById('habit-input').value = 'Read 20 pages'`);
+    await backdropClick('habit-sheet'); await sleep(200);
+    check('the edit form survives a tap outside, text intact', await visible('#habit-sheet') && (await ev(`document.getElementById('habit-input').value`)) === 'Read 20 pages');
     check('the photo cropper is protected the same way', await ev(`document.getElementById('crop-modal').hasAttribute('data-sticky')`));
     const key = k => send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code: k });
     await key('Escape'); await sleep(250);
-    check('Escape and Cancel still close them', !(await visible('#edit-modal')));
+    check('Escape and Cancel still close them', !(await visible('#habit-sheet')));
     noExceptions();
   });
 
@@ -42,11 +42,11 @@ module.exports = (scenario, c) => {
     await boot({ seed: withHabit(), mobile: false }); await ready();
     check('the button is a combobox that controls a listbox', await ev(`(() => { const b = document.querySelector('#habit-category ~ .select-btn'); return b.getAttribute('role') === 'combobox' && b.getAttribute('aria-haspopup') === 'listbox' && !!document.getElementById(b.getAttribute('aria-controls')); })()`));
     await ev(`document.querySelector('.habit-item [data-action="edit"]').click()`); await sleep(350);
-    await ev(`document.querySelector('#edit-habit-category ~ .select-btn').click()`); await sleep(120);
-    check('inside a dialog, the list opens inside that dialog (so it is not hidden from screen readers)', await ev(`!!document.querySelector('#edit-modal .select-list:not([hidden])')`));
-    check('and still sits right under its button', await ev(`(() => { const b = document.querySelector('#edit-habit-category ~ .select-btn').getBoundingClientRect(), l = document.querySelector('#edit-modal .select-list:not([hidden])').getBoundingClientRect(); return Math.abs(l.left - b.left) < 2 && (Math.abs(l.top - b.bottom - 4) < 2 || Math.abs(b.top - l.bottom - 4) < 2); })()`));
-    await ev(`document.querySelector('#edit-modal .select-list [data-value="fitness"]').click()`); await sleep(120);
-    check('choosing works and the dialog stays open', (await ev(`document.getElementById('edit-habit-category').value`)) === 'fitness' && await visible('#edit-modal'));
+    await ev(`document.querySelector('#habit-category ~ .select-btn').click()`); await sleep(120);
+    check('inside a dialog, the list opens inside that dialog (so it is not hidden from screen readers)', await ev(`!!document.querySelector('#habit-sheet .select-list:not([hidden])')`));
+    check('and still sits right under its button', await ev(`(() => { const b = document.querySelector('#habit-category ~ .select-btn').getBoundingClientRect(), l = document.querySelector('#habit-sheet .select-list:not([hidden])').getBoundingClientRect(); return Math.abs(l.left - b.left) < 2 && (Math.abs(l.top - b.bottom - 4) < 2 || Math.abs(b.top - l.bottom - 4) < 2); })()`));
+    await ev(`document.querySelector('#habit-sheet .select-list [data-value="fitness"]').click()`); await sleep(120);
+    check('choosing works and the dialog stays open', (await ev(`document.getElementById('habit-category').value`)) === 'fitness' && await visible('#habit-sheet'));
     noExceptions();
   });
 

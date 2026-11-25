@@ -53,24 +53,26 @@ module.exports = (scenario, c) => {
     check('yesterday still counts as full', /^full/.test(cls[5]), JSON.stringify(cls));
   });
 
-  scenario('new habit: one tidy row when you have habits, open when you have none, and it hands you the field', async () => {
+  scenario('new habit: one tidy row on Home that opens the habit sheet and hands you the name field', async () => {
     await boot({ seed: seed({ a: habit('A'), b: habit('B') }) });
     await ready(2);
-    check('collapsed with habits', (await ev(`document.getElementById('habit-form').hidden`)) === true);
+    check('closed to begin with', (await ev(`document.getElementById('habit-form').hidden`)) === true);
     check('toggle reflects it for assistive tech', (await ev(`document.getElementById('new-habit-toggle').getAttribute('aria-expanded')`)) === 'false');
     await ev(`document.getElementById('new-habit-toggle').click()`);
     check('opens on tap', (await ev(`document.getElementById('habit-form').hidden`)) === false);
-    check('and focuses the name field', (await ev(`document.activeElement.id`)) === 'habit-input');
+    check('and focuses the name field', await waitFor(`document.activeElement.id === 'habit-input'`, 3000));
     await ev(`document.getElementById('habit-input').value='Third';document.getElementById('habit-category').value='health';document.getElementById('habit-frequency').value='daily';document.getElementById('habit-form').requestSubmit()`);
     await ready(3);
-    check('closes again once there are three habits', await waitFor(`document.getElementById('habit-form').hidden === true`));
+    check('closes once the habit is added', await waitFor(`document.getElementById('habit-form').hidden === true`));
 
     await boot({ seed: signedIn() });
     await waitFor(`!document.getElementById('empty-state').classList.contains('hidden')`);
-    check('open for an empty account', (await ev(`document.getElementById('habit-form').hidden`)) === false);
+    check('an empty account is not met by an open sheet', (await ev(`document.getElementById('habit-form').hidden`)) === true);
+    await ev(`document.getElementById('empty-create').click()`); await sleep(300);
+    check('Create your own opens it', (await ev(`document.getElementById('habit-form').hidden`)) === false);
     await ev(`document.getElementById('habit-input').value='First';document.getElementById('habit-category').value='health';document.getElementById('habit-frequency').value='daily';document.getElementById('habit-form').requestSubmit()`);
     await ready(1);
-    check('stays open while building the first few', (await ev(`document.getElementById('habit-form').hidden`)) === false);
+    check('it closes after the first habit too: the list is what you see next', (await ev(`document.getElementById('habit-form').hidden`)) === true);
   });
 
   scenario('completion moment: the row is highlighted, the ring and week strip update, and each row carries its category colour', async () => {

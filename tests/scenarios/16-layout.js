@@ -66,17 +66,18 @@ module.exports = (scenario, c) => {
     check('collapsed to begin with', (await ev(`document.getElementById('habit-form').hidden`)) === true);
     await ev(`document.getElementById('topnav-new').click()`); await sleep(200);
     check('button opens the form', (await ev(`document.getElementById('habit-form').hidden`)) === false);
-    check('and focuses the name field', (await ev(`document.activeElement.id`)) === 'habit-input');
+    check('and focuses the name field', await waitFor(`document.activeElement.id === 'habit-input'`, 3000));
 
     await boot({ seed: seed(), mobile: false });
     await ready();
     const press = (k, extra = '') => ev(`(() => { const e = new KeyboardEvent('keydown', { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true${extra} }); document.dispatchEvent(e); return e.defaultPrevented; })()`);
     check('N is handled', (await press('n')) === true);
     check('N opens the form', (await ev(`document.getElementById('habit-form').hidden`)) === false);
-    check('and focuses it', (await ev(`document.activeElement.id`)) === 'habit-input');
+    check('and focuses it', await waitFor(`document.activeElement.id === 'habit-input'`, 3000));
     check('typing the letter n in the field is left alone', (await press('n')) === false);
     check('Ctrl+N (browser shortcut) is left alone', (await ev(`document.activeElement.blur(), 0`)) === 0 && (await press('n', ', ctrlKey: true')) === false);
 
+    await ev(`document.getElementById('habit-cancel').click()`); await sleep(300);      // the sheet is a dialog: close it before trying the key elsewhere
     await ev(`location.hash = '#stats'`); await sleep(500);
     await ev(`document.activeElement.blur()`);
     await press('N');

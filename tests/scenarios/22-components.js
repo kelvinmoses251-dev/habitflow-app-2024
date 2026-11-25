@@ -7,8 +7,9 @@ module.exports = (scenario, c) => {
 
   scenario('components: the category select is a designed, keyboard-friendly list', async () => {
     await boot({ seed: signedIn() });
+    await waitFor(`!document.getElementById('app').classList.contains('hidden')`); await sleep(300); await ev(`document.getElementById('new-habit-toggle').click()`);   // the fields live in the habit sheet
     await waitFor(`!!document.querySelector('#habit-form .select-btn') && !document.getElementById('habit-form').hidden`, 6000);
-    check('all seven selects are enhanced', (await ev(`document.querySelectorAll('.select-btn').length`)) === 7);
+    check('all four selects are enhanced', (await ev(`document.querySelectorAll('.select-btn').length`)) === 4);
     check('the button shows the placeholder first', /Category/.test(await ev(`${catBtn}.textContent`)));
     await ev(`${catBtn}.click()`); await sleep(100);
     check('opens a listbox with the 11 categories', (await ev(`${openList}.querySelectorAll('[role=option]').length`)) === 11);
@@ -34,6 +35,7 @@ module.exports = (scenario, c) => {
 
   scenario('components: a required select explains itself instead of failing silently', async () => {
     await boot({ seed: signedIn() });
+    await waitFor(`!document.getElementById('app').classList.contains('hidden')`); await sleep(300); await ev(`document.getElementById('new-habit-toggle').click()`);   // the fields live in the habit sheet
     await waitFor(`!!document.querySelector('#habit-form .select-btn') && !document.getElementById('habit-form').hidden`, 6000);
     await ev(`(() => { document.getElementById('habit-input').value = 'Stretch'; document.getElementById('habit-form').requestSubmit(); })()`); await sleep(300);
     check('no habit was added', (await ev(`Object.keys(__mockDB.habits || {}).length`)) === 0);
@@ -48,6 +50,7 @@ module.exports = (scenario, c) => {
   scenario('components: selects fit a small phone and dark mode', async () => {
     await boot({ seed: signedIn({ theme: 'dark' }) });
     await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 640, deviceScaleFactor: 1, mobile: true });
+    await waitFor(`!document.getElementById('app').classList.contains('hidden')`); await sleep(300); await ev(`document.getElementById('new-habit-toggle').click()`);   // the fields live in the habit sheet
     await waitFor(`!!document.querySelector('#habit-form .select-btn') && !document.getElementById('habit-form').hidden`, 6000);
     await sleep(600);
     // Bring the button on screen, let the page finish moving (a page scroll closes the list by design), then open

@@ -1695,6 +1695,7 @@ function renderHabits() {
         <input type="checkbox" class="habit-check" data-id="${h.id}" data-date="${completedDateForToggle}" aria-label="Mark ${escHtml(h.name)} complete" ${isDone ? 'checked' : ''} ${isLocked ? 'data-locked="1"' : ''} />
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name ${isDone ? 'done' : ''}">${escHtml(h.name)}</span>
+          ${(typeof h.cue === 'string' && h.cue.trim() ? `<span class="habit-cue">${escHtml(h.cue.trim().slice(0, 80))}</span>` : '')}
           <div class="badges-row">
             <span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
@@ -1837,6 +1838,7 @@ function renderFocus() {
   set('focus-progress', finished ? 'Finished' : `${focusAt + 1} of ${focusQueue.length}`);
   set('focus-name', finished ? 'That is everything for today.' : h.name);
   const streak = finished ? 0 : calcHabitStreak(h);
+  set('focus-cue', finished || typeof h.cue !== 'string' ? '' : h.cue.trim().slice(0, 80));
   set('focus-streak', finished ? '' : streak > 0 ? `${streak}-day streak` : 'No streak yet. Today can be day one.');
   const cat = finished ? null : (CATS[h.category] || CATS.health);
   const chip = document.getElementById('focus-cat');
@@ -2134,6 +2136,7 @@ function openHabitSheet(habit = null) {
   sheetField('habit-category').value = habit ? (CATS[habit.category] ? habit.category : 'health') : '';
   sheetField('habit-frequency').value = habit ? (habit.frequency || 'daily') : 'daily';
   sheetField('habit-time').value = habit ? timeSlot(habit) : 'any';
+  sheetField('habit-cue').value = habit && typeof habit.cue === 'string' ? habit.cue : '';
   setHabitLook(habit);
   habitSheet.querySelectorAll('details.sheet-more').forEach(d => { d.open = false; });
   habitFormEl.hidden = false;
@@ -2179,6 +2182,7 @@ function renderHabitPreview() {
   const catKey = sheetField('habit-category').value, cat = CATS[catKey];
   const freq = sheetField('habit-frequency').value || 'daily';
   const slot = sheetField('habit-time').value;
+  const cue = sheetField('habit-cue').value.trim();
   const chosen = readHabitLook();
   const look = habitLook({ category: catKey, ...chosen });
   const custom = [chosen.icon && ICON_NAME(chosen.icon), chosen.color && chosen.color.charAt(0).toUpperCase() + chosen.color.slice(1)].filter(Boolean);
@@ -2188,6 +2192,7 @@ function renderHabitPreview() {
       <span class="preview-check"></span>
       <div class="habit-meta">
         <span class="habit-name${name ? '' : ' is-empty'}">${name ? escHtml(name) : 'Your habit'}</span>
+        ${cue ? `<span class="habit-cue">${escHtml(cue)}</span>` : ''}
         <div class="badges-row">
           ${cat ? `<span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>` : `<span class="cat-badge">${chosen.icon ? `<span class="cat-ico">${look.icon}</span>` : ''}Category</span>`}
           ${freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
@@ -2236,7 +2241,7 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   const frequency = sheetField('habit-frequency').value || 'daily';
   const timeOfDay = sheetField('habit-time').value || 'any';
   const editId = sheetField('habit-edit-id').value;
-  const extra = { timeOfDay, ...readHabitLook() };     // the optional fields, as the sheet has them now
+  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), ...readHabitLook() };     // the optional fields, as the sheet has them now
   if (editId) {
     // Editing changes what the habit is called, how it is filed and how it looks. Its completions are never touched.
     // An optional field that has been cleared is removed from the habit, not stored empty.

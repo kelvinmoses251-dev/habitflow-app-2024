@@ -55,7 +55,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=57" />
+  <link rel="stylesheet" href="style.css?v=58" />
 </head>
 <body>
 
@@ -167,6 +167,7 @@
     <div class="focus-body">
       <span id="focus-cat" class="cat-badge"></span>
       <h2 id="focus-name" class="focus-name" aria-live="polite"></h2>
+      <p id="focus-cue" class="focus-cue"></p>
       <p id="focus-streak" class="focus-streak"></p>
     </div>
     <div class="dialog-actions focus-actions">
@@ -700,6 +701,7 @@
           <option value="evening">Evening</option>
         </select>
       </div>
+      <input type="text" id="habit-cue" aria-label="Cue: what will remind you to do it (optional)" maxlength="80" placeholder="Cue (optional), for example: After I pour my coffee" autocomplete="off" />
       <!-- Optional extras sit in sections that open when wanted, so the sheet stays short -->
       <details class="sheet-more" id="habit-look">
         <summary><span>Icon and colour</span><span class="sheet-more-val" id="habit-look-val">Automatic</span></summary>
@@ -844,6 +846,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=58"></script>
+<script type="module" src="app.js?v=59"></script>
 </body>
 </html>

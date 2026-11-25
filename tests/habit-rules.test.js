@@ -140,3 +140,86 @@ test('isOpenOn is the single answer to "is there still something to do today"', 
   assert.equal(isOpenOn({ frequency: 'monthly', completedDates: ['2026-10-30'] }, TODAY), true);
   assert.equal(isOpenOn({ completedDates: [], deletedAt: 5 }, TODAY), false);
 });
+
+// ── Pausing ───────────────────────────────────────────────
+test('paused days are skipped: they neither break a streak nor add to it', async () => {
+  const { habitStreak, isDueOn, isOpenOn, isPausedOn } = await load();
+  // Done five days running (back 8..4), paused for three days (back 3..1), then done today.
+  const h = { completedDates: [back(8), back(7), back(6), back(5), back(4), back(0)], pauses: [{ from: back(3), to: back(1) }] };
+  assert.equal(isPausedOn(h, back(2)), true);
+  assert.equal(isPausedOn(h, back(4)), false);
+  assert.equal(isDueOn(h, back(2)), false);
+  assert.equal(habitStreak(h, TODAY), 6);                                              // 5 + today, the pause in between is skipped
+  assert.equal(habitStreak({ ...h, completedDates: h.completedDates.slice(0, 5) }, TODAY), 5);   // today still open
+  // The same history without the pause is a broken streak
+  assert.equal(habitStreak({ completedDates: h.completedDates }, TODAY), 1);
+});
+
+test('a habit that is paused now is not open, however long the pause', async () => {
+  const { isOpenOn, isDueOn, habitStreak } = await load();
+  const h = { completedDates: [back(10), back(9)], pauses: [{ from: back(8) }] };       // open-ended: still paused
+  assert.equal(isDueOn(h, TODAY), false);
+  assert.equal(isOpenOn(h, TODAY), false);
+  assert.equal(habitStreak(h, TODAY), 2);                                               // kept exactly as it was when paused
+});
+
+test('malformed pauses are ignored', async () => {
+  const { isPausedOn } = await load();
+  for (const pauses of [null, 'x', [null], [{ to: back(1) }], [{ from: 5 }]]) assert.equal(isPausedOn({ pauses }, TODAY), false, JSON.stringify(pauses));
+});
+
+// ── Start and end dates ───────────────────────────────────
+test('a habit is only due inside its start and end dates', async () => {
+  const { isActiveOn, isDueOn, isOpenOn, runDay } = await load();
+  const h = { startDate: back(-2), completedDates: [] };                                // starts in two days
+  assert.equal(isActiveOn(h, TODAY), false);
+  assert.equal(isOpenOn(h, TODAY), false);
+  assert.equal(isDueOn(h, back(-2)), true);
+  const run = { startDate: back(11), endDate: back(-18), completedDates: [] };          // a 30-day run, today is day 12
+  assert.deepEqual(runDay(run, TODAY), { day: 12, of: 30 });
+  assert.equal(isActiveOn(run, back(-18)), true);
+  assert.equal(isActiveOn(run, back(-19)), false);                                      // the day after it ends
+  assert.equal(runDay({ startDate: back(3) }, TODAY), null);                            // no end date: no countdown
+  assert.equal(runDay(run, back(12)), null);                                            // before it starts
+});
+
+test('a finished habit keeps the streak it ended with', async () => {
+  const { habitStreak } = await load();
+  const h = { startDate: back(9), endDate: back(5), completedDates: [back(5), back(6), back(7), back(8), back(9)] };
+  assert.equal(habitStreak(h, TODAY), 5);
+});
+
+test('an archived habit is never due or open', async () => {
+  const { isOpenOn, isDueOn, isActiveOn } = await load();
+  const h = { completedDates: [], archivedAt: 1700000000000 };
+  assert.equal(isActiveOn(h, TODAY), false);
+  assert.equal(isDueOn(h, TODAY), false);
+  assert.equal(isOpenOn(h, TODAY), false);
+});
+
+// ── Measurable targets ────────────────────────────────────
+test('a target is read safely, and progress is counted per day', async () => {
+  const { targetOf, progressOn, isTargetMet } = await load();
+  assert.equal(targetOf({}), null);
+  assert.deepEqual(targetOf({ target: { amount: 8, unit: 'glasses' } }), { amount: 8, unit: 'glasses', step: 1 });
+  assert.deepEqual(targetOf({ target: { amount: 20, unit: 'min', step: 5 } }), { amount: 20, unit: 'min', step: 5 });
+  for (const bad of [{ amount: 0 }, { amount: -3 }, { amount: 'eight' }, { amount: 1e9 }, 'x', null]) assert.equal(targetOf({ target: bad }), null, JSON.stringify(bad));
+  assert.equal(targetOf({ target: { amount: 8, unit: 'x'.repeat(40) } }).unit.length, 12);     // a long unit is cut
+  assert.equal(targetOf({ target: { amount: 8, step: 0 } }).step, 1);
+  const h = { target: { amount: 8, unit: 'glasses' }, progress: { [TODAY]: 5, [back(1)]: 9, [back(2)]: 'junk' } };
+  assert.equal(progressOn(h, TODAY), 5);
+  assert.equal(progressOn(h, back(1)), 9);
+  assert.equal(progressOn(h, back(2)), 0);
+  assert.equal(progressOn(h, back(3)), 0);
+  assert.equal(isTargetMet(h, TODAY), false);
+  assert.equal(isTargetMet(h, back(1)), true);
+  assert.equal(isTargetMet({ completedDates: [] }, TODAY), false);                       // no target: never "met" by count
+});
+
+test('partial progress is not done: only completedDates decides', async () => {
+  const { isOpenOn, isDoneOn } = await load();
+  const h = { target: { amount: 8 }, progress: { [TODAY]: 5 }, completedDates: [] };
+  assert.equal(isDoneOn(h, TODAY), false);
+  assert.equal(isOpenOn(h, TODAY), true);
+  assert.equal(isOpenOn({ ...h, completedDates: [TODAY] }, TODAY), false);
+});

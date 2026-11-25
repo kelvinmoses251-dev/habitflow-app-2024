@@ -747,6 +747,10 @@ html.dialog-open { overflow: hidden; }
 .habit-check.nudge { box-shadow: 0 0 0 4px var(--primary-line); border-color: var(--primary); }
 .habit-meta { display: flex; flex-direction: column; min-width: 0; cursor: pointer; gap: 3px; }
 .habit-name { font-weight: 500; font-size: var(--fs-base); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The cue: what triggers the habit. One quiet line under the name, cut short when it is long. */
+.habit-cue { font-size: var(--fs-sm); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.focus-cue { color: var(--text-2); font-size: var(--fs-md); overflow-wrap: anywhere; }
+.focus-cue:empty { display: none; }
 .habit-name.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--border-strong); }
 .badges-row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-xs); color: var(--muted); }
 .cat-badge { display: inline-flex; align-items: center; gap: 6px; }

@@ -253,6 +253,22 @@ const CATS = {
 Object.keys(CATS).forEach(key => { CATS[key].icon = catIcon(key); });
 const catColor = cat => (isDarkTheme() ? cat.dark : cat.color);
 
+// A habit may carry its own icon and colour. Both are optional and validated against these lists, so anything
+// unexpected in the data simply falls back to the category's look.
+const HABIT_COLORS = ['red', 'orange', 'amber', 'green', 'teal', 'blue', 'violet', 'slate'];
+const HABIT_ICONS = [...Object.keys(CATS).map(k => 'cat-' + k), 'drop', 'bed', 'heart', 'leaf', 'coffee', 'pen', 'music', 'flame', 'star', 'target', 'clock',
+  'sun', 'sunrise', 'moon', 'home', 'phone', 'calendar', 'bell', 'award'];
+const ICON_NAME = k => (k.startsWith('cat-') ? CATS[k.slice(4)].label : k.charAt(0).toUpperCase() + k.slice(1));
+const iconSvg = key => `<svg class="icon" aria-hidden="true"><use href="#i-${key}"/></svg>`;
+function habitLook(h) {
+  const cat = CATS[h.category] || CATS.health;
+  return {
+    cat,
+    icon: HABIT_ICONS.includes(h.icon) ? iconSvg(h.icon) : cat.icon,
+    color: HABIT_COLORS.includes(h.color) ? `var(--hc-${h.color})` : catColor(cat),     // the token follows the theme by itself
+  };
+}
+
 // The four dropdowns become designed lists (ui.js). Category ones show each category's icon in its colour.
 const catChip = value => (CATS[value] ? `<span class="cat-ico" style="--cat:${catColor(CATS[value])}">${CATS[value].icon}</span>` : '');
 enhanceSelect(document.getElementById('habit-category'), { iconFor: catChip });
@@ -1389,8 +1405,11 @@ document.getElementById('crop-save').addEventListener('click', async () => {
 
 
 // ── Firestore CRUD ────────────────────────────────────────
-function addHabit(name, category, frequency, timeOfDay) {
+// `extra` holds the optional fields (timeOfDay, icon, color, …). Only fields that have a value are stored:
+// an absent field means "the default", which is what keeps old habits working unchanged.
+function addHabit(name, category, frequency, extra = {}) {
   if (!currentUser) return Promise.resolve();
+  const optional = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined && v !== null && v !== '' && v !== 'any'));
   return addDoc(collection(db, 'habits'), {
     userId:         currentUser.uid,
     name,
@@ -1399,7 +1418,7 @@ function addHabit(name, category, frequency, timeOfDay) {
     completedDates: [],
     createdAt:      new Date().toISOString(),
     order:          Date.now(),
-    ...(timeOfDay && timeOfDay !== 'any' ? { timeOfDay } : {})          // optional: absent means any time
+    ...optional
   });
 }
 
@@ -1667,7 +1686,8 @@ function renderHabits() {
     li.className = 'habit-item' + (animateRows ? ' enter' : '') + (h.id === justCompletedId ? ' just-done' : '');
     li.dataset.id = h.id;
     li.dataset.group = `${grouped && freq === 'daily' ? timeSlot(h) : 'all'}|${smartSortEnabled && isDone ? 'done' : 'open'}`;
-    li.style.setProperty('--cat', catColor(cat));
+    const look = habitLook(h);
+    li.style.setProperty('--cat', look.color);
     li.style.setProperty('--i', rowIdx);
     li.innerHTML = `
       <button class="row-grip" type="button" aria-label="Reorder ${escHtml(h.name)}" title="Drag to reorder, or use the arrow keys"><svg class="icon" aria-hidden="true"><use href="#i-grip"/></svg></button>
@@ -1676,7 +1696,7 @@ function renderHabits() {
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name ${isDone ? 'done' : ''}">${escHtml(h.name)}</span>
           <div class="badges-row">
-            <span class="cat-badge"><span class="cat-ico">${cat.icon}</span>${cat.label}</span>
+            <span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
             ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
@@ -1821,7 +1841,7 @@ function renderFocus() {
   const cat = finished ? null : (CATS[h.category] || CATS.health);
   const chip = document.getElementById('focus-cat');
   chip.classList.toggle('hidden', finished);
-  chip.innerHTML = cat ? `<span class="cat-ico" style="--cat:${catColor(cat)}">${cat.icon}</span>${cat.label}` : '';
+  chip.innerHTML = cat ? `<span class="cat-ico" style="--cat:${habitLook(h).color}">${habitLook(h).icon}</span>${cat.label}` : '';
   document.getElementById('focus-skip').classList.toggle('hidden', finished);
   document.getElementById('focus-timer').classList.toggle('hidden', finished);
   set('focus-done', finished ? 'Finish' : 'Done');
@@ -1952,12 +1972,13 @@ function renderPastDay(day) {
   ['week-card', 'month-card', 'no-daily'].forEach(id => document.getElementById(id).classList.add('hidden'));
   list.innerHTML = items.length ? items.map(({ habit: h, done }) => {
     const cat = CATS[h.category] || CATS.health;
-    return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${catColor(cat)}">
+    const look = habitLook(h);
+    return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${look.color}">
       <div class="habit-label">
         <input type="checkbox" class="habit-check" disabled ${done ? 'checked' : ''} aria-label="${escHtml(h.name)}: ${done ? 'done' : 'not done'} that day" />
         <div class="habit-meta">
           <span class="habit-name ${done ? 'done' : ''}">${escHtml(h.name)}</span>
-          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${cat.icon}</span>${cat.label}</span></div>
+          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span></div>
         </div>
       </div>
     </li>`;
@@ -2113,6 +2134,8 @@ function openHabitSheet(habit = null) {
   sheetField('habit-category').value = habit ? (CATS[habit.category] ? habit.category : 'health') : '';
   sheetField('habit-frequency').value = habit ? (habit.frequency || 'daily') : 'daily';
   sheetField('habit-time').value = habit ? timeSlot(habit) : 'any';
+  setHabitLook(habit);
+  habitSheet.querySelectorAll('details.sheet-more').forEach(d => { d.open = false; });
   habitFormEl.hidden = false;
   newHabitToggle?.setAttribute('aria-expanded', 'true');
   renderHabitPreview();
@@ -2124,6 +2147,27 @@ function closeHabitSheet() {
   habitFormEl.hidden = true;
   newHabitToggle?.setAttribute('aria-expanded', 'false');
 }
+// Icon and colour pickers: plain radio groups, so the arrow keys and screen readers work without extra code.
+(function buildLookPickers() {
+  const colors = sheetField('habit-color-grid'), icons = sheetField('habit-icon-grid');
+  if (!colors || !icons) return;
+  const opt = (name, value, face, label, checked) =>
+    `<label class="pick-opt" title="${label}"><input type="radio" name="${name}" value="${value}"${checked ? ' checked' : ''} /><span class="pick-face">${face}</span><span class="sr-only">${label}</span></label>`;
+  colors.innerHTML = opt('habit-color', '', 'Auto', 'Automatic colour', true)
+    + HABIT_COLORS.map(k => opt('habit-color', k, `<span class="pick-swatch" style="--sw:var(--hc-${k})"></span>`, k.charAt(0).toUpperCase() + k.slice(1))).join('');
+  icons.innerHTML = opt('habit-icon', '', 'Auto', 'Automatic icon', true)
+    + HABIT_ICONS.map(k => opt('habit-icon', k, iconSvg(k), ICON_NAME(k) + ' icon')).join('');
+})();
+function readHabitLook() {
+  const val = name => habitFormEl?.querySelector(`input[name="${name}"]:checked`)?.value || '';
+  return { icon: val('habit-icon'), color: val('habit-color') };
+}
+function setHabitLook(habit) {
+  const set = (name, value) => { const r = [...habitFormEl.querySelectorAll(`input[name="${name}"]`)].find(x => x.value === value); if (r) r.checked = true; };
+  set('habit-icon', habit && HABIT_ICONS.includes(habit.icon) ? habit.icon : '');
+  set('habit-color', habit && HABIT_COLORS.includes(habit.color) ? habit.color : '');
+}
+
 // Kept for callers that think of it as "the New habit form" (the tour, the quick-add key)
 function setNewHabitOpen(open) { if (open) openHabitSheet(); else closeHabitSheet(); }
 
@@ -2135,13 +2179,17 @@ function renderHabitPreview() {
   const catKey = sheetField('habit-category').value, cat = CATS[catKey];
   const freq = sheetField('habit-frequency').value || 'daily';
   const slot = sheetField('habit-time').value;
-  box.innerHTML = `<div class="habit-item is-preview" style="--cat:${cat ? catColor(cat) : 'var(--muted)'}">
+  const chosen = readHabitLook();
+  const look = habitLook({ category: catKey, ...chosen });
+  const custom = [chosen.icon && ICON_NAME(chosen.icon), chosen.color && chosen.color.charAt(0).toUpperCase() + chosen.color.slice(1)].filter(Boolean);
+  sheetField('habit-look-val').textContent = custom.length ? custom.join(', ') : 'Automatic';
+  box.innerHTML = `<div class="habit-item is-preview" style="--cat:${cat || chosen.color ? look.color : 'var(--muted)'}">
     <div class="habit-label">
       <span class="preview-check"></span>
       <div class="habit-meta">
         <span class="habit-name${name ? '' : ' is-empty'}">${name ? escHtml(name) : 'Your habit'}</span>
         <div class="badges-row">
-          ${cat ? `<span class="cat-badge"><span class="cat-ico">${cat.icon}</span>${cat.label}</span>` : '<span class="cat-badge">Category</span>'}
+          ${cat ? `<span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>` : `<span class="cat-badge">${chosen.icon ? `<span class="cat-ico">${look.icon}</span>` : ''}Category</span>`}
           ${freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
           ${slot && slot !== 'any' ? `<span class="freq-badge">${SLOT_LABEL[slot]}</span>` : ''}
         </div>
@@ -2188,13 +2236,17 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   const frequency = sheetField('habit-frequency').value || 'daily';
   const timeOfDay = sheetField('habit-time').value || 'any';
   const editId = sheetField('habit-edit-id').value;
+  const extra = { timeOfDay, ...readHabitLook() };     // the optional fields, as the sheet has them now
   if (editId) {
-    // Editing changes what the habit is called and how it is filed. Its completions are never touched.
-    backgroundWrite(updateDoc(doc(db, 'habits', editId), { name, category, frequency, timeOfDay: timeOfDay === 'any' ? deleteField() : timeOfDay }), 'update the habit');
+    // Editing changes what the habit is called, how it is filed and how it looks. Its completions are never touched.
+    // An optional field that has been cleared is removed from the habit, not stored empty.
+    const cleared = v => v === undefined || v === null || v === '' || v === 'any';
+    const changes = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, cleared(v) ? deleteField() : v]));
+    backgroundWrite(updateDoc(doc(db, 'habits', editId), { name, category, frequency, ...changes }), 'update the habit');
     toast('Habit updated', 'success');
     track('habit_edited');
   } else {
-    backgroundWrite(addHabit(name, category, frequency, timeOfDay), 'add the habit');
+    backgroundWrite(addHabit(name, category, frequency, extra), 'add the habit');
     toast('Habit added', 'success');
     track('habit_added', { category, frequency, source: 'form' });
   }

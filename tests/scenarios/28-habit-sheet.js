@@ -100,4 +100,55 @@ module.exports = (scenario, c) => {
     check('which opens the sheet', await sheetOpen());
     noExceptions();
   });
+
+  // ── 24: an icon and a colour for each habit ──────────────
+  const lum = col => { const [r, g, b] = col.match(/[\d.]+/g).map(Number).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }); return .2126 * r + .7152 * g + .0722 * b; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+  const pick = (name, value) => ev(`(() => { const r = document.querySelector('#habit-sheet input[name="${name}"][value="${value}"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  const rowIcon = id => ev(`document.querySelector('.habit-item[data-id="${id}"] .cat-ico use').getAttribute('href')`);
+  const rowColor = id => ev(`getComputedStyle(document.querySelector('.habit-item[data-id="${id}"] .cat-ico')).color`);
+  const tokenColor = name => ev(`(() => { const d = document.createElement('i'); d.style.color = 'var(${name})'; document.body.appendChild(d); const col = getComputedStyle(d).color; d.remove(); return col; })()`);
+
+  scenario('look: a habit can have its own icon and colour, and falls back to its category', async () => {
+    await boot({ seed: seed({ a: H('Read', { category: 'reading' }), bad: H('Odd data', { order: 2, icon: 'no-such-icon', color: 'pink' }) }) }); await rows(); await sleep(300);
+    check('by default a habit wears its category icon', (await rowIcon('a')) === '#i-cat-reading');
+    check('unknown stored values fall back to the category, without an error', (await rowIcon('bad')) === '#i-cat-health');
+    await ev(`document.getElementById('new-habit-toggle').click()`); await sleep(450);
+    await fill('Drink water', 'health'); await sleep(100);
+    check('the look options are tucked away until wanted', !(await ev(`document.getElementById('habit-look').open`)));
+    await ev(`document.getElementById('habit-look').open = true`); await sleep(100);
+    check('there are 8 colours and at least 24 icons to choose from, plus Automatic', (await ev(`document.querySelectorAll('#habit-sheet input[name="habit-color"]').length`)) === 9 && (await ev(`document.querySelectorAll('#habit-sheet input[name="habit-icon"]').length`)) >= 25);
+    check('every choice has a name for screen readers', await ev(`[...document.querySelectorAll('#habit-sheet .pick-opt')].every(l => l.textContent.trim().length > 1)`));
+    check('choices are 44px targets', (await ev(`Math.min(...[...document.querySelectorAll('#habit-sheet .pick-opt')].map(l => Math.min(l.getBoundingClientRect().width, l.getBoundingClientRect().height)))`)) >= 44);
+    await pick('habit-icon', 'drop'); await pick('habit-color', 'teal'); await sleep(150);
+    check('the preview takes the chosen icon', await ev(`!!document.querySelector('#habit-preview use[href="#i-drop"]')`));
+    check('and the chosen colour', (await ev(`getComputedStyle(document.querySelector('#habit-preview .cat-ico')).color`)) === (await tokenColor('--hc-teal')));
+    await ev(`document.getElementById('habit-form').requestSubmit()`); await sleep(500);
+    const id = await ev(`Object.keys(__mockDB.habits).find(k => __mockDB.habits[k].name === 'Drink water')`);
+    check('both are saved with the habit', (await ev(`__mockDB.habits[${JSON.stringify(id)}].icon + '|' + __mockDB.habits[${JSON.stringify(id)}].color`)) === 'drop|teal');
+    check('the row shows them', (await rowIcon(id)) === '#i-drop' && (await rowColor(id)) === (await tokenColor('--hc-teal')));
+    check('the category is still named on the row', /Health/.test(await ev(`document.querySelector('.habit-item[data-id="${id}"] .cat-badge').textContent`)));
+    check('a habit made without choosing stores nothing extra', await ev(`!('icon' in __mockDB.habits.a) && !('color' in __mockDB.habits.a)`));
+    noExceptions();
+  });
+
+  scenario('look: editing keeps or clears the look, and every colour is readable in both themes', async () => {
+    await boot({ seed: seed({ a: H('Run', { category: 'fitness', icon: 'flame', color: 'red' }) }), mobile: false }); await rows(); await sleep(300);
+    await ev(`document.querySelector('.habit-item[data-id="a"] [data-action="edit"]').click()`); await sleep(450);
+    check('Edit shows the saved choices', (await ev(`document.querySelector('#habit-sheet input[name="habit-icon"]:checked').value + '|' + document.querySelector('#habit-sheet input[name="habit-color"]:checked').value`)) === 'flame|red');
+    check('and says so on the closed section', /flame|red|custom/i.test(await ev(`document.getElementById('habit-look-val').textContent`)));
+    await pick('habit-icon', ''); await pick('habit-color', ''); await ev(`document.getElementById('habit-form').requestSubmit()`); await sleep(500);
+    check('choosing Automatic removes them', await ev(`!('icon' in __mockDB.habits.a) && !('color' in __mockDB.habits.a)`));
+    check('and the row is back to its category look', (await rowIcon('a')) === '#i-cat-fitness');
+    for (const theme of ['light', 'dark']) {
+      await boot({ seed: seed({ a: H('Run') }, theme === 'dark' ? { theme: 'dark' } : {}) }); await rows(); await sleep(250);
+      const bg = await ev(`getComputedStyle(document.querySelector('#habits').closest('.card')).backgroundColor`);
+      let worst = 99;
+      for (const k of ['red', 'orange', 'amber', 'green', 'teal', 'blue', 'violet', 'slate']) worst = Math.min(worst, ratio(await tokenColor('--hc-' + k), bg));
+      check(`${theme}: every habit colour is at least 3:1 against a card`, worst >= 3, worst.toFixed(2));
+    }
+    const fs = require('fs'), path = require('path');
+    check('the privacy policy mentions the icon and colour', /icon and colour/i.test(fs.readFileSync(path.resolve(__dirname, '..', '..', 'privacy.html'), 'utf8')));
+    noExceptions();
+  });
 };

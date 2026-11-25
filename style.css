@@ -91,6 +91,9 @@
 
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;   /* headlines and large numerals only */
+  /* Colours a habit can be given. Each has a lighter partner for dark surfaces; all are at least 3:1 on a card. */
+  --hc-red: #DC2626; --hc-orange: #EA580C; --hc-amber: #A16207; --hc-green: #16A34A;
+  --hc-teal: #0891B2; --hc-blue: #4361EE; --hc-violet: #7C3AED; --hc-slate: #475569;
   --streak: #B4530A;                                                      /* warm accent reserved for streaks */
 
   --topnav-h: 56px;
@@ -132,6 +135,8 @@
   --danger-soft:  #2D1715;
 
   --heat-1: #2A2650; --heat-2: #413A8A; --heat-3: #6657DB; --heat-4: #A79EF5;
+  --hc-red: #F87171; --hc-orange: #FB923C; --hc-amber: #FACC15; --hc-green: #4ADE80;
+  --hc-teal: #22D3EE; --hc-blue: #8AA0FF; --hc-violet: #A78BFA; --hc-slate: #94A3B8;
   --streak: #F2A65A;
   --elev-1: 0 1px 2px rgba(0,0,0,.35), 0 1px 1px rgba(0,0,0,.2);
   --elev-2: 0 2px 4px rgba(0,0,0,.35), 0 8px 20px rgba(0,0,0,.45);
@@ -577,6 +582,25 @@ html.dialog-open { overflow: hidden; }
 .preview-check { flex: none; width: 24px; height: 24px; border-radius: var(--r-full); border: 1.5px solid var(--border-strong); background: var(--surface); }
 .habit-preview .habit-name.is-empty { color: var(--muted); }
 .empty-create { margin-top: var(--sp-2); }
+/* Optional sections of the sheet */
+.sheet-more { border: 1px solid var(--border); border-radius: var(--r-md); }
+.sheet-more > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 44px; padding: 0 var(--sp-3); cursor: pointer; font-size: var(--fs-ui); font-weight: 500; list-style: none; }
+.sheet-more > summary::-webkit-details-marker { display: none; }
+.sheet-more-val { color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-more[open] > summary { border-bottom: 1px solid var(--border); }
+.sheet-more > :not(summary) { margin: var(--sp-3); }
+/* Pickers: radio groups drawn as swatches and icon tiles (arrow keys move between them) */
+.pick { border: 0; min-width: 0; }
+.pick legend { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: var(--sp-2); }
+.pick-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.pick-opt { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md); cursor: pointer; color: var(--text-2); }
+.pick-opt input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.pick-opt .pick-face { display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--r-md); border: 1px solid transparent; font-size: var(--fs-2xs); font-weight: 600; }
+.pick-opt .pick-face .icon { width: 18px; height: 18px; }
+.pick-opt .pick-swatch { width: 24px; height: 24px; border-radius: var(--r-full); background: var(--sw); }
+.pick-opt:hover .pick-face { background: var(--surface-2); }
+.pick-opt input:checked + .pick-face { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-ink); }
+.pick-opt input:focus-visible + .pick-face { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
 /* Focus view: a calm full-screen layer with one habit on it */
 .focus-open { margin-top: var(--sp-3); }
 .focus-open.hidden { display: none; }

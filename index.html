@@ -50,13 +50,13 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
   <link rel="modulepreload" href="ui.js?v=6" />
-  <link rel="modulepreload" href="habit-rules.js?v=4" />
+  <link rel="modulepreload" href="habit-rules.js?v=5" />
   <link rel="modulepreload" href="home.js?v=7" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=61" />
+  <link rel="stylesheet" href="style.css?v=62" />
 </head>
 <body>
 
@@ -126,6 +126,9 @@
     <symbol id="i-chevron-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
     <symbol id="i-chevron-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
     <symbol id="i-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></symbol>
     <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
   </defs>
 </svg>
@@ -418,6 +421,9 @@
           <!-- Habits with a start date still ahead -->
           <button type="button" id="soon-note" class="rest-note hidden" aria-expanded="false" aria-controls="habits-soon"></button>
           <ul id="habits-soon" class="habits-list hidden"></ul>
+          <!-- Paused habits -->
+          <button type="button" id="paused-note" class="rest-note hidden" aria-expanded="false" aria-controls="habits-paused"></button>
+          <ul id="habits-paused" class="habits-list hidden"></ul>
           <button type="button" id="focus-open" class="btn-secondary btn-full focus-open hidden"><svg class="icon" aria-hidden="true"><use href="#i-target"/></svg>Focus: one habit at a time</button>
           <div id="empty-state" class="empty-state hidden">
             <p class="empty-title">Start with a ready-made set</p>
@@ -578,6 +584,11 @@
             <div class="setting-row">
               <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-book"/></svg><span class="setting-label">Guided tour</span></div>
               <button id="open-tutorial-btn" class="btn-link" type="button">Start</button>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-archive"/></svg><span class="setting-label">Archive</span></div>
+              <button id="open-archive-btn" class="btn-link" type="button">View</button>
             </div>
 
             <div class="setting-row">
@@ -775,6 +786,19 @@
   </div>
 </div>
 
+<!-- Archive: habits put away, and habits whose run has ended -->
+<div id="archive-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+  <div class="dialog dialog-scroll">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <h2 class="dialog-title" id="archive-title">Archive</h2>
+    <p class="dialog-text">Habits you have put away or finished. Their history still counts in your stats.</p>
+    <div id="archive-list" class="deleted-list"></div>
+    <div class="dialog-actions">
+      <button id="archive-close" data-dismiss class="btn-secondary" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Focus timer -->
 <div id="timer-modal" class="modal hidden" data-sticky role="dialog" aria-modal="true" aria-label="Focus timer">
   <div class="dialog dialog-narrow">
@@ -815,6 +839,12 @@
         <option value="evening">Evening</option>
       </select>
     </div>
+
+    <div class="details-life">
+      <button id="details-pause" class="btn-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-pause"/></svg><span>Pause</span></button>
+      <button id="details-archive" class="btn-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-archive"/></svg><span>Archive</span></button>
+    </div>
+    <p id="details-life-note" class="details-life-note"></p>
 
     <div class="details-journal">
       <h3>Notes</h3>
@@ -892,6 +922,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=63"></script>
+<script type="module" src="app.js?v=64"></script>
 </body>
 </html>

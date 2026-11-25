@@ -262,3 +262,45 @@ test('target: done means completed, so raising the target later never un-does a 
   assert.equal(r.isTargetMet(h, '2026-11-25'), false);
   assert.equal(r.isTargetMet({ ...h, target: { amount: 5 } }, '2026-11-25'), true);
 });
+
+test('dates: not started and ended are told apart from simply inactive', async () => {
+  const r = await load();
+  assert.equal(r.notStartedOn({ startDate: '2026-12-01' }, '2026-11-30'), true);
+  assert.equal(r.notStartedOn({ startDate: '2026-12-01' }, '2026-12-01'), false);       // the start day itself is in
+  assert.equal(r.hasEndedOn({ endDate: '2026-12-01' }, '2026-12-01'), false);           // so is the end day
+  assert.equal(r.hasEndedOn({ endDate: '2026-12-01' }, '2026-12-02'), true);
+  for (const bad of [undefined, null, 'banana', 12, '2026-1-1']) {
+    assert.equal(r.notStartedOn({ startDate: bad }, '2026-11-30'), false, String(bad));
+    assert.equal(r.hasEndedOn({ endDate: bad }, '2026-11-30'), false, String(bad));
+  }
+});
+
+// ── Pausing and resuming (roadmap 28) ────────────────────
+test('pause: pausing opens a pause from that day, once', async () => {
+  const r = await load();
+  assert.deepEqual(r.withPause({}, '2026-11-25'), [{ from: '2026-11-25' }]);
+  const paused = { pauses: [{ from: '2026-11-20' }] };
+  assert.deepEqual(r.withPause(paused, '2026-11-25'), [{ from: '2026-11-20' }]);                    // already paused: unchanged
+  const earlier = { pauses: [{ from: '2026-11-01', to: '2026-11-05' }, 'junk', null, { to: '2026-11-09' }] };
+  assert.deepEqual(r.withPause(earlier, '2026-11-25'), [{ from: '2026-11-01', to: '2026-11-05' }, { from: '2026-11-25' }]);
+});
+
+test('pause: resuming ends the pause the day before, and a same-day pause leaves nothing', async () => {
+  const r = await load();
+  assert.deepEqual(r.withResume({ pauses: [{ from: '2026-11-20' }] }, '2026-11-25'), [{ from: '2026-11-20', to: '2026-11-24' }]);
+  assert.deepEqual(r.withResume({ pauses: [{ from: '2026-11-25' }] }, '2026-11-25'), []);
+  assert.deepEqual(r.withResume({ pauses: [{ from: '2026-11-01', to: '2026-11-05' }, { from: '2026-11-20' }] }, '2026-11-25'),
+    [{ from: '2026-11-01', to: '2026-11-05' }, { from: '2026-11-20', to: '2026-11-24' }]);
+  assert.deepEqual(r.withResume({ pauses: [{ from: '2026-11-20', to: '2026-11-30' }] }, '2026-11-25'), [{ from: '2026-11-20', to: '2026-11-24' }]);   // a dated pause cut short
+  assert.deepEqual(r.withResume({}, '2026-11-25'), []);
+  const resumed = { completedDates: [], pauses: r.withResume({ pauses: [{ from: '2026-11-20' }] }, '2026-11-25') };
+  assert.equal(r.isPausedOn(resumed, '2026-11-25'), false);
+  assert.equal(r.isPausedOn(resumed, '2026-11-24'), true);
+});
+
+test('pause: since when', async () => {
+  const r = await load();
+  assert.equal(r.pausedSince({ pauses: [{ from: '2026-11-01', to: '2026-11-05' }, { from: '2026-11-20' }] }, '2026-11-25'), '2026-11-20');
+  assert.equal(r.pausedSince({ pauses: [{ from: '2026-11-01', to: '2026-11-05' }] }, '2026-11-25'), null);
+  assert.equal(r.pausedSince({}, '2026-11-25'), null);
+});

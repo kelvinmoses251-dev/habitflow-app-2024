@@ -82,4 +82,94 @@ module.exports = (scenario, c) => {
     check('the privacy policy mentions start and end dates', /start and end dates/i.test(privacy()));
     noExceptions();
   });
+
+  // ── 28: pause and archive ────────────────────────────────
+  const openDetails = async id => { await ev(`document.querySelector('.habit-item[data-id="${id}"] [data-action="details"]').click()`); await sleep(400); };
+  const pauses = id => ev(`JSON.stringify(__mockDB.habits[${JSON.stringify(id)}].pauses || null)`);
+  const streakOf = id => text(`.habit-item[data-id="${id}"] .streak-pill`);
+  const five = () => [day(1), day(2), day(3), day(4), day(5)];
+
+  scenario('pause: a habit can be paused from its details and waits at the foot of Today', async () => {
+    await boot({ seed: seed({ a: H('Read'), g: H('Gym', { order: 2, completedDates: five() }) }) }); await rows(); await sleep(300);
+    check('before: two habits count today', /of 2$/.test(await text('#ring-of')));
+    await openDetails('g');
+    check('details offers Pause and Archive', (await text('#details-pause')).trim() === 'Pause' && (await text('#details-archive')).trim() === 'Archive');
+    await ev(`document.getElementById('details-pause').click()`); await sleep(500);
+    check('pausing records an open pause from today', (await pauses('g')) === JSON.stringify([{ from: day(0) }]), await pauses('g'));
+    check('the dialog closes and a toast confirms', !(await visible('#details-modal')) && /Paused/.test(await ev(`document.getElementById('toast-container').innerText`)));
+    check('the habit leaves Today', !(await inToday('Gym')));
+    check('and the ring counts one habit', /of 1$/.test(await text('#ring-of')), await text('#ring-of'));
+    check('a quiet line says one habit is paused', (await visible('#paused-note')) && /1 habit paused/.test(await text('#paused-note')), await text('#paused-note'));
+    await ev(`document.getElementById('paused-note').click()`); await sleep(200);
+    check('opening it shows the habit with a Resume button that can be seen and tapped', await ev(`(() => { const b = document.querySelector('#habits-paused .habit-item[data-id="g"] [data-action="resume"]'); if (!b) return false; const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 && getComputedStyle(b).visibility === 'visible' && getComputedStyle(b.parentElement).opacity === '1'; })()`));
+    check('nothing was deleted: its history is intact', await ev(`__mockDB.habits.g.completedDates.length === 5 && !__mockDB.habits.g.deletedAt`));
+    await ev(`document.querySelector('#habits-paused [data-action="resume"]').click()`); await sleep(500);
+    check('resuming the same day leaves no pause behind', (await pauses('g')) === '[]', await pauses('g'));
+    check('the habit is back in Today with its streak', (await inToday('Gym')) && /5/.test(await streakOf('g')), await streakOf('g'));
+    noExceptions();
+  });
+
+  scenario('pause: paused days never break a streak, and never add to it', async () => {
+    // Done five days, then paused for three, resumed today
+    await boot({ seed: seed({
+      g: H('Gym', { completedDates: [day(4), day(5), day(6), day(7), day(8)], pauses: [{ from: day(3), to: day(1) }] }),
+      p: H('Still paused', { order: 2, completedDates: [day(6), day(7)], pauses: [{ from: day(5) }] }),
+      w: H('Weekly one', { order: 3, frequency: 'weekly', pauses: [{ from: day(2) }] }),
+    }), mobile: false }); await rows(); await sleep(300);
+    check('after a pause the streak is where it was left', /5/.test(await streakOf('g')), await streakOf('g'));
+    await ev(`document.querySelector('.habit-item[data-id="g"] .habit-check').click()`); await sleep(900);
+    check('doing it on the day of return makes it six', /6/.test(await streakOf('g')), await streakOf('g'));
+    check('paused habits of any kind wait in the paused line', !(await inToday('Still paused')) && !(await inToday('Weekly one')) && /2 habits paused/.test(await text('#paused-note')), await text('#paused-note'));
+    await ev(`document.getElementById('paused-note').click()`); await sleep(200);
+    check('each says since when', /^Paused since /.test((await text('#habits-paused .habit-item[data-id="p"] .run-badge')).trim()), await text('#habits-paused .habit-item[data-id="p"] .run-badge'));
+    await ev(`document.querySelector('#habits-paused .habit-item[data-id="p"] [data-action="details"]').click()`); await sleep(400);
+    check('details of a paused habit offers Resume and says the streak is safe', (await text('#details-pause')).trim() === 'Resume' && /never break/.test(await text('#details-life-note')));
+    await ev(`document.getElementById('details-pause').click()`); await sleep(500);
+    check('resuming closes the pause on yesterday', (await pauses('p')) === JSON.stringify([{ from: day(5), to: day(1) }]), await pauses('p'));
+    check('and its streak of two is still there', /2/.test(await streakOf('p')), await streakOf('p'));
+    noExceptions();
+  });
+
+  scenario('archive: a habit can be put away and brought back, with nothing lost', async () => {
+    await boot({ seed: seed({
+      a: H('Read'),
+      o: H('Old project', { order: 2, completedDates: five() }),
+      f: H('Finished run', { order: 3, startDate: day(40), endDate: day(1), completedDates: [day(1), day(2), day(3)] }),
+    }), mobile: false }); await rows(); await sleep(300);
+    await openDetails('o');
+    await ev(`document.getElementById('details-archive').click()`); await sleep(500);
+    check('archiving stamps the habit and deletes nothing', await ev(`typeof __mockDB.habits.o.archivedAt === 'number' && !__mockDB.habits.o.deletedAt && __mockDB.habits.o.completedDates.length === 5`));
+    check('it leaves Today and the ring', !(await inToday('Old project')) && /of 1$/.test(await text('#ring-of')), await text('#ring-of'));
+    check('the toast says where it went and offers Undo', /Archive/.test(await ev(`document.getElementById('toast-container').innerText`)) && /Undo/.test(await text('#toast-container .toast-action')));
+    await ev(`document.querySelector('#toast-container .toast-action').click()`); await sleep(500);
+    check('Undo brings it straight back', (await inToday('Old project')) && await ev(`!('archivedAt' in __mockDB.habits.o)`));
+    await openDetails('o'); await ev(`document.getElementById('details-archive').click()`); await sleep(500);
+    await ev(`location.hash = '#profile'`); await sleep(500);
+    check('Profile has an Archive entry', await visible('#open-archive-btn'));
+    await ev(`document.getElementById('open-archive-btn').click()`); await sleep(400);
+    check('the archive lists the archived habit with its tally', (await visible('#archive-modal')) && /Old project/.test(await text('#archive-list')) && /5 check-ins/.test(await text('#archive-list .archive-item[data-id="o"]')), await text('#archive-list'));
+    check('and the habit whose run ended, as Finished', /Finished/.test(await text('#archive-list .archive-item[data-id="f"]')) && /3 check-ins/.test(await text('#archive-list .archive-item[data-id="f"]')), await text('#archive-list .archive-item[data-id="f"]'));
+    await ev(`document.querySelector('#archive-list .archive-item[data-id="o"] [data-action="unarchive"]').click()`); await sleep(500);
+    check('Restore puts an archived habit back', await ev(`!('archivedAt' in __mockDB.habits.o)`) && !/Old project/.test(await text('#archive-list')));
+    await ev(`document.querySelector('#archive-list .archive-item[data-id="f"] [data-action="unarchive"]').click()`); await sleep(500);
+    check('Restore on a finished habit lets it run on, by removing its end date', await ev(`!('endDate' in __mockDB.habits.f) && __mockDB.habits.f.completedDates.length === 3`));
+    check('an empty archive says so', /Nothing in the archive/.test(await text('#archive-list')), await text('#archive-list'));
+    await ev(`document.getElementById('archive-close').click(); location.hash = '#home'`); await sleep(500);
+    check('both are in Today again', (await inToday('Old project')) && (await inToday('Finished run')));
+    noExceptions();
+  });
+
+  scenario('archive: deleting from the archive uses the normal one-hour bin, and it all fits a phone', async () => {
+    await boot({ seed: seed({ a: H('Read'), o: H('A habit with quite a long name that I put away last spring', { order: 2, archivedAt: Date.now() - 864e5, completedDates: five() }), p: H('Paused one', { order: 3, pauses: [{ from: day(2) }] }) }) }); await size(320, 568); await rows(); await sleep(300);
+    check('an archived habit is not in Today when the app opens', !(await inToday('A habit with quite a long name that I put away last spring')) && /of 1$/.test(await text('#ring-of')));
+    await ev(`document.getElementById('paused-note').click()`); await sleep(200);
+    check('320px: the paused list fits, no horizontal scroll', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    await ev(`location.hash = '#profile'`); await sleep(500);
+    await ev(`document.getElementById('open-archive-btn').click()`); await sleep(400);
+    check('320px: the archive fits, with 44px buttons', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#archive-list button')].every(b => b.getBoundingClientRect().height >= 44 && b.getBoundingClientRect().right <= innerWidth)`));
+    await ev(`document.querySelector('#archive-list [data-action="archive-delete"]').click()`); await sleep(500);
+    check('Delete moves it to Recently deleted, not straight to nothing', await ev(`typeof __mockDB.habits.o.deletedAt === 'number'`));
+    check('the dialog can be closed with Escape', await (async () => { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await sleep(300); return !(await visible('#archive-modal')); })());
+    noExceptions();
+  });
 };

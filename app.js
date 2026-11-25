@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import * as rules from "./habit-rules.js?v=4";
+import * as rules from "./habit-rules.js?v=5";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -952,7 +952,7 @@ function initRouter() {
 const ESC_CLOSERS = [   // ordered top of the stack first
   ['share-card-modal', 'share-card-close'], ['level-up-modal', 'level-up-claim-btn'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
-  ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['details-modal', 'details-close'],
+  ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['details-modal', 'details-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
   ['focus-view', 'focus-exit'],
   ['notif-ask', 'notif-ask-no'],
@@ -1508,6 +1508,7 @@ function subscribeToHabits() {
 
     habitsLoaded = true;
     renderHabits();
+    if (!document.getElementById('archive-modal')?.classList.contains('hidden')) renderArchive();   // keep an open archive current
     if (userDocLoaded) updateStreak();   // before that, shield data is still defaults
     syncUserStats();
 
@@ -1597,10 +1598,12 @@ function renderHabits() {
   // Habits that are archived or past their end date are out of the list (their history stays in the stats).
   // Ones whose start date is still ahead wait in a quiet line at the foot of Today.
   const upcoming = sorted.filter(h => !h.archivedAt && rules.notStartedOn(h, t));
-  const inPlay = sorted.filter(h => rules.isActiveOn(h, t));
+  const active = sorted.filter(h => rules.isActiveOn(h, t));
+  const paused = active.filter(h => rules.isPausedOn(h, t));
+  const inPlay = active.filter(h => !paused.includes(h));
   const resting = inPlay.filter(h => rules.baseFreq(h) === 'daily' && !rules.isDueOn(h, t));
   sorted.splice(0, sorted.length, ...inPlay.filter(h => !resting.includes(h)));
-  renderAsides({ resting, upcoming });
+  renderAsides({ resting, upcoming, paused });
 
   // Today is grouped by time of day as soon as one daily habit has a time. The part of the day it is now
   // comes first. (A stable sort keeps the order above inside each group.)
@@ -1785,10 +1788,12 @@ const startsLabel = start => {
 };
 const ASIDES = {
   rest: { icon: 'i-moon', say: n => `${n} habit${n === 1 ? ' rests' : 's rest'} today`, why: 'not due today', badge: h => scheduleLabel(rules.scheduleOn(h, todayStr())) },
+  paused: { icon: 'i-pause', say: n => `${n} habit${n === 1 ? '' : 's'} paused`, why: 'paused', badge: h => 'Paused since ' + shortDate(rules.pausedSince(h, todayStr()) || todayStr()),
+    action: h => `<button class="btn-link" type="button" data-id="${h.id}" data-action="resume" aria-label="Resume ${escHtml(h.name)}">Resume</button>` },
   soon: { icon: 'i-calendar', say: n => `${n} habit${n === 1 ? ' starts' : 's start'} later`, why: 'not started yet', badge: h => startsLabel(h.startDate) },
 };
 function renderAsides(groups = {}) {
-  const habitsFor = { rest: groups.resting || [], soon: groups.upcoming || [] };
+  const habitsFor = { rest: groups.resting || [], soon: groups.upcoming || [], paused: groups.paused || [] };
   for (const [key, cfg] of Object.entries(ASIDES)) {
     const note = document.getElementById(key + '-note'), list = document.getElementById('habits-' + key), habits = habitsFor[key];
     if (!note || !list) continue;
@@ -1807,6 +1812,7 @@ function renderAsides(groups = {}) {
         </div>
       </div>
       <div class="habit-actions">
+        ${cfg.action ? cfg.action(h) : ''}
         <button class="btn-icon" data-id="${h.id}" data-action="edit" title="Edit habit" aria-label="Edit ${escHtml(h.name)}">${iconSvg('edit')}</button>
       </div>
     </li>`;
@@ -2509,6 +2515,9 @@ document.getElementById('page-home').addEventListener('click', async e => {
   const stepBtn = e.target.closest('[data-action="step"], [data-action="step-down"]');
   if (stepBtn) { stepHabit(stepBtn.dataset.id, stepBtn.dataset.action === 'step' ? 1 : -1); return; }
 
+  const resumeBtn = e.target.closest('[data-action="resume"]');
+  if (resumeBtn) { setPaused(resumeBtn.dataset.id, false); return; }
+
   const more = e.target.closest('[data-action="more"]');
   if (more) { setRevealed(revealedId === more.dataset.id ? null : more.dataset.id); return; }
   // Delete
@@ -2720,6 +2729,83 @@ document.getElementById('page-home').addEventListener('dblclick', async e => {
   }
 });
 
+
+// ── Pause and archive ─────────────────────────────────────
+// Pausing is for a holiday or an injury: the habit steps out of Today, the ring and reminders, and the paused
+// days are skipped by its streak (never counted as misses, never counted as done). Archiving puts a habit away
+// for good without deleting anything; it comes back from Profile, Archive.
+function setPaused(id, paused) {
+  const h = allHabits.find(x => x.id === id);
+  if (!h) return;
+  const today = todayStr();
+  backgroundWrite(updateDoc(doc(db, 'habits', id), { pauses: paused ? rules.withPause(h, today) : rules.withResume(h, today) }), paused ? 'pause the habit' : 'resume the habit');
+  toast(paused ? 'Paused. Its streak is safe until you resume.' : 'Resumed. Welcome back.', 'success');
+  track(paused ? 'habit_paused' : 'habit_resumed');
+}
+function setArchived(id, archived) {
+  return backgroundWrite(updateDoc(doc(db, 'habits', id), { archivedAt: archived ? Date.now() : deleteField() }), archived ? 'archive the habit' : 'restore the habit');
+}
+const closeDetails = () => { document.getElementById('details-modal').classList.add('hidden'); currentDetailsHabitId = null; };
+document.getElementById('details-pause')?.addEventListener('click', () => {
+  const h = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (!h) return;
+  setPaused(h.id, !rules.isPausedOn(h, todayStr()));
+  closeDetails();
+});
+document.getElementById('details-archive')?.addEventListener('click', () => {
+  const id = currentDetailsHabitId;
+  if (!id || !allHabits.some(x => x.id === id)) return;
+  setArchived(id, true);
+  closeDetails();
+  toast('Archived. You can bring it back from Profile, under Archive.', 'success', 6000, { label: 'Undo', onClick: () => setArchived(id, false) });
+  track('habit_archived');
+});
+const archivedHabits = () => {
+  const today = todayStr();
+  return allHabits.filter(h => h.archivedAt || rules.hasEndedOn(h, today))
+    .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0) || String(b.endDate || '').localeCompare(String(a.endDate || '')));
+};
+function renderArchive() {
+  const list = document.getElementById('archive-list');
+  if (!list) return;
+  const items = archivedHabits();
+  if (!items.length) { list.innerHTML = '<div class="deleted-empty">Nothing in the archive.</div>'; return; }
+  list.innerHTML = items.map(h => {
+    const n = (h.completedDates || []).length;
+    const when = h.archivedAt ? 'Archived ' + new Date(h.archivedAt).toLocaleDateString('en', { day: 'numeric', month: 'short' }) : 'Finished ' + shortDate(h.endDate);
+    return `<div class="deleted-habit-item archive-item" data-id="${h.id}">
+      <div class="deleted-habit-info">
+        <span class="deleted-habit-name">${escHtml(h.name || '')}</span>
+        <span class="deleted-habit-time">${when} · ${n} check-in${n === 1 ? '' : 's'}</span>
+      </div>
+      <div class="archive-actions">
+        <button class="btn-link" type="button" data-action="unarchive" data-id="${h.id}" aria-label="Restore ${escHtml(h.name || '')}">Restore</button>
+        <button class="btn-link danger" type="button" data-action="archive-delete" data-id="${h.id}" aria-label="Delete ${escHtml(h.name || '')}">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('open-archive-btn')?.addEventListener('click', () => {
+  renderArchive();
+  document.getElementById('archive-modal').classList.remove('hidden');
+});
+document.getElementById('archive-close')?.addEventListener('click', () => document.getElementById('archive-modal').classList.add('hidden'));
+document.getElementById('archive-list')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  const h = btn && allHabits.find(x => x.id === btn.dataset.id);
+  if (!h) return;
+  if (btn.dataset.action === 'unarchive') {
+    // An archived habit comes back as it was. One whose run ended comes back without its end date, so it runs on.
+    const changes = { archivedAt: deleteField() };
+    if (rules.hasEndedOn(h, todayStr())) changes.endDate = deleteField();
+    backgroundWrite(updateDoc(doc(db, 'habits', h.id), changes), 'restore the habit');
+    toast('Habit restored', 'success');
+    track('habit_unarchived');
+  } else if (btn.dataset.action === 'archive-delete') {
+    backgroundWrite(deleteHabit(h.id), 'remove the habit');
+    toast('Removed. It stays in Recently deleted for 1 hour.', 'success');
+  }
+});
 
 // ── Recovery Modal Events ──────────────────────────────────
 document.getElementById('open-recovery-btn').addEventListener('click', () => {
@@ -3618,6 +3704,10 @@ function openDetailsModal(habit) {
   document.getElementById('details-time-row').classList.toggle('hidden', habitFreq(habit) !== 'daily');
   document.getElementById('details-time').value = timeSlot(habit);
   
+  const pausedFrom = rules.pausedSince(habit, todayStr());
+  document.getElementById('details-pause').innerHTML = iconSvg(pausedFrom ? 'play' : 'pause') + `<span>${pausedFrom ? 'Resume' : 'Pause'}</span>`;
+  document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
+
   document.getElementById('details-journal-input').value = '';
   renderJournal(habit);
   

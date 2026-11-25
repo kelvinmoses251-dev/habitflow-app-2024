@@ -81,6 +81,27 @@ export function runDay(habit, today) {
   return { day: dayNumber(today) - dayNumber(habit.startDate) + 1, of: dayNumber(habit.endDate) - dayNumber(habit.startDate) + 1 };
 }
 
+// The pauses list after pausing from `day`, and after resuming on `day` (the pause then ends the day before;
+// a pause begun and ended on the same day leaves nothing behind). Malformed entries are dropped on the way.
+const cleanPauses = habit => (habit && Array.isArray(habit.pauses) ? habit.pauses : [])
+  .filter(p => p && isDayKey(p.from)).map(p => (isDayKey(p.to) ? { from: p.from, to: p.to } : { from: p.from }));
+export function withPause(habit, day) {
+  const pauses = cleanPauses(habit);
+  return isPausedOn(habit, day) ? pauses : [...pauses, { from: day }];
+}
+export function withResume(habit, day) {
+  return cleanPauses(habit).flatMap(p => {
+    if (p.to && p.to < day) return [p];                 // long over
+    if (p.from > day) return [p];                       // not begun yet
+    return p.from === day ? [] : [{ from: p.from, to: shiftDay(day, -1) }];
+  });
+}
+// The first day of the pause that covers `day`, or null.
+export function pausedSince(habit, day) {
+  const hit = cleanPauses(habit).filter(p => p.from <= day && (!p.to || day <= p.to)).map(p => p.from).sort();
+  return hit.length ? hit[0] : null;
+}
+
 export const notStartedOn = (habit, day) => !!habit && isDayKey(habit.startDate) && day < habit.startDate;
 export const hasEndedOn = (habit, day) => !!habit && isDayKey(habit.endDate) && day > habit.endDate;
 

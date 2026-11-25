@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import * as rules from "./habit-rules.js?v=3";
+import * as rules from "./habit-rules.js?v=4";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -1555,7 +1555,7 @@ function renderHabits() {
     viewDay = null;
     renderDayHeader();
     renderFilterBar(false);
-    renderResting([]);
+    renderAsides();
     document.getElementById('no-match').classList.add('hidden');
     document.getElementById('focus-open')?.classList.add('hidden');
     empty.classList.remove('hidden');
@@ -1572,7 +1572,7 @@ function renderHabits() {
     document.getElementById('home-filter')?.classList.add('hidden');
     document.getElementById('no-match')?.classList.add('hidden');
     document.getElementById('focus-open')?.classList.add('hidden');
-    renderResting([]);
+    renderAsides();
     renderPastDay(pastDay);
     return;
   }
@@ -1594,9 +1594,13 @@ function renderHabits() {
   });
 
   // Daily habits whose schedule skips today (a Mon/Wed/Fri habit on a Tuesday) are not in today's list or counts.
-  const resting = sorted.filter(h => rules.baseFreq(h) === 'daily' && !rules.isDueOn(h, t));
-  if (resting.length) sorted.splice(0, sorted.length, ...sorted.filter(h => !resting.includes(h)));
-  renderResting(resting);
+  // Habits that are archived or past their end date are out of the list (their history stays in the stats).
+  // Ones whose start date is still ahead wait in a quiet line at the foot of Today.
+  const upcoming = sorted.filter(h => !h.archivedAt && rules.notStartedOn(h, t));
+  const inPlay = sorted.filter(h => rules.isActiveOn(h, t));
+  const resting = inPlay.filter(h => rules.baseFreq(h) === 'daily' && !rules.isDueOn(h, t));
+  sorted.splice(0, sorted.length, ...inPlay.filter(h => !resting.includes(h)));
+  renderAsides({ resting, upcoming });
 
   // Today is grouped by time of day as soon as one daily habit has a time. The part of the day it is now
   // comes first. (A stable sort keeps the order above inside each group.)
@@ -1711,6 +1715,7 @@ function renderHabits() {
             <span class="cat-badge"><span class="cat-ico">${look.icon}</span>${goal ? `<span class="target-count">${escHtml(goalText)}</span>` : cat.label}</span>
             ${freq !== 'daily' ? '<span class="freq-badge">' + (prog && prog.target > 1 ? prog.done + ' of ' + prog.target + ' this week' : freq) + '</span>' : ''}
             ${freq === 'daily' && rules.scheduleOn(h, t).type === 'days' ? '<span class="freq-badge">' + scheduleLabel(rules.scheduleOn(h, t)) + '</span>' : ''}
+            ${rules.runDay(h, t) ? `<span class="freq-badge run-badge">Day ${rules.runDay(h, t).day} of ${rules.runDay(h, t).of}</span>` : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
             ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
             ${dotsHTML}
@@ -1770,35 +1775,49 @@ function scheduleLabel(schedule) {
 }
 
 // The quiet line under Today for daily habits that are not due today, and the read-only list it unfolds.
-function renderResting(resting) {
-  const note = document.getElementById('rest-note'), list = document.getElementById('habits-rest');
-  if (!note || !list) return;
-  note.classList.toggle('hidden', resting.length === 0);
-  if (!resting.length) { list.classList.add('hidden'); list.innerHTML = ''; note.setAttribute('aria-expanded', 'false'); return; }
-  const open = note.getAttribute('aria-expanded') === 'true';
-  note.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg><span>${resting.length} habit${resting.length === 1 ? ' rests' : 's rest'} today</span>`;
-  list.classList.toggle('hidden', !open);
-  list.innerHTML = resting.map(h => {
-    const look = habitLook(h);
-    return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${look.color}">
+// Habits that are not expected today sit in quiet, closed lines at the foot of Today: ones whose schedule skips
+// today, and ones whose start date is still ahead. They can be opened and edited, never ticked.
+const startsLabel = start => {
+  const gap = rules.dayNumber(start) - rules.dayNumber(todayStr());
+  const d = new Date(start + 'T12:00:00');
+  if (gap === 1) return 'Starts tomorrow';
+  return 'Starts ' + (gap > 1 && gap < 7 ? d.toLocaleDateString('en', { weekday: 'long' }) : d.toLocaleDateString('en', { day: 'numeric', month: 'short' }));
+};
+const ASIDES = {
+  rest: { icon: 'i-moon', say: n => `${n} habit${n === 1 ? ' rests' : 's rest'} today`, why: 'not due today', badge: h => scheduleLabel(rules.scheduleOn(h, todayStr())) },
+  soon: { icon: 'i-calendar', say: n => `${n} habit${n === 1 ? ' starts' : 's start'} later`, why: 'not started yet', badge: h => startsLabel(h.startDate) },
+};
+function renderAsides(groups = {}) {
+  const habitsFor = { rest: groups.resting || [], soon: groups.upcoming || [] };
+  for (const [key, cfg] of Object.entries(ASIDES)) {
+    const note = document.getElementById(key + '-note'), list = document.getElementById('habits-' + key), habits = habitsFor[key];
+    if (!note || !list) continue;
+    note.classList.toggle('hidden', habits.length === 0);
+    if (!habits.length) { list.classList.add('hidden'); list.innerHTML = ''; note.setAttribute('aria-expanded', 'false'); continue; }
+    note.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#${cfg.icon}"/></svg><span>${cfg.say(habits.length)}</span>`;
+    list.classList.toggle('hidden', note.getAttribute('aria-expanded') !== 'true');
+    list.innerHTML = habits.map(h => {
+      const look = habitLook(h);
+      return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${look.color}">
       <div class="habit-label">
-        <input type="checkbox" class="habit-check" disabled aria-label="${escHtml(h.name)}: not due today" />
+        <input type="checkbox" class="habit-check" disabled aria-label="${escHtml(h.name)}: ${cfg.why}" />
         <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
           <span class="habit-name">${escHtml(h.name)}</span>
-          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${look.icon}</span>${look.cat.label}</span><span class="freq-badge">${scheduleLabel(rules.scheduleOn(h, todayStr()))}</span></div>
+          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${look.icon}</span>${look.cat.label}</span><span class="freq-badge run-badge">${escHtml(cfg.badge(h))}</span></div>
         </div>
       </div>
       <div class="habit-actions">
         <button class="btn-icon" data-id="${h.id}" data-action="edit" title="Edit habit" aria-label="Edit ${escHtml(h.name)}">${iconSvg('edit')}</button>
       </div>
     </li>`;
-  }).join('');
+    }).join('');
+  }
 }
-document.getElementById('rest-note')?.addEventListener('click', e => {
-  const note = e.currentTarget, open = note.getAttribute('aria-expanded') !== 'true';
+document.querySelectorAll('#page-home .rest-note').forEach(note => note.addEventListener('click', () => {
+  const open = note.getAttribute('aria-expanded') !== 'true';
   note.setAttribute('aria-expanded', String(open));
-  document.getElementById('habits-rest').classList.toggle('hidden', !open);
-});
+  document.getElementById(note.getAttribute('aria-controls')).classList.toggle('hidden', !open);
+}));
 
 // Loss aversion: late in the day, say exactly which streak is about to end and how long is left.
 let riskTimer = null;
@@ -2197,6 +2216,9 @@ function openHabitSheet(habit = null) {
   sheetField('habit-target-unit').value = goal ? goal.unit : '';
   sheetField('habit-target-step').value = goal && goal.step !== 1 ? goal.step : '';
   ['habit-target-amount', 'habit-target-unit', 'habit-target-step'].forEach(id => clearFieldError(sheetField(id)));
+  sheetField('habit-start').value = habit && isDay(habit.startDate) ? habit.startDate : '';
+  sheetField('habit-end').value = habit && isDay(habit.endDate) ? habit.endDate : '';
+  clearFieldError(sheetField('habit-end'));
   setScheduleFields(habit);
   clearFieldError(sheetField('schedule-days'));
   setHabitLook(habit);
@@ -2261,6 +2283,34 @@ function setHabitLook(habit) {
 function setNewHabitOpen(open) { if (open) openHabitSheet(); else closeHabitSheet(); }
 
 // The preview is the row Today will show, built from what is in the fields right now. It is a picture, not a control.
+// Start and end dates: { startDate, endDate } ('' for none) or { error: [field, message] }.
+const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+function readDates() {
+  const st = sheetField('habit-start'), en = sheetField('habit-end');
+  const startDate = isDay(st.value) ? st.value : '', endDate = isDay(en.value) ? en.value : '';
+  if (st.validity.badInput) return { error: [st, 'Choose a full date, or clear it.'] };
+  if (en.validity.badInput) return { error: [en, 'Choose a full date, or clear it.'] };
+  if (endDate && endDate < (startDate || '')) return { error: [en, 'The end date cannot be before the start date.'] };
+  return { startDate, endDate };
+}
+const shortDate = key => new Date(key + 'T12:00:00').toLocaleDateString('en', { day: 'numeric', month: 'short' });
+function datesLabel(startDate, endDate) {
+  if (startDate && endDate) { const n = rules.dayNumber(endDate) - rules.dayNumber(startDate) + 1; return n > 0 ? `${n} day${n === 1 ? '' : 's'}` : 'Check the dates'; }
+  if (startDate) return 'From ' + shortDate(startDate);
+  if (endDate) return 'Until ' + shortDate(endDate);
+  return 'Always';
+}
+// Quick lengths: 30 days, 66 days (about how long a habit takes to stick), or no end. The run starts today unless a start is set.
+document.getElementById('habit-dates')?.addEventListener('click', e => {
+  const chip = e.target.closest('[data-run]');
+  if (!chip) return;
+  const st = sheetField('habit-start'), en = sheetField('habit-end'), days = +chip.dataset.run;
+  if (!isDay(st.value)) st.value = todayStr();
+  en.value = days ? rules.shiftDay(st.value, days - 1) : '';
+  clearFieldError(en);
+  renderHabitPreview();
+});
+
 // The goal fields: { target } (an object, or '' for none) or { error: [field, message] }.
 function readTarget() {
   const a = sheetField('habit-target-amount'), u = sheetField('habit-target-unit'), st = sheetField('habit-target-step');
@@ -2289,6 +2339,10 @@ function renderHabitPreview() {
   const sched = readSchedule().schedule;
   const chosen = readHabitLook();
   const goal = rules.targetOf({ target: readTarget().target });     // shown only when the goal boxes make sense
+  const dates = readDates();
+  sheetField('habit-dates-val').textContent = dates.error ? 'Check the dates' : datesLabel(dates.startDate, dates.endDate);
+  const runNow = dates.error ? null : rules.runDay(dates, todayStr());
+  const runText = dates.error ? '' : runNow ? `Day ${runNow.day} of ${runNow.of}` : dates.startDate > todayStr() ? startsLabel(dates.startDate) : '';
   const look = habitLook({ category: catKey, ...chosen });
   const custom = [chosen.icon && ICON_NAME(chosen.icon), chosen.color && chosen.color.charAt(0).toUpperCase() + chosen.color.slice(1)].filter(Boolean);
   sheetField('habit-look-val').textContent = custom.length ? custom.join(', ') : 'Automatic';
@@ -2302,6 +2356,7 @@ function renderHabitPreview() {
           ${cat ? `<span class="cat-badge"><span class="cat-ico">${look.icon}</span>${goal ? `<span class="target-count">${escHtml(countLabel(0, goal))}</span>` : cat.label}</span>` : `<span class="cat-badge">${chosen.icon ? `<span class="cat-ico">${look.icon}</span>` : ''}Category</span>`}
           ${sched ? `<span class="freq-badge">${scheduleLabel(sched)}</span>` : freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
           ${slot && slot !== 'any' ? `<span class="freq-badge">${SLOT_LABEL[slot]}</span>` : ''}
+          ${runText ? `<span class="freq-badge run-badge">${runText}</span>` : ''}
         </div>
       </div>
     </div>
@@ -2350,9 +2405,12 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   ['habit-target-amount', 'habit-target-unit', 'habit-target-step'].forEach(id => clearFieldError(sheetField(id)));
   const goalRead = readTarget();
   if (goalRead.error) { setFieldError(goalRead.error[0], goalRead.error[1]); goalRead.error[0].focus(); return; }
+  clearFieldError(sheetField('habit-start')); clearFieldError(sheetField('habit-end'));
+  const dates = readDates();
+  if (dates.error) { sheetField('habit-dates').open = true; setFieldError(dates.error[0], dates.error[1]); dates.error[0].focus(); return; }
   const timeOfDay = sheetField('habit-time').value || 'any';
   const editId = sheetField('habit-edit-id').value;
-  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), schedule: read.schedule || '', target: goalRead.target, ...readHabitLook() };     // the optional fields, as the sheet has them now
+  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), schedule: read.schedule || '', target: goalRead.target, startDate: dates.startDate, endDate: dates.endDate, ...readHabitLook() };     // the optional fields, as the sheet has them now
   if (editId) {
     // Editing changes what the habit is called, how it is filed and how it looks. Its completions are never touched.
     // An optional field that has been cleared is removed from the habit, not stored empty.

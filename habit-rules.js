@@ -81,6 +81,9 @@ export function runDay(habit, today) {
   return { day: dayNumber(today) - dayNumber(habit.startDate) + 1, of: dayNumber(habit.endDate) - dayNumber(habit.startDate) + 1 };
 }
 
+export const notStartedOn = (habit, day) => !!habit && isDayKey(habit.startDate) && day < habit.startDate;
+export const hasEndedOn = (habit, day) => !!habit && isDayKey(habit.endDate) && day > habit.endDate;
+
 const isOffOn = (habit, day) => !isActiveOn(habit, day) || isPausedOn(habit, day);
 
 // ── Measurable targets ────────────────────────────────────

@@ -50,13 +50,13 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
   <link rel="modulepreload" href="ui.js?v=6" />
-  <link rel="modulepreload" href="habit-rules.js?v=3" />
+  <link rel="modulepreload" href="habit-rules.js?v=4" />
   <link rel="modulepreload" href="home.js?v=7" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=60" />
+  <link rel="stylesheet" href="style.css?v=61" />
 </head>
 <body>
 
@@ -415,6 +415,9 @@
           <!-- Daily habits whose schedule skips today -->
           <button type="button" id="rest-note" class="rest-note hidden" aria-expanded="false" aria-controls="habits-rest"></button>
           <ul id="habits-rest" class="habits-list hidden"></ul>
+          <!-- Habits with a start date still ahead -->
+          <button type="button" id="soon-note" class="rest-note hidden" aria-expanded="false" aria-controls="habits-soon"></button>
+          <ul id="habits-soon" class="habits-list hidden"></ul>
           <button type="button" id="focus-open" class="btn-secondary btn-full focus-open hidden"><svg class="icon" aria-hidden="true"><use href="#i-target"/></svg>Focus: one habit at a time</button>
           <div id="empty-state" class="empty-state hidden">
             <p class="empty-title">Start with a ready-made set</p>
@@ -734,6 +737,18 @@
         <input type="number" id="habit-target-step" inputmode="decimal" step="any" aria-label="Count by: how much one tap adds (optional, normally 1)" placeholder="Count by 1" autocomplete="off" />
       </div>
       <!-- Optional extras sit in sections that open when wanted, so the sheet stays short -->
+      <details class="sheet-more" id="habit-dates">
+        <summary><span>Start and end</span><span class="sheet-more-val" id="habit-dates-val">Always</span></summary>
+        <div class="form-row sheet-dates">
+          <label class="date-field"><span>Starts</span><input type="date" id="habit-start" /></label>
+          <label class="date-field"><span>Ends</span><input type="date" id="habit-end" /></label>
+        </div>
+        <div class="chips run-chips" role="group" aria-label="How long it runs">
+          <button type="button" class="chip" data-run="30">30 days</button>
+          <button type="button" class="chip" data-run="66">66 days</button>
+          <button type="button" class="chip" data-run="0">No end</button>
+        </div>
+      </details>
       <details class="sheet-more" id="habit-look">
         <summary><span>Icon and colour</span><span class="sheet-more-val" id="habit-look-val">Automatic</span></summary>
         <fieldset class="pick"><legend>Colour</legend><div class="pick-grid" id="habit-color-grid"></div></fieldset>
@@ -877,6 +892,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=62"></script>
+<script type="module" src="app.js?v=63"></script>
 </body>
 </html>

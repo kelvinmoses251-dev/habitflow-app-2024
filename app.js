@@ -273,7 +273,10 @@ function habitLook(h) {
 // The four dropdowns become designed lists (ui.js). Category ones show each category's icon in its colour.
 const catChip = value => (CATS[value] ? `<span class="cat-ico" style="--cat:${catColor(CATS[value])}">${CATS[value].icon}</span>` : '');
 enhanceSelect(document.getElementById('habit-category'), { iconFor: catChip });
-['habit-frequency', 'habit-time', 'habit-times', 'details-time'].forEach(id => enhanceSelect(document.getElementById(id)));
+['habit-frequency', 'habit-time', 'habit-times', 'habit-reminder', 'details-time'].forEach(id => enhanceSelect(document.getElementById(id)));
+// A habit may have its own reminder hour (0 to 23, local time). Anything else is "no reminder".
+const hasReminder = h => Number.isInteger(h?.reminderHour) && h.reminderHour >= 0 && h.reminderHour <= 23;
+const hourLabel = hour => `${hour % 12 || 12} ${hour < 12 ? 'am' : 'pm'}`;
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
@@ -1719,6 +1722,7 @@ function renderHabits() {
             ${freq !== 'daily' ? '<span class="freq-badge">' + (prog && prog.target > 1 ? prog.done + ' of ' + prog.target + ' this week' : freq) + '</span>' : ''}
             ${freq === 'daily' && rules.scheduleOn(h, t).type === 'days' ? '<span class="freq-badge">' + scheduleLabel(rules.scheduleOn(h, t)) + '</span>' : ''}
             ${rules.runDay(h, t) ? `<span class="freq-badge run-badge">Day ${rules.runDay(h, t).day} of ${rules.runDay(h, t).of}</span>` : ''}
+            ${hasReminder(h) ? `<span class="remind-badge" title="Reminder at ${hourLabel(h.reminderHour)}">${iconSvg('bell')}<span class="sr-only">Reminder at </span>${hourLabel(h.reminderHour)}</span>` : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
             ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
             ${dotsHTML}
@@ -2222,6 +2226,8 @@ function openHabitSheet(habit = null) {
   sheetField('habit-target-unit').value = goal ? goal.unit : '';
   sheetField('habit-target-step').value = goal && goal.step !== 1 ? goal.step : '';
   ['habit-target-amount', 'habit-target-unit', 'habit-target-step'].forEach(id => clearFieldError(sheetField(id)));
+  sheetField('habit-reminder').value = hasReminder(habit) ? String(habit.reminderHour) : '';
+  sheetField('habit-reminder-note').hidden = !!profilePushToken;      // reminders are on somewhere: nothing to explain
   sheetField('habit-start').value = habit && isDay(habit.startDate) ? habit.startDate : '';
   sheetField('habit-end').value = habit && isDay(habit.endDate) ? habit.endDate : '';
   clearFieldError(sheetField('habit-end'));
@@ -2345,6 +2351,8 @@ function renderHabitPreview() {
   const sched = readSchedule().schedule;
   const chosen = readHabitLook();
   const goal = rules.targetOf({ target: readTarget().target });     // shown only when the goal boxes make sense
+  const remindAt = sheetField('habit-reminder').value;
+  sheetField('habit-remind-val').textContent = remindAt === '' ? 'None' : hourLabel(+remindAt);
   const dates = readDates();
   sheetField('habit-dates-val').textContent = dates.error ? 'Check the dates' : datesLabel(dates.startDate, dates.endDate);
   const runNow = dates.error ? null : rules.runDay(dates, todayStr());
@@ -2363,6 +2371,7 @@ function renderHabitPreview() {
           ${sched ? `<span class="freq-badge">${scheduleLabel(sched)}</span>` : freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
           ${slot && slot !== 'any' ? `<span class="freq-badge">${SLOT_LABEL[slot]}</span>` : ''}
           ${runText ? `<span class="freq-badge run-badge">${runText}</span>` : ''}
+          ${remindAt !== '' ? `<span class="remind-badge">${iconSvg('bell')}${hourLabel(+remindAt)}</span>` : ''}
         </div>
       </div>
     </div>
@@ -2416,7 +2425,8 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   if (dates.error) { sheetField('habit-dates').open = true; setFieldError(dates.error[0], dates.error[1]); dates.error[0].focus(); return; }
   const timeOfDay = sheetField('habit-time').value || 'any';
   const editId = sheetField('habit-edit-id').value;
-  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), schedule: read.schedule || '', target: goalRead.target, startDate: dates.startDate, endDate: dates.endDate, ...readHabitLook() };     // the optional fields, as the sheet has them now
+  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), schedule: read.schedule || '', target: goalRead.target, startDate: dates.startDate, endDate: dates.endDate,
+    reminderHour: sheetField('habit-reminder').value === '' ? '' : +sheetField('habit-reminder').value, ...readHabitLook() };     // the optional fields, as the sheet has them now
   if (editId) {
     // Editing changes what the habit is called, how it is filed and how it looks. Its completions are never touched.
     // An optional field that has been cleared is removed from the habit, not stored empty.
@@ -3674,6 +3684,7 @@ async function syncUserStats() {
       totalStreak: totalStreak,
       totalBadges: badgesCount,
       tz: userTimeZone(),
+      reminderHours: [...new Set(allHabits.filter(h => !h.archivedAt && hasReminder(h)).map(h => h.reminderHour))].sort((a, b) => a - b),
       lastActive: new Date().toISOString()
     }, { merge: true });
   } catch (err) {

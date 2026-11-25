@@ -785,6 +785,10 @@ html.dialog-open { overflow: hidden; }
 .select-btn .cat-ico svg, .select-list .cat-ico svg { width: 15px; height: 15px; }
 .freq-badge { display: inline-block; white-space: nowrap; }
 .freq-badge::first-letter { text-transform: uppercase; }   /* "Weekly", but "2 of 3 this week" stays as written */
+.remind-badge { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.remind-badge .icon { width: 12px; height: 12px; }
+@media (max-width: 359px) { .remind-badge { display: none; } }
+.sheet-note { font-size: var(--fs-sm); color: var(--muted); }
 .date-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
 .date-field input { width: 100%; min-width: 0; min-height: 44px; }
 .run-chips .chip { min-height: 44px; }

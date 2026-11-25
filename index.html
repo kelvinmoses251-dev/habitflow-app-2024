@@ -56,7 +56,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=62" />
+  <link rel="stylesheet" href="style.css?v=63" />
 </head>
 <body>
 
@@ -760,6 +760,37 @@
           <button type="button" class="chip" data-run="0">No end</button>
         </div>
       </details>
+      <details class="sheet-more" id="habit-remind">
+        <summary><span>Reminder</span><span class="sheet-more-val" id="habit-remind-val">None</span></summary>
+        <select id="habit-reminder" aria-label="Remind me about this habit at">
+          <option value="" selected>No reminder</option>
+          <option value="0">12 am</option>
+          <option value="1">1 am</option>
+          <option value="2">2 am</option>
+          <option value="3">3 am</option>
+          <option value="4">4 am</option>
+          <option value="5">5 am</option>
+          <option value="6">6 am</option>
+          <option value="7">7 am</option>
+          <option value="8">8 am</option>
+          <option value="9">9 am</option>
+          <option value="10">10 am</option>
+          <option value="11">11 am</option>
+          <option value="12">12 pm</option>
+          <option value="13">1 pm</option>
+          <option value="14">2 pm</option>
+          <option value="15">3 pm</option>
+          <option value="16">4 pm</option>
+          <option value="17">5 pm</option>
+          <option value="18">6 pm</option>
+          <option value="19">7 pm</option>
+          <option value="20">8 pm</option>
+          <option value="21">9 pm</option>
+          <option value="22">10 pm</option>
+          <option value="23">11 pm</option>
+        </select>
+        <p class="sheet-note" id="habit-reminder-note" hidden>Reminders are off. Switch on Daily reminders in Profile to get this one.</p>
+      </details>
       <details class="sheet-more" id="habit-look">
         <summary><span>Icon and colour</span><span class="sheet-more-val" id="habit-look-val">Automatic</span></summary>
         <fieldset class="pick"><legend>Colour</legend><div class="pick-grid" id="habit-color-grid"></div></fieldset>
@@ -922,6 +953,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=64"></script>
+<script type="module" src="app.js?v=65"></script>
 </body>
 </html>

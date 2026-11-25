@@ -172,4 +172,49 @@ module.exports = (scenario, c) => {
     check('the dialog can be closed with Escape', await (async () => { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await sleep(300); return !(await visible('#archive-modal')); })());
     noExceptions();
   });
+
+  // ── 25: a reminder time for each habit ───────────────────
+  const withUser = (habits, user = {}) => signedIn({ habitly_confirm: null, mock_fb_db: { habits, users: { 'u-test': { xp: 300, ...user } } } });
+  const hours = () => ev(`JSON.stringify(__mockDB.users['u-test'].reminderHours || null)`);
+
+  scenario('reminder: a habit can have its own reminder time, shown on its row', async () => {
+    await boot({ seed: withUser({ a: H('Read'), s: H('Stretch', { order: 2, reminderHour: 7 }), z: H('Odd', { order: 3, reminderHour: 99 }) }, { fcmToken: 'tok' }), mobile: false }); await rows(); await sleep(300);
+    check('a habit with a reminder shows a small bell and the time', (await text('.habit-item[data-id="s"] .remind-badge')).replace(/\s+/g, ' ').trim() === 'Reminder at 7 am' && await ev(`!!document.querySelector('.habit-item[data-id="s"] .remind-badge svg')`), await text('.habit-item[data-id="s"] .remind-badge'));
+    check('habits without one, or with a nonsense hour, show none', await ev(`!document.querySelector('.habit-item[data-id="a"] .remind-badge') && !document.querySelector('.habit-item[data-id="z"] .remind-badge')`));
+    check('the account records which hours are in use, for the reminder job', await waitFor(`JSON.stringify(__mockDB.users['u-test'].reminderHours) === '[7]'`, 3000), await hours());
+    await openNew();
+    await setField('habit-input', 'Wind down'); await setField('habit-category', 'health');
+    check('the reminder sits in its own section, saying None', (await text('#habit-remind-val')).trim() === 'None' && await ev(`!document.getElementById('habit-remind').open`));
+    check('it offers no reminder and every hour of the day, in plain words', await ev(`(() => { const o = [...document.getElementById('habit-reminder').options].map(x => x.textContent.trim()); return o.length === 25 && o[0] === 'No reminder' && o[1] === '12 am' && o[8] === '7 am' && o[13] === '12 pm' && o[24] === '11 pm'; })()`));
+    check('with reminders on, no extra note is shown', await ev(`document.getElementById('habit-reminder-note').hidden`));
+    await ev(`document.getElementById('habit-remind').open = true`);
+    await setField('habit-reminder', '21'); await sleep(150);
+    check('the section and the preview show the time chosen', (await text('#habit-remind-val')).trim() === '9 pm' && /9 pm/.test(await ev(`document.getElementById('habit-preview').innerText`)), await text('#habit-remind-val'));
+    await save();
+    const id = await byName('Wind down');
+    check('the hour is saved as a number', await ev(`__mockDB.habits[${JSON.stringify(id)}].reminderHour === 21`));
+    check('a habit made without one stores none', await ev(`!('reminderHour' in __mockDB.habits.a)`));
+    check('the hours in use follow', await waitFor(`JSON.stringify(__mockDB.users['u-test'].reminderHours) === '[7,21]'`, 3000), await hours());
+    await openEdit('s');
+    check('Edit shows the saved time', (await ev(`document.getElementById('habit-reminder').value`)) === '7' && (await text('#habit-remind-val')).trim() === '7 am');
+    await setField('habit-reminder', ''); await save();
+    check('choosing No reminder removes it', await ev(`!('reminderHour' in __mockDB.habits.s)`) && await waitFor(`JSON.stringify(__mockDB.users['u-test'].reminderHours) === '[21]'`, 3000), await hours());
+    await openNew(); await setField('habit-input', 'Midnight'); await setField('habit-category', 'health'); await setField('habit-reminder', '0'); await save();
+    check('midnight (hour 0) is a real choice, not "none"', await ev(`__mockDB.habits[${JSON.stringify(await byName('Midnight'))}].reminderHour === 0`));
+    check('the privacy policy mentions reminder times', /reminder time/i.test(privacy()));
+    noExceptions();
+  });
+
+  scenario('reminder: with reminders off the sheet says how to get them, and rows fit a small phone', async () => {
+    await boot({ seed: withUser({ a: H('Read'), s: H('Stretch every single morning before work', { order: 2, reminderHour: 7, completedDates: [day(1), day(2)], cue: 'After coffee' }) }) }); await size(390, 800); await rows(); await sleep(300);
+    check('390px: the bell stays on the badge line', await ev(`(() => { const r = document.querySelector('.habit-item[data-id="s"]'); return Math.abs(r.querySelector('.remind-badge').getBoundingClientRect().top - r.querySelector('.cat-badge').getBoundingClientRect().top) < 12; })()`));
+    await size(320, 568); await sleep(200);
+    check('320px: no horizontal scroll and the badges stay on one line', await ev(`document.documentElement.scrollWidth <= innerWidth && document.querySelector('.habit-item[data-id="s"] .badges-row').getBoundingClientRect().height < 30`));
+    await openNew();
+    await ev(`document.getElementById('habit-remind').open = true`); await sleep(150);
+    check('with reminders off, a line says where to switch them on', (await ev(`!document.getElementById('habit-reminder-note').hidden`)) && /Daily reminders/.test(await text('#habit-reminder-note')), await text('#habit-reminder-note'));
+    await setField('habit-input', 'Later'); await setField('habit-category', 'health'); await setField('habit-reminder', '18'); await save();
+    check('the time can still be saved, ready for when they are on', await ev(`__mockDB.habits[${JSON.stringify(await byName('Later'))}].reminderHour === 18`));
+    noExceptions();
+  });
 };

@@ -9,7 +9,7 @@ module.exports = (scenario, c) => {
     await boot({ seed: signedIn() });
     await waitFor(`!document.getElementById('app').classList.contains('hidden')`); await sleep(300); await ev(`document.getElementById('new-habit-toggle').click()`);   // the fields live in the habit sheet
     await waitFor(`!!document.querySelector('#habit-form .select-btn') && !document.getElementById('habit-form').hidden`, 6000);
-    check('all five selects are enhanced', (await ev(`document.querySelectorAll('.select-btn').length`)) === 5);
+    check('all six selects are enhanced', (await ev(`document.querySelectorAll('.select-btn').length`)) === 6);
     check('the button shows the placeholder first', /Category/.test(await ev(`${catBtn}.textContent`)));
     await ev(`${catBtn}.click()`); await sleep(100);
     check('opens a listbox with the 11 categories', (await ev(`${openList}.querySelectorAll('[role=option]').length`)) === 11);

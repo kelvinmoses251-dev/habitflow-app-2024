@@ -4,10 +4,11 @@
 //   node send-reminders.js --dry    show who would be reminded, send nothing
 //
 // Each user is reminded in their OWN morning (from 08:00) and evening (from 20:00), at most once per window,
-// and only if a habit is still open on their local day. The decisions live in reminder-logic.js (tested).
+// and only if a habit is still open on their local day. A habit with its own reminder hour is announced by name
+// in that hour instead. The decisions live in reminder-logic.js (tested).
 
 const admin = require('firebase-admin');
-const { localParts, reminderSlot, dueSlot, buildMessage } = require('./reminder-logic');
+const { localParts, reminderSlot, dueReminders, reminderBody, buildMessage } = require('./reminder-logic');
 
 const DRY = process.argv.includes('--dry');
 
@@ -52,24 +53,26 @@ async function runReminders() {
   const due = [];
   for (const userDoc of usersSnap.docs) {
     const user = userDoc.data();
-    // Cheap check first, so habits are only read for users who are inside a reminder window right now
-    if (!reminderSlot(localParts(now, user.tz).hour)) continue;
+    // Cheap check first, so habits are only read for users who could be due right now: inside a reminder window,
+    // or at an hour one of their habits asks for (the app keeps that list on the profile as reminderHours).
+    const hour = localParts(now, user.tz).hour;
+    if (!reminderSlot(hour) && !(Array.isArray(user.reminderHours) && user.reminderHours.includes(hour))) continue;
     const habitsSnap = await db.collection('habits').where('userId', '==', userDoc.id).get();
-    const slot = dueSlot(user, habitsSnap.docs.map(d => d.data()), now, isOpen);
-    if (slot) due.push({ ref: userDoc.ref, token: user.fcmToken, slot });
+    const hit = dueReminders(user, habitsSnap.docs.map(d => d.data()), now, isOpen);
+    if (hit) due.push({ ref: userDoc.ref, token: user.fcmToken, slot: hit.key, field: hit.field, body: reminderBody(hit.habitNames) });
   }
 
   if (!due.length) { console.log('Nobody is due a reminder this hour.'); return; }
   console.log(`${due.length} reminder(s) due.`);
   if (DRY) { due.forEach(d => console.log(`  would remind ${d.ref.id} for ${d.slot}`)); return; }
 
-  const messages = due.map(d => buildMessage(d.token, REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)]));
+  const messages = due.map(d => buildMessage(d.token, d.body || REMINDER_MESSAGES[Math.floor(Math.random() * REMINDER_MESSAGES.length)]));
   let sent = 0, failed = 0, removed = 0;
   for (let i = 0; i < messages.length; i += 500) {                       // sendEach accepts at most 500
     const res = await messaging.sendEach(messages.slice(i, i + 500));
     await Promise.all(res.responses.map((r, j) => {
       const d = due[i + j];
-      if (r.success) { sent++; return d.ref.set({ lastReminder: d.slot }, { merge: true }); }
+      if (r.success) { sent++; return d.ref.set({ [d.field]: d.slot }, { merge: true }); }
       failed++;
       const code = r.error && r.error.code;
       console.error(`  failed for ${d.ref.id}: ${code}`);                 // never log the token itself

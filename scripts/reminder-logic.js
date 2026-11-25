@@ -56,10 +56,46 @@ function dueSlot(user, habits, now, isOpen) {
   return open ? key : null;
 }
 
+// A habit may carry its own reminder hour (0 to 23, the user's local time). Anything else means "no time of its own".
+const hasHour = h => Number.isInteger(h.reminderHour) && h.reminderHour >= 0 && h.reminderHour <= 23;
+
+// What to send this user right now, or null. Two kinds, each remembered in its own field so that neither can
+// make the other repeat:
+//   - habits with their own hour: one message in that hour naming them  (key "2026-11-23-h07", field lastTimedReminder)
+//   - every other habit: the morning and evening windows, as before     (key "2026-11-23-pm",  field lastReminder)
+// A habit with its own hour is never also chased in the general windows.
+function dueReminders(user, habits, now, isOpen) {
+  if (!user || !user.fcmToken) return null;
+  const { day, hour } = localParts(now, user.tz);
+  const stillOpen = isOpen ? h => isOpen(h, day) : h => !isHabitDone(h, now, user.tz);
+  const live = (habits || []).filter(h => h && !h.deletedAt);
+
+  const timedKey = `${day}-h${String(hour).padStart(2, '0')}`;
+  if (user.lastTimedReminder !== timedKey) {
+    const names = live.filter(h => hasHour(h) && h.reminderHour === hour && stillOpen(h)).map(h => String(h.name || 'your habit'));
+    if (names.length) return { key: timedKey, field: 'lastTimedReminder', habitNames: names };
+  }
+
+  const slot = reminderSlot(hour);
+  if (!slot) return null;
+  const key = `${day}-${slot}`;
+  if (user.lastReminder === key) return null;
+  return live.filter(h => !hasHour(h)).some(stillOpen) ? { key, field: 'lastReminder', habitNames: [] } : null;
+}
+
+// "Time for Stretch, Read and 2 more." Up to three names; a long name is cut so the notification stays short.
+function reminderBody(names) {
+  const list = (names || []).map(n => (n.length > 40 ? n.slice(0, 39).trimEnd() + '…' : n));
+  if (!list.length) return null;
+  if (list.length === 1) return `Time for ${list[0]}.`;
+  if (list.length <= 3) return `Time for ${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}.`;
+  return `Time for ${list[0]}, ${list[1]} and ${list.length - 2} more.`;
+}
+
 // Data-only on purpose: with a `notification` block the Firebase SDK shows one notification itself and the
 // service worker shows another. The service worker (firebase-messaging-sw.js) displays this payload once.
 function buildMessage(token, body) {
   return { token, data: { title: 'Habitly', body, url: '/' }, webpush: { headers: { Urgency: 'normal', TTL: '7200' } } };
 }
 
-module.exports = { localParts, reminderSlot, isHabitDone, dueSlot, buildMessage };
+module.exports = { localParts, reminderSlot, isHabitDone, dueSlot, dueReminders, reminderBody, buildMessage };

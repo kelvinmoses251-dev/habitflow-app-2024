@@ -41,14 +41,18 @@ function isHabitDone(habit, now, tz) {
 }
 
 // Returns the slot key to send for (e.g. "2026-11-23-pm"), or null when no reminder should go out now.
-function dueSlot(user, habits, now) {
+// `isOpen(habit, day)` is the app's own rule for "still something to do today" (habit-rules.js, passed in by
+// send-reminders.js), so schedules, pauses, dates and targets are judged exactly as the app judges them.
+// Without it, the simple built-in check below is used.
+function dueSlot(user, habits, now, isOpen) {
   if (!user || !user.fcmToken) return null;
   const { day, hour } = localParts(now, user.tz);
   const slot = reminderSlot(hour);
   if (!slot) return null;
   const key = `${day}-${slot}`;
   if (user.lastReminder === key) return null;
-  const open = (habits || []).filter(h => !h.deletedAt).some(h => !isHabitDone(h, now, user.tz));
+  const stillOpen = isOpen ? h => isOpen(h, day) : h => !isHabitDone(h, now, user.tz);
+  const open = (habits || []).filter(h => !h.deletedAt).some(stillOpen);
   return open ? key : null;
 }
 

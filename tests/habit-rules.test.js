@@ -223,3 +223,42 @@ test('partial progress is not done: only completedDates decides', async () => {
   assert.equal(isOpenOn(h, TODAY), true);
   assert.equal(isOpenOn({ ...h, completedDates: [TODAY] }, TODAY), false);
 });
+
+// ── Measurable targets (roadmap 23) ──────────────────────
+test('target: a step adds the step size, never past the target and never below zero', async () => {
+  const r = await load();
+  const water = { target: { amount: 8, unit: 'glasses' }, progress: { '2026-11-25': 5 } };
+  assert.equal(r.stepProgress(water, '2026-11-25', 1), 6);
+  assert.equal(r.stepProgress(water, '2026-11-25', -1), 4);
+  assert.equal(r.stepProgress(water, '2026-11-24', 1), 1);                       // another day starts from nothing
+  assert.equal(r.stepProgress(water, '2026-11-24', -1), 0);
+  assert.equal(r.stepProgress({ ...water, progress: { '2026-11-25': 8 } }, '2026-11-25', 1), 8);
+  const ml = { target: { amount: 2000, unit: 'ml', step: 750 }, progress: { d: 1500 } };
+  assert.equal(r.stepProgress(ml, 'd', 1), 2000);                                // the last step is clamped to the target
+  assert.equal(r.stepProgress(ml, 'd', -1), 750);
+  const km = { target: { amount: 1, unit: 'km', step: 0.1 }, progress: { d: 0.2 } };
+  assert.equal(r.stepProgress(km, 'd', 1), 0.3);                                 // no 0.30000000000000004
+  assert.equal(r.stepProgress({ name: 'plain' }, 'd', 1), 0);                    // no target, nothing to count
+});
+
+test('target: nonsense is ignored instead of breaking the row', async () => {
+  const r = await load();
+  for (const bad of [null, 5, {}, { amount: 0 }, { amount: -3 }, { amount: 'eight' }, { amount: 1e9 }, { amount: NaN }]) assert.equal(r.targetOf({ target: bad }), null, JSON.stringify(bad));
+  assert.deepEqual(r.targetOf({ target: { amount: 8, unit: '  a very long unit name indeed  ', step: 99 } }), { amount: 8, unit: 'a very long', step: 1 });
+  assert.equal(r.progressOn({ progress: { d: -4 } }, 'd'), 0);
+  assert.equal(r.progressOn({ progress: { d: 'lots' } }, 'd'), 0);
+  assert.equal(r.progressOn({}, 'd'), 0);
+});
+
+test('target: done means completed, so raising the target later never un-does a day', async () => {
+  const r = await load();
+  const h = { frequency: 'daily', createdAt: '2026-11-01T08:00:00Z', target: { amount: 8, unit: 'glasses' },
+    completedDates: ['2026-11-23', '2026-11-24'], progress: { '2026-11-23': 8, '2026-11-24': 8, '2026-11-25': 5 } };
+  const raised = { ...h, target: { amount: 10, unit: 'glasses' } };
+  assert.equal(r.isDoneOn(raised, '2026-11-24'), true);                          // judged done then, stays done
+  assert.equal(r.habitStreak(raised, '2026-11-25'), r.habitStreak(h, '2026-11-25'));
+  assert.equal(r.isDoneOn(raised, '2026-11-25'), false);                         // partial progress is not done
+  assert.equal(r.isOpenOn(raised, '2026-11-25'), true);
+  assert.equal(r.isTargetMet(h, '2026-11-25'), false);
+  assert.equal(r.isTargetMet({ ...h, target: { amount: 5 } }, '2026-11-25'), true);
+});

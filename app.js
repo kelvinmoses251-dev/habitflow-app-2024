@@ -15,6 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
+import * as rules from "./habit-rules.js?v=2";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -272,7 +273,7 @@ function habitLook(h) {
 // The four dropdowns become designed lists (ui.js). Category ones show each category's icon in its colour.
 const catChip = value => (CATS[value] ? `<span class="cat-ico" style="--cat:${catColor(CATS[value])}">${CATS[value].icon}</span>` : '');
 enhanceSelect(document.getElementById('habit-category'), { iconFor: catChip });
-['habit-frequency', 'habit-time', 'details-time'].forEach(id => enhanceSelect(document.getElementById(id)));
+['habit-frequency', 'habit-time', 'habit-times', 'details-time'].forEach(id => enhanceSelect(document.getElementById(id)));
 
 // ── Starter packs (one-tap activation for empty accounts) ─
 const STARTER_PACKS = [
@@ -377,18 +378,6 @@ function resetUserState() {
 // A streak is counted in the habit's own period: days for daily habits, weeks for weekly, months for monthly.
 // (Weekly and monthly habits used to be counted in days, so four weeks in a row showed as a 1-day streak.)
 const habitFreq = h => (h.frequency === 'weekly' || h.frequency === 'monthly') ? h.frequency : 'daily';
-function periodIndex(dayStr, freq) {
-  const [y, m, d] = dayStr.split('-').map(Number);
-  if (freq === 'monthly') return y * 12 + (m - 1);
-  const n = Math.round(Date.UTC(y, m - 1, d) / 86400000);     // calendar day number (1970-01-01 was a Thursday)
-  return freq === 'weekly' ? Math.floor((n + 3) / 7) : n;     // weeks run Monday to Sunday, as in isSameWeek
-}
-function streakPeriods(habit) {
-  const freq = habitFreq(habit);
-  const set = new Set((habit.completedDates || []).map(ds => periodIndex(ds, freq)));
-  if (freq === 'daily') (userFrozenDates || []).forEach(ds => set.add(periodIndex(ds, freq)));   // shields cover days
-  return { freq, set };
-}
 const streakUnit = (habit, n) => ({ daily: 'day', weekly: 'week', monthly: 'month' })[habitFreq(habit)] + (n === 1 ? '' : 's');
 const streakShort = (habit, n) => ({ daily: String(n), weekly: n + ' wk', monthly: n + ' mo' })[habitFreq(habit)];
 
@@ -399,21 +388,14 @@ function calcStreak(habits) {
   return Math.max(...daily.map(calcHabitStreak));
 }
 
+// The rules themselves (what is due, what is done, what counts as a streak) live in habit-rules.js, which the
+// reminder job uses too. These two only supply today's date and the account's shield days.
 function calcHabitStreak(habit) {
-  const { freq, set } = streakPeriods(habit);
-  let p = periodIndex(todayStr(), freq);
-  if (!set.has(p)) p--;                    // the current period is still open: the streak is alive until it ends
-  let streak = 0;
-  while (set.has(p)) { streak++; p--; }
-  return streak;
+  return rules.habitStreak(habit, todayStr(), userFrozenDates || []);
 }
 
 function calcLongestStreak(habit) {
-  const { freq } = streakPeriods(habit);
-  const periods = [...new Set((habit.completedDates || []).map(ds => periodIndex(ds, freq)))].sort((a, b) => a - b);
-  let longest = 0, run = 0;
-  periods.forEach((p, i) => { run = i > 0 && p === periods[i - 1] + 1 ? run + 1 : 1; if (run > longest) longest = run; });
-  return Math.max(calcHabitStreak(habit), longest);
+  return rules.habitLongestStreak(habit, todayStr(), userFrozenDates || []);
 }
 
 function getUserBadge(maxStreak) {
@@ -887,7 +869,7 @@ let isCelebrating = false;
 
 function checkAllDone(justCompletedId = null) {
   const today = todayStr();
-  const dailyHabits = allHabits.filter(h => !h.frequency || h.frequency === 'daily');
+  const dailyHabits = allHabits.filter(h => (!h.frequency || h.frequency === 'daily') && rules.isDueOn(h, today));
   if (dailyHabits.length === 0) return;
 
   const allDone = dailyHabits.every(h => {
@@ -1563,6 +1545,7 @@ function renderHabits() {
     viewDay = null;
     renderDayHeader();
     renderFilterBar(false);
+    renderResting([]);
     document.getElementById('no-match').classList.add('hidden');
     document.getElementById('focus-open')?.classList.add('hidden');
     empty.classList.remove('hidden');
@@ -1579,6 +1562,7 @@ function renderHabits() {
     document.getElementById('home-filter')?.classList.add('hidden');
     document.getElementById('no-match')?.classList.add('hidden');
     document.getElementById('focus-open')?.classList.add('hidden');
+    renderResting([]);
     renderPastDay(pastDay);
     return;
   }
@@ -1598,6 +1582,11 @@ function renderHabits() {
     }
     return aOrder - bOrder;
   });
+
+  // Daily habits whose schedule skips today (a Mon/Wed/Fri habit on a Tuesday) are not in today's list or counts.
+  const resting = sorted.filter(h => rules.baseFreq(h) === 'daily' && !rules.isDueOn(h, t));
+  if (resting.length) sorted.splice(0, sorted.length, ...sorted.filter(h => !resting.includes(h)));
+  renderResting(resting);
 
   // Today is grouped by time of day as soon as one daily habit has a time. The part of the day it is now
   // comes first. (A stable sort keeps the order above inside each group.)
@@ -1630,9 +1619,15 @@ function renderHabits() {
     let completedDateForToggle = t;
     const freq = h.frequency || 'daily';
     
+    // A weekly habit may be wanted several times in the week: it shows as done for today once ticked today,
+    // and as done for the week once the number is reached.
+    const prog = freq === 'weekly' ? rules.periodProgress(h, t) : null;
+    let periodDone = null;
     if (freq === 'weekly') {
-      isDone = (h.completedDates || []).some(isSameWeek);
-      completedDateForToggle = (h.completedDates || []).find(isSameWeek) || t;
+      const doneToday = (h.completedDates || []).includes(t);
+      periodDone = prog.done >= prog.target;
+      isDone = periodDone || doneToday;
+      completedDateForToggle = doneToday ? t : ((h.completedDates || []).find(isSameWeek) || t);
     } else if (freq === 'monthly') {
       isDone = (h.completedDates || []).some(isSameMonth);
       completedDateForToggle = (h.completedDates || []).find(isSameMonth) || t;
@@ -1643,7 +1638,7 @@ function renderHabits() {
     if (isDone) done++;
     const section = sections[freq] || sections.daily;
     section.total++;
-    if (isDone) section.done++;
+    if (periodDone === null ? isDone : periodDone) section.done++;
     if (filtering && !matchesFilter(h, homeFilter)) return;      // counted above, just not shown
     shownRows++;
     section.shown = (section.shown || 0) + 1;
@@ -1677,6 +1672,7 @@ function renderHabits() {
     let dotsHTML = '';
     if (freq === 'daily') {
       const week = weekDots(h, t);
+      week.forEach(d => { if (d.state === 'off' && !rules.isDueOn(h, d.day)) d.state = 'na'; });   // a rest day is not a miss
       const counted = week.filter(d => d.state !== 'na');
       dotsHTML = `<span class="dots" role="img" aria-label="Last 7 days: ${counted.filter(d => d.state === 'on').length} of ${counted.length} done">`
         + week.map(d => `<i class="${d.state}${d.today ? ' today' : ''}"></i>`).join('') + '</span>';
@@ -1698,7 +1694,8 @@ function renderHabits() {
           ${(typeof h.cue === 'string' && h.cue.trim() ? `<span class="habit-cue">${escHtml(h.cue.trim().slice(0, 80))}</span>` : '')}
           <div class="badges-row">
             <span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>
-            ${freq !== 'daily' ? '<span class="freq-badge">' + freq + '</span>' : ''}
+            ${freq !== 'daily' ? '<span class="freq-badge">' + (prog && prog.target > 1 ? prog.done + ' of ' + prog.target + ' this week' : freq) + '</span>' : ''}
+            ${freq === 'daily' && rules.scheduleOn(h, t).type === 'days' ? '<span class="freq-badge">' + scheduleLabel(rules.scheduleOn(h, t)) + '</span>' : ''}
             ${habitStreak > 0 ? '<span class="streak-pill" title="Current streak: ' + habitStreak + ' ' + streakUnit(h, habitStreak) + '"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>' + streakShort(h, habitStreak) + '</span>' : ''}
             ${isLocked ? '<span class="locked-badge" title="Completed and locked (cannot be unchecked after 1 hour)"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span class="sr-only">Locked</span></span>' : ''}
             ${dotsHTML}
@@ -1741,9 +1738,51 @@ function renderHabits() {
   }
   updateFocusButton();
   if (!document.getElementById('focus-view').classList.contains('hidden')) renderFocus();   // keep an open focus view in step with the data
-  updateProgress(done, allHabits.length);
+  updateProgress(done, sorted.length);                  // habits resting today are not part of today's count
   updateStreakRisk();
 }
+
+// "3 days a week", "Weekdays", "3 times a week": a schedule in a few words
+function scheduleLabel(schedule) {
+  if (schedule.type === 'times') return schedule.times === 1 ? 'weekly' : `${schedule.times} times a week`;
+  if (schedule.type !== 'days') return '';
+  const d = schedule.days;
+  if (d.length === 5 && [1, 2, 3, 4, 5].every(x => d.includes(x))) return 'Weekdays';
+  if (d.length === 2 && d.includes(0) && d.includes(6)) return 'Weekends';
+  if (d.length === 1) return ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'][d[0]];
+  return `${d.length} days a week`;
+}
+
+// The quiet line under Today for daily habits that are not due today, and the read-only list it unfolds.
+function renderResting(resting) {
+  const note = document.getElementById('rest-note'), list = document.getElementById('habits-rest');
+  if (!note || !list) return;
+  note.classList.toggle('hidden', resting.length === 0);
+  if (!resting.length) { list.classList.add('hidden'); list.innerHTML = ''; note.setAttribute('aria-expanded', 'false'); return; }
+  const open = note.getAttribute('aria-expanded') === 'true';
+  note.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg><span>${resting.length} habit${resting.length === 1 ? ' rests' : 's rest'} today</span>`;
+  list.classList.toggle('hidden', !open);
+  list.innerHTML = resting.map(h => {
+    const look = habitLook(h);
+    return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${look.color}">
+      <div class="habit-label">
+        <input type="checkbox" class="habit-check" disabled aria-label="${escHtml(h.name)}: not due today" />
+        <div class="habit-meta" data-action="details" data-id="${h.id}" style="cursor: pointer;">
+          <span class="habit-name">${escHtml(h.name)}</span>
+          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${look.icon}</span>${look.cat.label}</span><span class="freq-badge">${scheduleLabel(rules.scheduleOn(h, todayStr()))}</span></div>
+        </div>
+      </div>
+      <div class="habit-actions">
+        <button class="btn-icon" data-id="${h.id}" data-action="edit" title="Edit habit" aria-label="Edit ${escHtml(h.name)}">${iconSvg('edit')}</button>
+      </div>
+    </li>`;
+  }).join('');
+}
+document.getElementById('rest-note')?.addEventListener('click', e => {
+  const note = e.currentTarget, open = note.getAttribute('aria-expanded') !== 'true';
+  note.setAttribute('aria-expanded', String(open));
+  document.getElementById('habits-rest').classList.toggle('hidden', !open);
+});
 
 // Loss aversion: late in the day, say exactly which streak is about to end and how long is left.
 let riskTimer = null;
@@ -1753,7 +1792,7 @@ function updateStreakRisk() {
   const now = new Date();
   const t = todayStr();
   const atRisk = allHabits
-    .filter(h => (!h.frequency || h.frequency === 'daily') && !(h.completedDates || []).includes(t) && calcHabitStreak(h) > 0)
+    .filter(h => (!h.frequency || h.frequency === 'daily') && rules.isDueOn(h, t) && !(h.completedDates || []).includes(t) && calcHabitStreak(h) > 0)
     .sort((x, y) => calcHabitStreak(y) - calcHabitStreak(x));
   if (!atRisk.length || now.getHours() < 16) { el.classList.add('hidden'); barRiskLine = ''; renderBarLine(); return; }
 
@@ -1970,7 +2009,7 @@ function renderDayHeader() {
 // What the Today card shows for a past day: the daily habits that existed then, ticked or not, and nothing to press.
 function renderPastDay(day) {
   const list = document.getElementById('habits');
-  const items = habitsOnDay([...allHabits].sort((a, b) => (a.order || 0) - (b.order || 0)), day);
+  const items = habitsOnDay([...allHabits].sort((a, b) => (a.order || 0) - (b.order || 0)), day).filter(x => rules.isDueOn(x.habit, day));
   ['week-card', 'month-card', 'no-daily'].forEach(id => document.getElementById(id).classList.add('hidden'));
   list.innerHTML = items.length ? items.map(({ habit: h, done }) => {
     const cat = CATS[h.category] || CATS.health;
@@ -2074,7 +2113,7 @@ function renderWeekStrip() {
     const d = new Date(now); d.setDate(d.getDate() - n);
     const key = dayKey(d);
     const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999);
-    const daily = allHabits.filter(h => (!h.frequency || h.frequency === 'daily') && (!h.createdAt || new Date(h.createdAt) <= dayEnd));
+    const daily = allHabits.filter(h => (!h.frequency || h.frequency === 'daily') && (!h.createdAt || new Date(h.createdAt) <= dayEnd) && rules.isDueOn(h, key));
     const doneDaily = daily.filter(h => (h.completedDates || []).includes(key)).length;
     const anyDone = allHabits.some(h => (h.completedDates || []).includes(key));
     const state = daily.length && doneDaily === daily.length ? 'full' : anyDone ? 'some' : 'none';
@@ -2137,6 +2176,8 @@ function openHabitSheet(habit = null) {
   sheetField('habit-frequency').value = habit ? (habit.frequency || 'daily') : 'daily';
   sheetField('habit-time').value = habit ? timeSlot(habit) : 'any';
   sheetField('habit-cue').value = habit && typeof habit.cue === 'string' ? habit.cue : '';
+  setScheduleFields(habit);
+  clearFieldError(sheetField('schedule-days'));
   setHabitLook(habit);
   habitSheet.querySelectorAll('details.sheet-more').forEach(d => { d.open = false; });
   habitFormEl.hidden = false;
@@ -2161,6 +2202,30 @@ function closeHabitSheet() {
   icons.innerHTML = opt('habit-icon', '', 'Auto', 'Automatic icon', true)
     + HABIT_ICONS.map(k => opt('habit-icon', k, iconSvg(k), ICON_NAME(k) + ' icon')).join('');
 })();
+// Schedule controls: weekday chips for a daily habit, a count for a weekly one. All seven days on, or once a
+// week, is the plain habit and stores no schedule at all.
+function syncScheduleFields() {
+  const freq = sheetField('habit-frequency').value || 'daily';
+  sheetField('schedule-days').classList.toggle('hidden', freq !== 'daily');
+  sheetField('schedule-times').classList.toggle('hidden', freq !== 'weekly');
+}
+// Returns { schedule } (null for the plain habit) or { error }.
+function readSchedule() {
+  const freq = sheetField('habit-frequency').value || 'daily';
+  if (freq === 'daily') {
+    const days = [...sheetField('schedule-days').querySelectorAll('input:checked')].map(i => +i.value).sort((a, b) => a - b);
+    if (!days.length) return { error: 'Choose at least one day.' };
+    return { schedule: days.length === 7 ? null : { type: 'days', days } };
+  }
+  if (freq === 'weekly') { const times = +sheetField('habit-times').value || 1; return { schedule: times > 1 ? { type: 'times', times } : null }; }
+  return { schedule: null };
+}
+function setScheduleFields(habit) {
+  const s = habit ? rules.scheduleOn(habit, todayStr()) : { type: 'daily' };
+  sheetField('schedule-days').querySelectorAll('input').forEach(i => { i.checked = s.type === 'days' ? s.days.includes(+i.value) : true; });
+  sheetField('habit-times').value = String(s.type === 'times' ? s.times : 1);
+}
+
 function readHabitLook() {
   const val = name => habitFormEl?.querySelector(`input[name="${name}"]:checked`)?.value || '';
   return { icon: val('habit-icon'), color: val('habit-color') };
@@ -2183,6 +2248,8 @@ function renderHabitPreview() {
   const freq = sheetField('habit-frequency').value || 'daily';
   const slot = sheetField('habit-time').value;
   const cue = sheetField('habit-cue').value.trim();
+  syncScheduleFields();
+  const sched = readSchedule().schedule;
   const chosen = readHabitLook();
   const look = habitLook({ category: catKey, ...chosen });
   const custom = [chosen.icon && ICON_NAME(chosen.icon), chosen.color && chosen.color.charAt(0).toUpperCase() + chosen.color.slice(1)].filter(Boolean);
@@ -2195,7 +2262,7 @@ function renderHabitPreview() {
         ${cue ? `<span class="habit-cue">${escHtml(cue)}</span>` : ''}
         <div class="badges-row">
           ${cat ? `<span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>` : `<span class="cat-badge">${chosen.icon ? `<span class="cat-ico">${look.icon}</span>` : ''}Category</span>`}
-          ${freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
+          ${sched ? `<span class="freq-badge">${scheduleLabel(sched)}</span>` : freq !== 'daily' ? `<span class="freq-badge">${freq}</span>` : ''}
           ${slot && slot !== 'any' ? `<span class="freq-badge">${SLOT_LABEL[slot]}</span>` : ''}
         </div>
       </div>
@@ -2239,14 +2306,29 @@ document.getElementById('habit-form').addEventListener('submit', async e => {
   }
   const category = sheetField('habit-category').value;
   const frequency = sheetField('habit-frequency').value || 'daily';
+  const read = readSchedule();
+  if (read.error) { setFieldError(sheetField('schedule-days'), read.error); return; }
+  clearFieldError(sheetField('schedule-days'));
   const timeOfDay = sheetField('habit-time').value || 'any';
   const editId = sheetField('habit-edit-id').value;
-  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), ...readHabitLook() };     // the optional fields, as the sheet has them now
+  const extra = { timeOfDay, cue: sheetField('habit-cue').value.trim().slice(0, 80), schedule: read.schedule || '', ...readHabitLook() };     // the optional fields, as the sheet has them now
   if (editId) {
     // Editing changes what the habit is called, how it is filed and how it looks. Its completions are never touched.
     // An optional field that has been cleared is removed from the habit, not stored empty.
     const cleared = v => v === undefined || v === null || v === '' || v === 'any';
     const changes = Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, cleared(v) ? deleteField() : v]));
+    // History is never re-judged: when the schedule (or how often it repeats) changes, record the rule and the
+    // day it takes effect, so every earlier day keeps being judged by the rule that applied then.
+    const before = allHabits.find(h => h.id === editId);
+    if (before) {
+      const today = todayStr();
+      const was = rules.scheduleOn(before, today);
+      const now = rules.normalizeSchedule(read.schedule, frequency);
+      if (JSON.stringify(was) !== JSON.stringify(now)) {
+        const history = Array.isArray(before.scheduleHistory) && before.scheduleHistory.length ? before.scheduleHistory : [{ from: '0000-00-00', schedule: was }];
+        changes.scheduleHistory = [...history.filter(e => e.from !== today), { from: today, schedule: now }];
+      }
+    }
     backgroundWrite(updateDoc(doc(db, 'habits', editId), { name, category, frequency, ...changes }), 'update the habit');
     toast('Habit updated', 'success');
     track('habit_edited');
@@ -3514,11 +3596,9 @@ function updateTimerDisplay() {
 }
 
 // Has this habit already been completed for its current period (today / this week / this month)?
+// Nothing left to do for this habit right now: done today, done for its period, or simply not due.
 function isHabitDoneNow(h) {
-  const dates = h.completedDates || [];
-  if (h.frequency === 'weekly') return dates.some(isSameWeek);
-  if (h.frequency === 'monthly') return dates.some(isSameMonth);
-  return dates.includes(todayStr());
+  return !rules.isOpenOn(h, todayStr());
 }
 
 // The countdown is measured against the clock. Counting ticks drifts, because browsers slow timers down

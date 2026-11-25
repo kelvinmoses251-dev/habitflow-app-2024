@@ -50,12 +50,13 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
   <link rel="modulepreload" href="ui.js?v=6" />
+  <link rel="modulepreload" href="habit-rules.js?v=2" />
   <link rel="modulepreload" href="home.js?v=7" />
   <link rel="modulepreload" href="coach.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=58" />
+  <link rel="stylesheet" href="style.css?v=59" />
 </head>
 <body>
 
@@ -411,6 +412,9 @@
           <ul id="habits" class="habits-list"></ul>
           <p id="reorder-status" class="sr-only" role="status" aria-live="polite"></p>
           <p id="no-daily" class="empty-note hidden">No daily habits yet. Your weekly and monthly habits are below.</p>
+          <!-- Daily habits whose schedule skips today -->
+          <button type="button" id="rest-note" class="rest-note hidden" aria-expanded="false" aria-controls="habits-rest"></button>
+          <ul id="habits-rest" class="habits-list hidden"></ul>
           <button type="button" id="focus-open" class="btn-secondary btn-full focus-open hidden"><svg class="icon" aria-hidden="true"><use href="#i-target"/></svg>Focus: one habit at a time</button>
           <div id="empty-state" class="empty-state hidden">
             <p class="empty-title">Start with a ready-made set</p>
@@ -693,6 +697,28 @@
           <option value="monthly">Monthly</option>
         </select>
       </div>
+      <!-- Daily habits: which days. All seven on means every day. -->
+      <div class="schedule-days" id="schedule-days" role="group" aria-label="Which days">
+        <label class="day-chip"><input type="checkbox" value="1" checked /><span>Mon</span></label>
+        <label class="day-chip"><input type="checkbox" value="2" checked /><span>Tue</span></label>
+        <label class="day-chip"><input type="checkbox" value="3" checked /><span>Wed</span></label>
+        <label class="day-chip"><input type="checkbox" value="4" checked /><span>Thu</span></label>
+        <label class="day-chip"><input type="checkbox" value="5" checked /><span>Fri</span></label>
+        <label class="day-chip"><input type="checkbox" value="6" checked /><span>Sat</span></label>
+        <label class="day-chip"><input type="checkbox" value="0" checked /><span>Sun</span></label>
+      </div>
+      <!-- Weekly habits: how many times in the week -->
+      <div class="form-row hidden" id="schedule-times">
+        <select id="habit-times" aria-label="Times a week">
+          <option value="1" selected>Once a week</option>
+          <option value="2">2 times a week</option>
+          <option value="3">3 times a week</option>
+          <option value="4">4 times a week</option>
+          <option value="5">5 times a week</option>
+          <option value="6">6 times a week</option>
+          <option value="7">7 times a week</option>
+        </select>
+      </div>
       <div class="form-row">
         <select id="habit-time" aria-label="Time of day">
           <option value="any" selected>Any time</option>
@@ -846,6 +872,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=59"></script>
+<script type="module" src="app.js?v=61"></script>
 </body>
 </html>

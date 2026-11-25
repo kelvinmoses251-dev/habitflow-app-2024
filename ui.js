@@ -27,7 +27,7 @@ let fieldMsgSeq = 0;
 export function setFieldError(input, message) {
   if (!input) return;
   clearFieldError(input);
-  const anchor = input.closest('.pw-wrap, .form-row') || input;   // under the whole field or row, never squeezed inside it
+  const anchor = input.closest('.pw-wrap, .form-row') || input;   // under the whole field or row, never squeezed inside it (a group such as the weekday chips is its own anchor)
   const msg = document.createElement('p');
   msg.className = 'field-msg';
   msg.id = `field-msg-${++fieldMsgSeq}`;

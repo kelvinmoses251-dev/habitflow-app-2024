@@ -582,6 +582,18 @@ html.dialog-open { overflow: hidden; }
 .preview-check { flex: none; width: 24px; height: 24px; border-radius: var(--r-full); border: 1.5px solid var(--border-strong); background: var(--surface); }
 .habit-preview .habit-name.is-empty { color: var(--muted); }
 .empty-create { margin-top: var(--sp-2); }
+/* Schedule: weekday chips (checkboxes drawn as chips) */
+.schedule-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.schedule-days.hidden { display: none; }
+.day-chip { position: relative; display: grid; place-items: center; min-height: 44px; border: 1px solid var(--border-strong); border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: 500; color: var(--text-2); cursor: pointer; }
+.day-chip input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.day-chip:has(input:checked) { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-ink); }
+.day-chip:has(input:focus-visible) { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
+.form-row.hidden { display: none; }
+/* Habits that rest today */
+.rest-note { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 44px; margin-top: var(--sp-2); padding: 0; background: none; border: 0; font: inherit; font-size: var(--fs-ui); color: var(--muted); text-align: left; cursor: pointer; }
+.rest-note.hidden, #habits-rest.hidden { display: none; }
+.rest-note:hover { color: var(--text-2); }
 /* Optional sections of the sheet */
 .sheet-more { border: 1px solid var(--border); border-radius: var(--r-md); }
 .sheet-more > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 44px; padding: 0 var(--sp-3); cursor: pointer; font-size: var(--fs-ui); font-weight: 500; list-style: none; }

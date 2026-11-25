@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'      # the job imports ../habit-rules.js, an ES module without a package.json: Node 22 loads that
 
       - name: Install Dependencies
         working-directory: ./scripts
@@ -27,7 +27,7 @@ jobs:
 
       - name: Test Reminder Logic
         working-directory: ./scripts
-        run: node --test reminder-logic.test.js
+        run: node --test reminder-logic.test.js ../tests/habit-rules.test.js
 
       - name: Run Reminder Script
         working-directory: ./scripts

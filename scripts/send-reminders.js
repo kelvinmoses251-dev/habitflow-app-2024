@@ -42,6 +42,9 @@ const DEAD_TOKEN = new Set(['messaging/registration-token-not-registered', 'mess
 
 async function runReminders() {
   const now = new Date();
+  // The app's own rules for what is due and done (an ES module in the project root, shared with the browser)
+  const rules = await import('../habit-rules.js');
+  const isOpen = (habit, day) => rules.isOpenOn(habit, day);
   // Only users who switched reminders on have a token.
   const usersSnap = await db.collection('users').where('fcmToken', '>', '').get();
   console.log(`${usersSnap.size} user(s) with reminders on.`);
@@ -52,7 +55,7 @@ async function runReminders() {
     // Cheap check first, so habits are only read for users who are inside a reminder window right now
     if (!reminderSlot(localParts(now, user.tz).hour)) continue;
     const habitsSnap = await db.collection('habits').where('userId', '==', userDoc.id).get();
-    const slot = dueSlot(user, habitsSnap.docs.map(d => d.data()), now);
+    const slot = dueSlot(user, habitsSnap.docs.map(d => d.data()), now, isOpen);
     if (slot) due.push({ ref: userDoc.ref, token: user.fcmToken, slot });
   }
 

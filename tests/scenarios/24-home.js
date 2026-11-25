@@ -198,7 +198,7 @@ module.exports = (scenario, c) => {
 
   scenario('home: a habit can be given a time of day when it is created or edited', async () => {
     await boot({ seed: seed({}) }); await waitFor(`!document.getElementById('habit-form').hidden`); await sleep(300);
-    check('the form offers a time of day, defaulting to any time', (await ev(`document.getElementById('habit-time').value`)) === 'any' && (await count('#habit-form .select-btn')) === 3);
+    check('the form offers a time of day, defaulting to any time', (await ev(`document.getElementById('habit-time').value`)) === 'any' && (await count('#habit-form .select-btn')) === 4);
     await ev(`(() => { document.getElementById('habit-input').value = 'Evening walk'; document.getElementById('habit-category').value = 'fitness'; document.getElementById('habit-frequency').value = 'daily'; document.getElementById('habit-time').value = 'evening'; document.getElementById('habit-form').requestSubmit(); })()`);
     await waitFor(`Object.keys(__mockDB.habits || {}).length === 1`, 3000);
     check('it is saved with the habit', (await ev(`Object.values(__mockDB.habits)[0].timeOfDay`)) === 'evening');

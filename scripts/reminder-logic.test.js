@@ -81,3 +81,40 @@ test('messages are data-only so the browser shows exactly one notification', () 
   assert.equal(m.notification, undefined);
   assert.deepEqual(m.data, { title: 'Habitly', body: 'Body text', url: '/' });
 });
+
+// ── With the app's rules passed in (what send-reminders.js does) ──
+const path = require('path');
+const { pathToFileURL } = require('url');
+const loadRules = () => import(pathToFileURL(path.join(__dirname, '..', 'habit-rules.js')).href);
+
+test('with the app\'s rules: a habit that rests today never triggers a reminder', async () => {
+  const rules = await loadRules();
+  const isOpen = (h, day) => rules.isOpenOn(h, day);
+  const user = { fcmToken: 't', tz: 'UTC' };
+  const thursdayEvening = at('2026-11-26T20:10:00Z');
+  const mwf = habit({ schedule: { type: 'days', days: [1, 3, 5] } });
+  assert.equal(dueSlot(user, [mwf], thursdayEvening, isOpen), null);                    // Mon/Wed/Fri habit on a Thursday
+  assert.equal(dueSlot(user, [mwf], at('2026-11-27T20:10:00Z'), isOpen), '2026-11-27-pm');   // Friday: due and open
+  assert.equal(dueSlot(user, [mwf], thursdayEvening), '2026-11-26-pm');                 // the old built-in check would have nagged
+});
+
+test('with the app\'s rules: paused, archived, not-started and week-complete habits are left alone', async () => {
+  const rules = await loadRules();
+  const isOpen = (h, day) => rules.isOpenOn(h, day);
+  const user = { fcmToken: 't', tz: 'UTC' };
+  const now = at('2026-11-25T20:10:00Z');                                              // Wednesday
+  assert.equal(dueSlot(user, [habit({ pauses: [{ from: '2026-11-20' }] })], now, isOpen), null);
+  assert.equal(dueSlot(user, [habit({ archivedAt: 1 })], now, isOpen), null);
+  assert.equal(dueSlot(user, [habit({ startDate: '2026-12-01' })], now, isOpen), null);
+  assert.equal(dueSlot(user, [habit({ frequency: 'weekly', schedule: { type: 'times', times: 2 }, completedDates: ['2026-11-23', '2026-11-24'] })], now, isOpen), null);
+  assert.equal(dueSlot(user, [habit({ frequency: 'weekly', schedule: { type: 'times', times: 3 }, completedDates: ['2026-11-23', '2026-11-24'] })], now, isOpen), '2026-11-25-pm');
+});
+
+test('with the app\'s rules: an ordinary old habit is judged exactly as before', async () => {
+  const rules = await loadRules();
+  const isOpen = (h, day) => rules.isOpenOn(h, day);
+  const user = { fcmToken: 't', tz: 'Africa/Lagos' };
+  const now = at('2026-11-23T19:10:00Z');
+  for (const h of [habit(), habit({ completedDates: ['2026-11-23'] }), habit({ frequency: 'weekly', completedDates: ['2026-11-23'] }), habit({ frequency: 'monthly', completedDates: ['2026-11-02'] }), habit({ frequency: 'monthly', completedDates: ['2026-10-30'] })])
+    assert.equal(dueSlot(user, [h], now, isOpen), dueSlot(user, [h], now), JSON.stringify(h));
+});

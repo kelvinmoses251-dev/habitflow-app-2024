@@ -120,3 +120,9 @@ Roadmap: `docs/superpowers/specs/2026-11-24-habitly-100-improvements-design.md`.
 | R20 | Home | Once you have more than eight habits, Today gets a search box and a chip for each category you use. Search ignores case and accents ("cafe" finds "Café walk"), filters the weekly and monthly sections too, and says "No habits match" with a Clear button when nothing fits. The progress ring still counts everything | A long list had to be read top to bottom to find one habit |
 | R21 | Home | Focus view: a calm full-screen layer that shows one open habit at a time, with its streak, and three choices: Done, Skip, or Start timer. It counts you through ("2 of 5") and ends with "That is everything for today." Enter is Done, the right arrow is Skip, Escape exits | A list of twelve open habits is a wall; one at a time is how people actually get through them |
 | R22 | Quality | Fixes from an independent review of batch 2: Undo can no longer refund XP twice, and quick double taps cancel each other instead of racing; time-of-day groups stay whole when weekly habits sit between daily ones; focus view cannot complete a habit twice or one you have not seen, and keeps up when a habit is completed on another device; time of day can be changed from a habit's details at any age; the app redraws for the new day when left open past midnight; keyboard focus survives Move up, filter chips and re-renders, and the Undo toast is reachable from inside a dialog; tablets get Move up and Move down | A reviewer found these before anything was published |
+
+### Roadmap batch 3: creating and editing habits
+
+| # | Area | What changed | Why |
+|---|------|--------------|-----|
+| R23 | Habits | A habit can be edited at any time, not only in its first hour. Renaming or recategorising keeps every past completion and the streak | A typo in a habit name was permanent after an hour, short of deleting the habit and losing its history (owner-approved) |

@@ -892,6 +892,8 @@ function checkAllDone(justCompletedId = null) {
   sessionStorage.setItem('allDoneCelebrated', today);
 
   setTimeout(async () => {
+    // Signed out in the half second since the last tick: there is no one to celebrate with or to save a bonus for
+    if (!currentUser) { isCelebrating = false; return; }
     playChime();
     const overlay = document.getElementById('all-done-overlay');
     const n = Math.max(calcStreak(allHabits), 1);
@@ -1637,10 +1639,8 @@ function renderHabits() {
     }
     const cat = CATS[h.category] || CATS.health;
 
-    // Check if habit was created in the last 1 hour
+    // A habit can be edited at any time (it used to be only in its first hour). Its history is never rewritten.
     const nowMs = Date.now();
-    const createdMs = h.createdAt ? new Date(h.createdAt).getTime() : 0;
-    const isEditable = (nowMs - createdMs) <= 60 * 60 * 1000;
 
     // Check if completion is locked (> 1 hour after checking)
     let isLocked = false;
@@ -1691,11 +1691,9 @@ function renderHabits() {
         <button class="btn-icon" data-id="${h.id}" data-action="timer" title="Start Focus Timer" aria-label="Start focus timer for ${escHtml(h.name)}">
           <svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>
         </button>
-        ${isEditable ?
-        '<button class="btn-icon" data-id="' + h.id + '" data-action="edit" title="Edit habit" aria-label="Edit ' + escHtml(h.name) + '">' +
-          '<svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg>' +
-        '</button>'
-        : ''}
+        <button class="btn-icon" data-id="${h.id}" data-action="edit" title="Edit habit" aria-label="Edit ${escHtml(h.name)}">
+          <svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg>
+        </button>
         <button class="btn-icon" data-id="${h.id}" data-action="delete" title="Remove habit" aria-label="Remove ${escHtml(h.name)}">
           <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
         </button>

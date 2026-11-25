@@ -56,7 +56,7 @@ module.exports = (scenario, c) => {
 
   scenario('review 2: time of day can be set on any habit, however old, from its details', async () => {
     await boot({ seed: seed({ a: H('Old habit', { createdAt: '2025-01-01T10:00:00Z' }) }) }); await rows(); await sleep(300);
-    check('an old habit has no Edit button (unchanged rule)', (await ev(`document.querySelectorAll('.habit-item[data-id="a"] [data-action="edit"]').length`)) === 0);
+    check('an old habit can be edited as well (since batch 3)', (await ev(`document.querySelectorAll('.habit-item[data-id="a"] [data-action="edit"]').length`)) === 1);
     await ev(`document.querySelector('.habit-item[data-id="a"] [data-action="details"]').click()`); await sleep(350);
     check('its details offer a time of day', (await ev(`document.getElementById('details-time').value`)) === 'any' && await visible('#details-modal .select-btn'));
     await ev(`(() => { const s = document.getElementById('details-time'); s.value = 'evening'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(400);

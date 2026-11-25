@@ -109,4 +109,48 @@ module.exports = (scenario, c) => {
   run('toast', { seed }, async () => {
     await ready(); await ev(`document.querySelector('#habits [data-action="delete"]').click()`); await settle(500);
   });
+
+  // ── Batch 3: creating and editing habits ──
+  const wdToday = new Date().getDay();
+  const b3db = {
+    users: { 'u-test': { xp: 380, streakShields: 1, frozenDates: [], fcmToken: 'tok' } },
+    habits: {
+      a: mk('Drink water', 'health', 1, streak(11), { icon: 'drop', color: 'blue', target: { amount: 8, unit: 'glasses', step: 1 }, progress: { [today]: 5 } }),
+      b: mk('Stretch', 'fitness', 2, streak(6), { cue: 'After I pour my coffee', timeOfDay: 'morning', reminderHour: 7 }),
+      c: mk('Cold showers', 'health', 3, streak(4), { startDate: key(-11), endDate: key(18) }),
+      d: mk('Read', 'reading', 4, [today, ...streak(3)], { target: { amount: 20, unit: 'pages', step: 5 }, progress: { [today]: 20 }, completedTimestamps: { [today]: Date.now() - 4000000 }, timeOfDay: 'evening' }),
+      e: mk('Strength training', 'fitness', 5, [key(-2)], { schedule: { type: 'days', days: [(wdToday + 1) % 7, (wdToday + 3) % 7, (wdToday + 5) % 7] } }),
+      f: mk('Run', 'fitness', 6, [key(-1)], { frequency: 'weekly', schedule: { type: 'times', times: 3 } }),
+      g: mk('Practise guitar', 'growth', 7, streak(9), { icon: 'music', pauses: [{ from: key(-3) }] }),
+      h: mk('Language course', 'growth', 8, [], { startDate: key(4) }),
+      i: mk('30-day plank challenge', 'fitness', 9, streak(30).slice(2), { startDate: key(-32), endDate: key(-2) }),
+      j: mk('Old side project', 'project', 10, streak(12), { archivedAt: Date.now() - 6 * 864e5 }),
+    },
+  };
+  const b3seed = { ...signedIn(), habitly_confirm: null, mock_fb_db: b3db };
+  const b3rows = () => waitFor(`document.querySelectorAll('#habits .habit-item').length >= 4`);
+  const fill = (id, v) => ev(`(() => { const e = document.getElementById('${id}'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  const openAsides = () => ev(`document.querySelectorAll('#page-home .rest-note:not(.hidden)').forEach(n => n.click())`);
+  for (const [tag, opts] of [['', { seed: b3seed }], ['-dark', { seed: { ...b3seed, theme: 'dark' } }], ['-desktop', { mobile: false, seed: b3seed }]]) {
+    run('b3-home' + tag, opts, async () => { await ready(); await b3rows(); await ev(`document.getElementById('habits').scrollIntoView({block:'start'})`); await settle(); });
+  }
+  run('b3-home-lower', { seed: b3seed }, async () => { await ready(); await b3rows(); await openAsides(); await ev(`document.getElementById('rest-note').scrollIntoView({block:'center'})`); await settle(); });
+  const sheetFilled = async () => {
+    await ready(); await b3rows(); await ev(`document.getElementById('new-habit-toggle').click()`); await settle(500);
+    await fill('habit-input', 'Evening walk'); await fill('habit-category', 'fitness'); await fill('habit-time', 'evening'); await fill('habit-cue', 'After dinner');
+    await fill('habit-target-amount', '30'); await fill('habit-target-unit', 'minutes'); await fill('habit-target-step', '10'); await fill('habit-reminder', '19');
+  };
+  for (const [tag, opts] of [['', { seed: b3seed }], ['-dark', { seed: { ...b3seed, theme: 'dark' } }], ['-desktop', { mobile: false, seed: b3seed }]]) {
+    run('b3-sheet' + tag, opts, async () => { await sheetFilled(); await settle(); });
+  }
+  run('b3-sheet-lower', { seed: b3seed }, async () => {
+    await sheetFilled(); await ev(`document.getElementById('habit-dates').open = true; document.querySelector('#habit-dates [data-run="30"]').click(); document.getElementById('habit-look').open = true; document.getElementById('habit-dates').scrollIntoView({block:'start'})`); await settle();
+  });
+  for (const [tag, opts] of [['', { seed: b3seed }], ['-dark', { seed: { ...b3seed, theme: 'dark' } }], ['-desktop', { mobile: false, seed: b3seed }]]) {
+    run('b3-library' + tag, opts, async () => { await ready(); await b3rows(); await ev(`document.getElementById('new-habit-toggle').click()`); await settle(400); await ev(`document.getElementById('browse-ideas').click()`); await waitFor(`document.querySelectorAll('#library-list .library-item').length > 0`); await settle(); });
+  }
+  run('b3-details', { seed: b3seed }, async () => { await ready(); await b3rows(); await ev(`document.querySelector('.habit-item[data-id="b"] [data-action="details"]').click()`); await settle(); });
+  run('b3-archive', { seed: b3seed }, async () => { await ready(); await ev(`location.hash='#profile'`); await settle(); await ev(`document.getElementById('open-archive-btn').click()`); await settle(); });
+  run('b3-empty', { seed: signedIn() }, async () => { await ready(); await waitFor(`!document.getElementById('empty-state').classList.contains('hidden')`); await ev(`document.getElementById('empty-state').scrollIntoView({block:'start'})`); await settle(); });
+
 };

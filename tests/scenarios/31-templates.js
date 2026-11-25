@@ -1,0 +1,93 @@
+// The habit ideas library (roadmap batch 3, item 26).
+module.exports = (scenario, c) => {
+  const { boot, ev, send, sleep, waitFor, signedIn, check, visible, noExceptions } = c;
+  const H = (name, o = {}) => ({ userId: 'u-test', name, category: 'health', frequency: 'daily', completedDates: [], createdAt: '2025-01-05T10:00:00Z', order: 1, ...o });
+  const seed = habits => signedIn({ habitly_confirm: null, mock_fb_db: { habits, users: { 'u-test': { xp: 300 } } } });
+  const size = (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 });
+  const setField = (id, value) => ev(`(() => { const e = document.getElementById(${JSON.stringify(id)}); e.value = ${JSON.stringify(value)}; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  const text = sel => ev(`(document.querySelector(${JSON.stringify(sel)}) || {}).textContent || ''`);
+  const stored = name => ev(`JSON.stringify(Object.values(__mockDB.habits).find(h => h.name === ${JSON.stringify(name)} && !h.deletedAt) || null)`).then(JSON.parse);
+  const card = name => `[...document.querySelectorAll('#library-list .library-item')].find(li => li.querySelector('.library-name').textContent.trim() === ${JSON.stringify(name)})`;
+  const tap = async (name, action) => { await ev(`${card(name)}.querySelector('[data-action="${action}"]').click()`); await sleep(500); };
+  const names = () => ev(`[...document.querySelectorAll('#library-list .library-name')].map(n => n.textContent.trim())`);
+  const libraryOpen = () => waitFor(`!document.getElementById('library-modal').classList.contains('hidden') && document.querySelectorAll('#library-list .library-item').length > 0`, 4000);
+
+  scenario('ideas: the library opens from an empty account and adds a habit in one tap', async () => {
+    await boot({ seed: seed({}) }); await waitFor(`!document.getElementById('empty-state').classList.contains('hidden')`); await sleep(300);
+    check('the empty state still offers the four starter sets', (await ev(`document.querySelectorAll('#starter-packs .pack-card').length`)) === 4);
+    check('and a way into the ideas library', (await visible('#empty-browse')) && /ideas/i.test(await text('#empty-browse')));
+    await ev(`document.getElementById('empty-browse').click()`);
+    check('the library opens with its ideas', await libraryOpen());
+    check('about fifty of them', (await names()).length >= 48, (await names()).length);
+    check('it is a named dialog', await ev(`(() => { const m = document.getElementById('library-modal'); return m.getAttribute('role') === 'dialog' && document.getElementById(m.getAttribute('aria-labelledby')).textContent.trim() === 'Habit ideas'; })()`));
+    check('goals are chips: All and eight goals, All chosen', await ev(`(() => { const b = [...document.querySelectorAll('#library-goals button')]; return b.length === 9 && b[0].textContent.trim() === 'All' && b[0].getAttribute('aria-pressed') === 'true' && b.slice(1).every(x => x.getAttribute('aria-pressed') === 'false'); })()`));
+    check('each idea says what it is', /8 glasses/.test(await ev(`${card('Drink water')}.querySelector('.library-sub').textContent`)) && /3 times a week/.test(await ev(`${card('Run')}.querySelector('.library-sub').textContent`)), await ev(`${card('Run')}.querySelector('.library-sub').textContent`));
+    await tap('Drink water', 'tpl-add');
+    const water = await stored('Drink water');
+    check('one tap creates the habit with everything the idea has', !!water && water.category === 'health' && water.frequency === 'daily' && water.icon === 'drop' && JSON.stringify(water.target) === JSON.stringify({ amount: 8, unit: 'glasses', step: 1 }), JSON.stringify(water));
+    check('and nothing empty is stored', !!water && !('cue' in water) && !('schedule' in water) && !('timeOfDay' in water) && !('color' in water));
+    check('the idea now says Added and cannot be added twice', await ev(`(() => { const b = ${card('Drink water')}.querySelector('[data-action="tpl-add"]'); return b.disabled && b.textContent.trim() === 'Added'; })()`));
+    check('the toast offers Undo', /Drink water added/.test(await ev(`document.getElementById('toast-container').innerText`)) && /Undo/.test(await text('#toast-container .toast-action')));
+    await ev(`document.querySelector('#toast-container .toast-action').click()`); await sleep(500);
+    check('Undo removes it again', !(await stored('Drink water')) && await ev(`!${card('Drink water')}.querySelector('[data-action="tpl-add"]').disabled`));
+    await tap('Run', 'tpl-add'); await tap('Strength training', 'tpl-add'); await tap('Finish a book', 'tpl-add'); await tap('Plan my top 3 tasks', 'tpl-add');
+    const run = await stored('Run'), gym = await stored('Strength training'), book = await stored('Finish a book'), plan = await stored('Plan my top 3 tasks');
+    check('a times-a-week idea becomes a weekly habit with its number', !!run && run.frequency === 'weekly' && JSON.stringify(run.schedule) === JSON.stringify({ type: 'times', times: 3 }), JSON.stringify(run));
+    check('a chosen-days idea keeps its days and cue', !!gym && gym.frequency === 'daily' && JSON.stringify(gym.schedule) === JSON.stringify({ type: 'days', days: [1, 3, 5] }) && gym.cue === 'After work, before dinner', JSON.stringify(gym));
+    check('a monthly idea is monthly', !!book && book.frequency === 'monthly' && !('schedule' in book));
+    check('time of day is carried over', !!plan && plan.timeOfDay === 'morning' && plan.icon === 'target');
+    await ev(`document.getElementById('library-close').click()`); await sleep(400);
+    check('closing shows the new habits in the app', await ev(`['Run', 'Finish a book'].every(n => [...document.querySelectorAll('#page-home .habit-name')].some(e => e.textContent.trim() === n))`));
+    noExceptions();
+  });
+
+  scenario('ideas: search and goals narrow the list, and Adjust opens the sheet filled in', async () => {
+    await boot({ seed: seed({ a: H('Read') }), mobile: false }); await waitFor(`!!document.querySelector('#page-home .habit-item')`); await sleep(300);
+    await ev(`document.getElementById('new-habit-toggle').click()`); await sleep(450);
+    check('the new-habit sheet links to the ideas', await visible('#browse-ideas'));
+    await ev(`document.getElementById('browse-ideas').click()`);
+    check('it swaps the sheet for the library', (await libraryOpen()) && !(await visible('#habit-sheet')));
+    check('an idea you already have says Added', await ev(`${card('Read')}.querySelector('[data-action="tpl-add"]').disabled`));
+    await setField('library-search', 'WÁTER'); await sleep(250);
+    check('search ignores case and accents', (await names()).includes('Drink water') && (await names()).length < 10, (await names()).join());
+    check('the count is announced', /\d+ idea/.test(await text('#library-count')), await text('#library-count'));
+    await setField('library-search', 'zzzz'); await sleep(250);
+    check('no match says so, with a way back', (await names()).length === 0 && (await visible('#library-none')));
+    await ev(`document.getElementById('library-clear').click()`); await sleep(250);
+    check('Clear brings everything back', (await names()).length >= 48 && (await ev(`document.getElementById('library-search').value`)) === '');
+    await ev(`[...document.querySelectorAll('#library-goals button')].find(b => b.textContent.trim() === 'Money').click()`); await sleep(250);
+    const money = await names();
+    check('a goal chip narrows to that goal', money.length >= 6 && money.length < 15 && money.includes('No-spend day') && !money.includes('Run'), money.join());
+    check('and shows as chosen', await ev(`[...document.querySelectorAll('#library-goals button')].filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.textContent.trim()).join() === 'Money'`));
+    await setField('library-search', 'lunch'); await sleep(250);
+    check('search and goal work together', (await names()).join() === 'Bring lunch from home');
+    await tap('Bring lunch from home', 'tpl-edit');
+    check('Adjust swaps the library for the sheet, as a new habit', (await visible('#habit-sheet')) && !(await visible('#library-modal')) && (await text('#habit-sheet-title')).trim() === 'New habit' && (await ev(`document.getElementById('habit-edit-id').value`)) === '');
+    check('filled in from the idea: name, category, cue and weekdays', await ev(`document.getElementById('habit-input').value === 'Bring lunch from home' && document.getElementById('habit-category').value === 'saving' && /pack tomorrow/.test(document.getElementById('habit-cue').value) && [...document.querySelectorAll('#schedule-days input:checked')].map(i => i.value).join() === '1,2,3,4,5'`));
+    check('nothing is saved until Add is pressed', !(await stored('Bring lunch from home')));
+    await setField('habit-input', 'Pack lunch');
+    await ev(`document.getElementById('habit-form').requestSubmit()`); await sleep(500);
+    const lunch = await stored('Pack lunch');
+    check('saving creates the adjusted habit', !!lunch && lunch.category === 'saving' && JSON.stringify(lunch.schedule) === JSON.stringify({ type: 'days', days: [1, 2, 3, 4, 5] }) && /pack tomorrow/.test(lunch.cue), JSON.stringify(lunch));
+    await ev(`document.querySelector('.habit-item[data-id="a"] [data-action="edit"]').click()`); await sleep(450);
+    check('editing an existing habit does not offer the ideas', !(await visible('#browse-ideas')));
+    noExceptions();
+  });
+
+  scenario('ideas: the library fits a small phone, works by keyboard and offline', async () => {
+    await boot({ seed: seed({}) }); await size(320, 568); await waitFor(`!document.getElementById('empty-state').classList.contains('hidden')`); await sleep(300);
+    await ev(`document.getElementById('empty-browse').click()`); await libraryOpen(); await sleep(300);
+    check('320px: nothing spills sideways', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#library-list .library-item')].every(li => li.getBoundingClientRect().right <= innerWidth + 0.5 && li.scrollWidth <= li.clientWidth + 1)`));
+    check('320px: Add and Adjust are 44px targets', await ev(`[...document.querySelectorAll('#library-list button')].every(b => b.getBoundingClientRect().height >= 44 && b.getBoundingClientRect().width >= 44)`));
+    check('the goal chips are 44px tall on a phone and scroll sideways inside their own row', await ev(`(() => { const row = document.getElementById('library-goals'); return [...row.querySelectorAll('button')].every(b => b.getBoundingClientRect().height >= 44) && row.scrollWidth > row.clientWidth; })()`));
+    check('every control is a real button or field, so the keyboard reaches it', await ev(`[...document.querySelectorAll('#library-modal [data-action], #library-goals > *, #library-close')].every(e => e.tagName === 'BUTTON' && e.type === 'button') && document.getElementById('library-search').tagName === 'INPUT'`));
+    check('each button says which idea it acts on', (await ev(`${card('Drink water')}.querySelector('[data-action="tpl-add"]').getAttribute('aria-label')`)) === 'Add Drink water' && /Adjust Drink water/.test(await ev(`${card('Drink water')}.querySelector('[data-action="tpl-edit"]').getAttribute('aria-label')`)));
+    await ev(`window.__mockOffline = true; 0`);
+    await tap('Meditate', 'tpl-add');
+    check('offline: the idea is added at once', await ev(`${card('Meditate')}.querySelector('[data-action="tpl-add"]').textContent.trim() === 'Added'`));
+    await ev(`window.__mockOffline = false; 0`);
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await sleep(300);
+    check('Escape closes the library', !(await visible('#library-modal')));
+    noExceptions();
+  });
+};

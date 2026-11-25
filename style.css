@@ -825,6 +825,25 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 @media (pointer: coarse) { .habit-item .row-move { display: grid; } }
 .details-time { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); font-size: var(--fs-ui); color: var(--text-2); }
 .details-time.hidden { display: none; }
+/* Habit ideas library */
+.sheet-ideas { align-self: flex-start; min-height: 44px; padding: 0; font-size: var(--fs-ui); }
+.sheet-ideas.hidden { display: none; }
+.library input[type="search"] { width: 100%; min-height: 44px; padding: 0 var(--sp-3); font-family: inherit; font-size: var(--fs-base); color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md); }
+.library input[type="search"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); outline: none; }
+.library .chips { flex: none; }
+@media (pointer: coarse), (max-width: 640px) { .library .chip { min-height: 44px; } }
+.library-list { list-style: none; display: flex; flex-direction: column; margin: 0; padding: 0; }
+.library-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); padding: var(--sp-2) 0; border-top: 1px solid var(--border); }
+.library-item:first-child { border-top: 0; }
+.library-item .cat-ico { width: 28px; height: 28px; }
+.library-item .cat-ico svg { width: 16px; height: 16px; }
+.library-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.library-name { font-size: var(--fs-base); font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.library-sub, .library-cue { font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere; }
+.library-actions { display: flex; align-items: center; gap: var(--sp-1); flex: none; }
+.library-actions .btn-link { min-height: 44px; min-width: 44px; padding: 0 var(--sp-2); }
+.library-actions .library-add { min-height: 44px; min-width: 64px; padding: 0 var(--sp-3); }
+.library-actions .library-add[disabled] { color: var(--muted); background: var(--surface-2); border-color: var(--border); cursor: default; }
 .details-life { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .details-life .btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 44px; }
 .details-life .icon { width: 16px; height: 16px; }

@@ -955,7 +955,7 @@ function initRouter() {
 const ESC_CLOSERS = [   // ordered top of the stack first
   ['share-card-modal', 'share-card-close'], ['level-up-modal', 'level-up-claim-btn'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
-  ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['details-modal', 'details-close'],
+  ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'], ['details-modal', 'details-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
   ['focus-view', 'focus-exit'],
   ['notif-ask', 'notif-ask-no'],
@@ -1512,6 +1512,7 @@ function subscribeToHabits() {
     habitsLoaded = true;
     renderHabits();
     if (!document.getElementById('archive-modal')?.classList.contains('hidden')) renderArchive();   // keep an open archive current
+    if (!document.getElementById('library-modal')?.classList.contains('hidden')) renderLibrary();   // and "Added" in an open library
     if (userDocLoaded) updateStreak();   // before that, shield data is still defaults
     syncUserStats();
 
@@ -2208,14 +2209,16 @@ const habitFormEl = document.getElementById('habit-form');
 // cursor in the name field and gives focus back afterwards. It is "sticky": only Cancel, Save or Escape close it.
 const habitSheet = document.getElementById('habit-sheet');
 const sheetField = id => document.getElementById(id);
-function openHabitSheet(habit = null) {
+function openHabitSheet(habit = null, { asNew = false } = {}) {
+  const editing = !!habit && !asNew;                    // asNew: filled in from an idea, but saved as a new habit
   if (!habitSheet || !habitFormEl) return;
   habitFormEl.reset();
   ['habit-input', 'habit-category', 'habit-frequency'].forEach(id => clearFieldError(sheetField(id)));
   habitSheet.querySelectorAll('.select-btn').forEach(clearFieldError);
-  sheetField('habit-edit-id').value = habit ? habit.id : '';
-  sheetField('habit-sheet-title').textContent = habit ? 'Edit habit' : 'New habit';
-  sheetField('habit-save').textContent = habit ? 'Save changes' : 'Add habit';
+  sheetField('habit-edit-id').value = editing ? habit.id : '';
+  sheetField('habit-sheet-title').textContent = editing ? 'Edit habit' : 'New habit';
+  sheetField('habit-save').textContent = editing ? 'Save changes' : 'Add habit';
+  sheetField('browse-ideas')?.classList.toggle('hidden', editing);
   sheetField('habit-input').value = habit ? habit.name : '';
   sheetField('habit-category').value = habit ? (CATS[habit.category] ? habit.category : 'health') : '';
   sheetField('habit-frequency').value = habit ? (habit.frequency || 'daily') : 'daily';
@@ -2739,6 +2742,100 @@ document.getElementById('page-home').addEventListener('dblclick', async e => {
   }
 });
 
+
+// ── Habit ideas library ───────────────────────────────────
+// About fifty ready-made habits grouped by goal (templates.js, fetched the first time the library is opened).
+// Add creates the habit in one tap, with Undo. Adjust opens the habit sheet filled in, to change before saving.
+let tpl = null, libraryGoal = '';
+const libraryEl = id => document.getElementById(id);
+const templateAsHabit = t => ({ name: t.name, category: t.category, frequency: tpl.templateFrequency(t), schedule: t.schedule, target: t.target, cue: t.cue, timeOfDay: t.timeOfDay, icon: t.icon });
+function templateSummary(t) {
+  const freq = tpl.templateFrequency(t), parts = [];
+  if (t.target) parts.push(`${fmtCount(t.target.amount)} ${t.target.unit}`);
+  const how = freq === 'monthly' ? 'monthly' : t.schedule ? scheduleLabel(t.schedule) : 'every day';
+  parts.push(how.charAt(0).toUpperCase() + how.slice(1));
+  if (t.timeOfDay) parts.push(SLOT_LABEL[t.timeOfDay]);
+  return parts.join(' · ');
+}
+function renderLibrary() {
+  if (!tpl) return;
+  // The list is rebuilt on every change: remember which row had the keyboard, and give it back afterwards
+  const held = document.activeElement?.closest?.('#library-list [data-i]'), heldI = held ? held.dataset.i : null, heldAction = held ? held.dataset.action : null;
+  const chips = libraryEl('library-goals');
+  chips.innerHTML = ['', ...tpl.TEMPLATE_GOALS].map(g => `<button type="button" class="chip" data-goal="${g}" aria-pressed="${g === libraryGoal}">${g || 'All'}</button>`).join('');
+  const found = tpl.searchTemplates(libraryEl('library-search').value, libraryGoal);
+  const have = new Set(allHabits.filter(h => !h.archivedAt).map(h => String(h.name || '').trim().toLowerCase()));
+  libraryEl('library-count').textContent = `${found.length} idea${found.length === 1 ? '' : 's'}`;
+  libraryEl('library-none').classList.toggle('hidden', found.length > 0);
+  libraryEl('library-list').innerHTML = found.map(t => {
+    const look = habitLook(t), added = have.has(t.name.toLowerCase()), i = tpl.TEMPLATES.indexOf(t);
+    return `<li class="library-item" style="--cat:${look.color}">
+      <span class="cat-ico">${look.icon}</span>
+      <div class="library-meta">
+        <span class="library-name">${escHtml(t.name)}</span>
+        <span class="library-sub">${escHtml(templateSummary(t))}</span>
+        ${t.cue ? `<span class="library-cue">${escHtml(t.cue)}</span>` : ''}
+      </div>
+      <div class="library-actions">
+        <button type="button" class="btn-link" data-action="tpl-edit" data-i="${i}" aria-label="Adjust ${escHtml(t.name)} before adding">Adjust</button>
+        <button type="button" class="btn-secondary library-add" data-action="tpl-add" data-i="${i}" aria-label="Add ${escHtml(t.name)}" ${added ? 'disabled' : ''}>${added ? 'Added' : 'Add'}</button>
+      </div>
+    </li>`;
+  }).join('');
+  if (heldI !== null) {
+    const row = [...libraryEl('library-list').querySelectorAll(`[data-i="${heldI}"]`)].filter(b => !b.disabled);
+    (row.find(b => b.dataset.action === heldAction) || row[0])?.focus();
+  }
+}
+async function openLibrary() {
+  if (!currentUser) return;
+  closeHabitSheet();
+  if (!tpl) {
+    try { tpl = await import('./templates.js?v=1'); }
+    catch (_) { toast('Could not load the ideas. Check your connection and try again.', 'error'); return; }
+  }
+  libraryGoal = '';
+  libraryEl('library-search').value = '';
+  renderLibrary();
+  libraryEl('library-modal').classList.remove('hidden');
+  track('library_opened');
+}
+const closeLibrary = () => libraryEl('library-modal').classList.add('hidden');
+function addTemplate(t) {
+  const before = new Set(allHabits.map(h => h.id));
+  backgroundWrite(addHabit(t.name, t.category, tpl.templateFrequency(t), { timeOfDay: t.timeOfDay || 'any', cue: t.cue || '', schedule: t.schedule || '', target: t.target || '', icon: t.icon || '' }), 'add the habit');
+  // Undo removes the habit this tap created (found as the new one with this name; it has no history to lose)
+  toast(`${t.name} added`, 'success', 6000, { label: 'Undo', onClick: () => {
+    const made = allHabits.find(h => !before.has(h.id) && h.name === t.name);
+    if (made) backgroundWrite(deleteDoc(doc(db, 'habits', made.id)), 'remove the habit');
+  } });
+  track('habit_added', { category: t.category, frequency: tpl.templateFrequency(t), source: 'library' });
+}
+libraryEl('empty-browse')?.addEventListener('click', openLibrary);
+libraryEl('browse-ideas')?.addEventListener('click', openLibrary);
+libraryEl('library-close')?.addEventListener('click', closeLibrary);
+libraryEl('library-search')?.addEventListener('input', renderLibrary);
+libraryEl('library-clear')?.addEventListener('click', () => { libraryEl('library-search').value = ''; libraryGoal = ''; renderLibrary(); libraryEl('library-search').focus(); });
+libraryEl('library-goals')?.addEventListener('click', e => {
+  const chip = e.target.closest('[data-goal]');
+  if (!chip) return;
+  libraryGoal = chip.dataset.goal;
+  renderLibrary();
+  libraryEl('library-goals').querySelector(`[data-goal="${libraryGoal}"]`)?.focus();     // the row was rebuilt: keep the keyboard where it was
+});
+libraryEl('library-list')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  const t = btn && tpl && tpl.TEMPLATES[+btn.dataset.i];
+  if (!t || btn.disabled) return;
+  if (btn.dataset.action === 'tpl-add') {
+    btn.previousElementSibling?.focus();                // Add is about to become "Added" (disabled): keep the keyboard on this row
+    btn.disabled = true;
+    addTemplate(t);
+    return;
+  }
+  closeLibrary();
+  openHabitSheet(templateAsHabit(t), { asNew: true });
+});
 
 // ── Pause and archive ─────────────────────────────────────
 // Pausing is for a holiday or an injury: the habit steps out of Today, the ring and reminders, and the paused

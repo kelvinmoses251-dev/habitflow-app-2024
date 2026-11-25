@@ -56,7 +56,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=63" />
+  <link rel="stylesheet" href="style.css?v=64" />
 </head>
 <body>
 
@@ -429,6 +429,7 @@
             <p class="empty-title">Start with a ready-made set</p>
             <span class="empty-text">Each one adds three habits. You can edit or delete them later.</span>
             <div id="starter-packs" class="pack-grid"></div>
+            <button type="button" id="empty-browse" class="btn-secondary empty-create"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Browse habit ideas</button>
             <button type="button" id="empty-create" class="btn-secondary empty-create"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Create your own</button>
           </div>
         </div>
@@ -682,6 +683,7 @@
   <div class="dialog dialog-scroll habit-sheet">
     <span class="sheet-handle" aria-hidden="true"></span>
     <h2 class="dialog-title" id="habit-sheet-title">New habit</h2>
+    <button type="button" id="browse-ideas" class="btn-link sheet-ideas">Not sure what to add? Browse ideas</button>
     <div class="habit-preview-wrap">
       <span class="habit-preview-label">Preview</span>
       <div id="habit-preview" class="habit-preview" aria-hidden="true"></div>
@@ -813,6 +815,22 @@
     <div id="deleted-habits-list" class="deleted-list"></div>
     <div class="dialog-actions">
       <button id="recovery-close" data-dismiss class="btn-secondary" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Habit ideas: about fifty ready-made habits, by goal -->
+<div id="library-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="library-title">
+  <div class="dialog dialog-scroll library">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <h2 class="dialog-title" id="library-title">Habit ideas</h2>
+    <input type="search" id="library-search" aria-label="Search habit ideas" placeholder="Search, for example water or reading" autocomplete="off" />
+    <div id="library-goals" class="chips" role="group" aria-label="Filter by goal"></div>
+    <p id="library-count" class="sr-only" role="status" aria-live="polite"></p>
+    <ul id="library-list" class="library-list"></ul>
+    <p id="library-none" class="empty-note hidden"><span>No ideas match.</span> <button type="button" class="btn-link" id="library-clear">Clear</button></p>
+    <div class="dialog-actions">
+      <button id="library-close" data-dismiss class="btn-secondary" type="button">Close</button>
     </div>
   </div>
 </div>
@@ -953,6 +971,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=65"></script>
+<script type="module" src="app.js?v=66"></script>
 </body>
 </html>

@@ -785,6 +785,9 @@ html.dialog-open { overflow: hidden; }
 .select-btn .cat-ico svg, .select-list .cat-ico svg { width: 15px; height: 15px; }
 .freq-badge { display: inline-block; white-space: nowrap; }
 .freq-badge::first-letter { text-transform: uppercase; }   /* "Weekly", but "2 of 3 this week" stays as written */
+/* Phones: a row that carries a count, a run or a reminder gives up its seven-day dots, so badges stay on one line */
+@media (max-width: 480px) { .badges-row:has(.target-count, .run-badge, .remind-badge) .dots { display: none; } }
+.form-row.sheet-goal { align-items: end; }
 .remind-badge { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .remind-badge .icon { width: 12px; height: 12px; }
 @media (max-width: 359px) { .remind-badge { display: none; } }

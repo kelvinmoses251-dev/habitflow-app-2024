@@ -246,4 +246,28 @@ module.exports = (scenario, c) => {
     check('for 25 XP', (await xp()) === 325, await xp());
     noExceptions();
   });
+
+  scenario('target: busy rows stay on one line on a phone, and the goal boxes are labelled', async () => {
+    const run = n => Array.from({ length: n }, (_, i) => day(i + 1));
+    await boot({ seed: seed({
+      r: H('Read', { category: 'reading', completedDates: [day(0), ...run(4)], completedTimestamps: { [day(0)]: Date.now() - 4000000 }, target: { amount: 20, unit: 'pages', step: 5 }, progress: { [day(0)]: 20 } }),
+      c: H('Cold showers', { order: 2, completedDates: run(4), startDate: day(11), endDate: day(-18) }),
+      s: H('Stretch', { order: 3, completedDates: run(6), reminderHour: 7, cue: 'After I pour my coffee' }),
+      p: H('Plain', { order: 4, completedDates: run(3) }),
+    }) }); await size(390, 844); await rows(); await sleep(300);
+    const oneLine = id => ev(`document.querySelector('.habit-item[data-id="${id}"] .badges-row').getBoundingClientRect().height < 30`);
+    check('390px: a finished counting row is one line of badges', await oneLine('r'));
+    check('390px: a row on a dated run is one line of badges', await oneLine('c'));
+    check('390px: a row with a reminder is one line of badges', await oneLine('s'));
+    check('an ordinary row still shows its seven-day dots', await ev(`document.querySelector('.habit-item[data-id="p"] .dots').getClientRects().length > 0`) && await oneLine('p'));
+    await size(360, 740); await sleep(200);
+    check('360px: all four are still one line', (await oneLine('r')) && (await oneLine('c')) && (await oneLine('s')) && (await oneLine('p')));
+    check('the quiet lines at the foot of Today sit close together', await ev(`(() => { const n = [...document.querySelectorAll('#page-home .rest-note')]; return n.length >= 3 && n.every(e => parseFloat(getComputedStyle(e).marginTop) <= 8); })()`));
+    await openNew();
+    check('each goal box has a visible label', (await ev(`[...document.querySelectorAll('#habit-goal label > span')].map(e => e.textContent.trim()).join()`)) === 'Goal,Unit,Count by' && await ev(`[...document.querySelectorAll('#habit-goal label > span')].every(e => e.getClientRects().length > 0)`));
+    check('and each box is tied to its label', await ev(`['habit-target-amount', 'habit-target-unit', 'habit-target-step'].every(id => !!document.getElementById(id).closest('label'))`));
+    await size(320, 568); await sleep(200);
+    check('320px: the three goal boxes fit side by side', await ev(`document.documentElement.scrollWidth <= innerWidth && (() => { const r = [...document.querySelectorAll('#habit-goal input')].map(i => i.getBoundingClientRect()); return r.every(x => x.width >= 60 && x.right <= innerWidth) && Math.abs(r[0].top - r[2].top) < 2; })()`));
+    noExceptions();
+  });
 };

@@ -56,7 +56,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=64" />
+  <link rel="stylesheet" href="style.css?v=65" />
 </head>
 <body>
 
@@ -745,9 +745,9 @@
       </div>
       <input type="text" id="habit-cue" aria-label="Cue: what will remind you to do it (optional)" maxlength="80" placeholder="Cue (optional), for example: After I pour my coffee" autocomplete="off" />
       <div class="form-row sheet-goal" id="habit-goal">
-        <input type="number" id="habit-target-amount" inputmode="decimal" step="any" aria-label="Goal: a number to reach each time (optional)" placeholder="Goal, e.g. 8" autocomplete="off" />
-        <input type="text" id="habit-target-unit" maxlength="12" aria-label="Unit for the goal, for example glasses" placeholder="Unit, e.g. glasses" autocomplete="off" />
-        <input type="number" id="habit-target-step" inputmode="decimal" step="any" aria-label="Count by: how much one tap adds (optional, normally 1)" placeholder="Count by 1" autocomplete="off" />
+        <label class="date-field"><span>Goal</span><input type="number" id="habit-target-amount" inputmode="decimal" step="any" aria-label="Goal: a number to reach each time (optional)" placeholder="8" autocomplete="off" /></label>
+        <label class="date-field"><span>Unit</span><input type="text" id="habit-target-unit" maxlength="12" aria-label="Unit for the goal, for example glasses" placeholder="glasses" autocomplete="off" /></label>
+        <label class="date-field"><span>Count by</span><input type="number" id="habit-target-step" inputmode="decimal" step="any" aria-label="Count by: how much one tap adds (optional, normally 1)" placeholder="1" autocomplete="off" /></label>
       </div>
       <!-- Optional extras sit in sections that open when wanted, so the sheet stays short -->
       <details class="sheet-more" id="habit-dates">

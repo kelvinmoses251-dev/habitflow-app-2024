@@ -129,3 +129,61 @@ test('monthGrid: counts for the month, and junk never throws', async () => {
     assert.equal(monthGrid(bad, '2026-11', TODAY).weeks.length, 6);
   }
 });
+
+// ── Charts ─────────────────────────────────────────────────
+test('weeklyRates: twelve weeks, oldest first, each the share of owed days that were done', async () => {
+  const { weeklyRates } = await load();
+  // TODAY is Wednesday 25 November: this week so far is Mon 23, Tue 24, Wed 25
+  const w = weeklyRates(H('Read', [0, 1, 3, 4, 5, 6, 7, 8, 9]), TODAY);
+  assert.equal(w.length, 12);
+  assert.equal(w[11].start, '2026-11-23'); assert.equal(w[11].current, true); assert.equal(w[0].start, '2026-09-07');
+  assert.deepEqual([w[11].due, w[11].done, w[11].rate], [3, 2, 67]);         // Monday missed
+  assert.deepEqual([w[10].due, w[10].done, w[10].rate], [7, 7, 100]);
+  assert.deepEqual([w[9].due, w[9].done, w[9].rate], [7, 0, 0]);
+  assert.ok(w.slice(0, 11).every(x => x.current === false));
+});
+
+test('weeklyRates: rest days, pauses and the time before the habit existed are not owed', async () => {
+  const { weeklyRates } = await load();
+  const weekdays = weeklyRates(H('Gym', [], { schedule: { type: 'days', days: [1, 2, 3, 4, 5] } }), TODAY);
+  assert.equal(weekdays[10].due, 5); assert.equal(weekdays[11].due, 3);
+  const paused = weeklyRates(H('Swim', [], { pauses: [{ from: '2026-11-16', to: '2026-11-22' }] }), TODAY);
+  assert.deepEqual([paused[10].due, paused[10].rate], [0, null]);
+  const fresh = weeklyRates(H('New', [0], { createdAt: '2026-11-24T12:00:00Z' }), TODAY);
+  assert.deepEqual([fresh[11].due, fresh[11].done], [2, 1]);
+  assert.ok(fresh.slice(0, 11).every(x => x.rate === null));
+});
+
+test('weeklyRates: a times-a-week habit is measured against its weekly target; a monthly one has no weekly figures', async () => {
+  const { weeklyRates } = await load();
+  const three = weeklyRates(H('Run', [0, 1, 3, 5, 7, 8], { frequency: 'weekly', schedule: { type: 'times', times: 3 } }), TODAY);
+  assert.deepEqual([three[11].due, three[11].done, three[11].rate], [3, 2, 67]);
+  assert.deepEqual([three[10].due, three[10].done, three[10].rate], [3, 3, 100]);     // four done, capped at the target
+  const weekly = weeklyRates(H('Call home', [2, 9], { frequency: 'weekly' }), TODAY);
+  assert.deepEqual([weekly[11].rate, weekly[10].rate, weekly[9].rate], [100, 100, 0]);
+  assert.ok(weeklyRates(H('Budget', [3], { frequency: 'monthly' }), TODAY).every(x => x.rate === null));
+});
+
+test('weekdayRates: each day of the week over twelve weeks, and the best one', async () => {
+  const { weekdayRates } = await load();
+  const tuesdays = range(0, 83).filter(n => [2, 4].includes(new Date(num(ago(n)) * 86400000).getUTCDay()));   // every Tuesday and Thursday
+  const d = weekdayRates(H('Read', tuesdays), TODAY);
+  assert.deepEqual(d.map(x => x.label), ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
+  assert.deepEqual(d.map(x => x.weekday), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual([d[1].due, d[1].done, d[1].rate], [12, 12, 100]);
+  assert.deepEqual([d[0].due, d[0].done, d[0].rate], [12, 0, 0]);
+  assert.deepEqual(d.filter(x => x.best).map(x => x.label), ['Tuesday']);     // Thursday ties; the earlier day wins
+});
+
+test('weekdayRates: days never owed have no rate, a weekly habit counts completions, an empty habit has no best day', async () => {
+  const { weekdayRates } = await load();
+  const gym = weekdayRates(H('Gym', [0, 7], { schedule: { type: 'days', days: [1, 3, 5] } }), TODAY);
+  assert.equal(gym[1].rate, null); assert.equal(gym[1].due, 0);
+  assert.equal(gym[2].due, 12); assert.equal(gym[2].done, 2);
+  const weekly = weekdayRates(H('Call home', [3, 10, 17, 22], { frequency: 'weekly' }), TODAY);   // three Sundays and a Tuesday
+  assert.deepEqual(weekly.map(x => x.done), [0, 1, 0, 0, 0, 0, 3]);
+  assert.equal(weekly.find(x => x.best).label, 'Sunday');
+  assert.ok(weekly.every(x => x.rate === null));
+  assert.equal(weekdayRates(H('Read'), TODAY).filter(x => x.best).length, 0);
+  assert.doesNotThrow(() => weekdayRates(null, TODAY));
+});

@@ -984,6 +984,21 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .lg.is-missed { border-color: var(--border-strong); }
 .lg.is-rest { background: var(--surface-2); }
 
+/* The habit page: charts. Plain boxes sized by --h; the numbers are also said in words under each chart. */
+.hp-h3 { margin-top: var(--sp-2); font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.chart { display: flex; flex-direction: column; gap: var(--sp-1); }
+.bars { display: grid; align-items: end; gap: 6px; height: 96px; }
+.bars-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.bars-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); height: 112px; }
+.bar { display: block; height: var(--h, 0%); min-height: 2px; background: var(--border-strong); border-radius: var(--r-sm) var(--r-sm) 0 0; }
+.bar.is-now, .bar.is-best { background: var(--primary); }
+.bar.is-none { background: var(--surface-2); }
+.bar-col { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 4px; height: 100%; }
+.bar-col .bar { align-self: end; }
+.bar-lbl { text-align: center; font-size: var(--fs-2xs); color: var(--muted); }
+.bars-axis { display: flex; justify-content: space-between; font-size: var(--fs-2xs); color: var(--muted); }
+.chart-cap { font-size: var(--fs-sm); color: var(--text-2); }
+
 /* Filling in yesterday */
 .hp-fill { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--warning-soft); border: 1px solid var(--warning-line); border-radius: var(--r-lg); }
 .hp-fill.hidden { display: none; }

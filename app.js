@@ -20,7 +20,7 @@ import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, at
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
-import { habitSummary, monthGrid } from "./habit-history.js?v=1";
+import { habitSummary, monthGrid, weeklyRates, weekdayRates } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -4103,6 +4103,8 @@ function renderHabitPage(habit) {
   document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
   document.getElementById('hp-fill').classList.toggle('hidden', !rules.canFillIn(habit, dayKeyOffset(-1), today));
   habitPage.renderCalendar(document.getElementById('hp-calendar'), monthGrid(habit, calendarMonth, today, userFrozenDates || []));
+  habitPage.renderWeeksChart(document.getElementById('hp-weeks'), weeklyRates(habit, today));
+  habitPage.renderWeekdayChart(document.getElementById('hp-weekdays'), weekdayRates(habit, today));
   renderJournal(habit);
 }
 // ── Filling in yesterday ──────────────────────────────────

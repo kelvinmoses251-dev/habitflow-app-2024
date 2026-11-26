@@ -52,4 +52,32 @@ module.exports = (scenario, c) => {
     check('opening another habit starts on this month again', (await text('#cal-label')).trim() === monthName(0));
     noExceptions();
   });
+  // ── 43: charts ───────────────────────────────────────────
+  const weekdayOf = d => new Date(d + 'T12:00:00Z').getUTCDay();
+  scenario('charts: twelve weeks and the days of the week, in bars and in words', async () => {
+    const onlyTueThu = []; for (let n = 0; n < 84; n++) if ([2, 4].includes(weekdayOf(day(n)))) onlyTueThu.push(day(n));
+    await boot({ seed: seed({ a: H('Read', { completedDates: onlyTueThu }), m: H('Budget', { order: 2, frequency: 'monthly', completedDates: [day(3)] }), e: H('Empty', { order: 3 }) }) }); await rows(); await sleep(300);
+    await open('a');
+    const weeks = JSON.parse(await ev(`JSON.stringify((() => { const c = document.querySelector('#hp-weeks .chart'); const bars = [...c.querySelectorAll('.bar')];
+      return { role: c.getAttribute('role'), label: c.getAttribute('aria-label'), n: bars.length, rates: bars.map(b => b.dataset.rate), heights: bars.map(b => Math.round(b.getBoundingClientRect().height)), now: bars.filter(b => b.classList.contains('is-now')).length, box: Math.round(c.querySelector('.bars').getBoundingClientRect().height) }; })())`));
+    check('twelve bars, one per week, the current one marked', weeks.n === 12 && weeks.now === 1, JSON.stringify(weeks));
+    check('a full earlier week reads 29% (two days of seven)', weeks.rates[5] === '29', JSON.stringify(weeks.rates));
+    check('bar heights follow the numbers', weeks.heights[5] > 10 && Math.abs(weeks.heights[5] - weeks.box * 0.29) <= 3, JSON.stringify(weeks.heights) + ' of ' + weeks.box);
+    check('the chart says its numbers to a screen reader', weeks.role === 'img' && /twelve weeks/.test(weeks.label) && /29%/.test(weeks.label), weeks.label);
+    check('and a sentence under it sums it up', /^(This week: [0-9]+ of [0-9]+\.|Nothing due this week\.) Twelve-week average: [0-9]+%\.$/.test((await text('#weeks-cap')).trim()), await text('#weeks-cap'));
+    const days = JSON.parse(await ev(`JSON.stringify((() => { const c = document.querySelector('#hp-weekdays .chart'); const bars = [...c.querySelectorAll('.bar')];
+      return { label: c.getAttribute('aria-label'), n: bars.length, best: bars.map((b, i) => (b.classList.contains('is-best') ? i : -1)).filter(i => i >= 0), heights: bars.map(b => Math.round(b.getBoundingClientRect().height)), letters: [...c.querySelectorAll('.bar-lbl')].map(l => l.textContent).join('') }; })())`));
+    check('seven bars, Monday first', days.n === 7 && days.letters === 'MTWTFSS', JSON.stringify(days));
+    check('Tuesday is marked best (it ties with Thursday; the earlier day wins)', days.best.length === 1 && days.best[0] === 1, JSON.stringify(days.best));
+    check('done days stand tall, missed days are stubs', days.heights[1] > 60 && days.heights[3] > 60 && days.heights[0] <= 8, JSON.stringify(days.heights));
+    check('the caption names the best day with its numbers', (await text('#weekday-cap')).trim() === 'Best on Tuesdays: 12 of 12.', await text('#weekday-cap'));
+    check('and the label carries every day', /Monday 0 of 12/.test(days.label) && /Tuesday 12 of 12/.test(days.label), days.label);
+    await size(320, 568); await sleep(200);
+    check('320px: the charts fit', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#hp-charts .bars')].every(b => b.getBoundingClientRect().right <= innerWidth)`));
+    await open('m');
+    check('a monthly habit says why it has no weekly chart', await visible('#weeks-none'));
+    await open('e');
+    check('a habit never done has no best day yet, and says so', (await visible('#weekday-none')) && /0%/.test(await text('#weeks-cap')));
+    noExceptions();
+  });
 };

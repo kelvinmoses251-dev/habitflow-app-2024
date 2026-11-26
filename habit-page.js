@@ -34,3 +34,33 @@ export function renderCalendar(el, grid) {
       <li><i class="lg is-done"></i>Done</li><li><i class="lg is-shield"></i>Shield</li><li><i class="lg is-missed"></i>Missed</li><li><i class="lg is-rest"></i>Rest or paused</li>
     </ul>`;
 }
+
+// ── Charts ─────────────────────────────────────────────────
+// Bars are plain boxes sized by a custom property; each chart also says its numbers in a sentence and carries the
+// full figures in its label, so nothing depends on seeing the bars.
+const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+export function renderWeeksChart(el, weeks) {
+  const any = weeks.some(w => w.rate !== null);
+  if (!any) { el.innerHTML = '<p class="sheet-note" id="weeks-none">A monthly habit has no week-by-week chart. Its calendar and year show the whole story.</p>'; return; }
+  const known = weeks.filter(w => w.rate !== null), avg = Math.round(known.reduce((s, w) => s + w.rate, 0) / known.length), now = weeks[weeks.length - 1];
+  const label = 'Completion over the last twelve weeks, oldest first: ' + weeks.map(w => (w.rate === null ? 'nothing due' : w.rate + '%')).join(', ');
+  el.innerHTML = `
+    <div class="chart" role="img" aria-label="${esc(label)}">
+      <div class="bars bars-12">${weeks.map(w => `<span class="bar${w.current ? ' is-now' : ''}${w.rate === null ? ' is-none' : ''}" style="--h:${w.rate === null ? 0 : Math.max(4, w.rate)}%" data-rate="${w.rate === null ? '' : w.rate}"></span>`).join('')}</div>
+      <div class="bars-axis"><span>12 weeks ago</span><span>This week</span></div>
+    </div>
+    <p class="chart-cap" id="weeks-cap">${now.rate === null ? 'Nothing due this week.' : `This week: ${now.done} of ${now.due}.`} Twelve-week average: ${avg}%.</p>`;
+}
+export function renderWeekdayChart(el, days) {
+  const counted = days.some(d => d.rate !== null), max = Math.max(1, ...days.map(d => d.done)), best = days.find(d => d.best);
+  if (!days.some(d => d.done > 0)) { el.innerHTML = '<p class="sheet-note" id="weekday-none">Complete this habit a few times and its best days show here.</p>'; return; }
+  const height = d => (counted ? (d.rate === null ? 0 : Math.max(4, d.rate)) : Math.max(d.done ? 6 : 0, Math.round((d.done / max) * 100)));
+  const label = 'By day of the week, over twelve weeks: ' + days.map(d => `${d.label} ${counted ? (d.rate === null ? 'not due' : `${d.done} of ${d.due}`) : plural(d.done, 'time')}`).join(', ');
+  const cap = !best ? 'Not enough days yet to name a best day.'
+    : counted ? `Best on ${best.label}s: ${best.done} of ${best.due}.` : `Most often done on ${best.label}s (${plural(best.done, 'time')}).`;
+  el.innerHTML = `
+    <div class="chart" role="img" aria-label="${esc(label)}">
+      <div class="bars bars-7">${days.map(d => `<span class="bar-col"><span class="bar${d.best ? ' is-best' : ''}${counted && d.rate === null ? ' is-none' : ''}" style="--h:${height(d)}%"></span><span class="bar-lbl">${d.label[0]}</span></span>`).join('')}</div>
+    </div>
+    <p class="chart-cap" id="weekday-cap">${cap}</p>`;
+}

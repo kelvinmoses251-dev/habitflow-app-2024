@@ -15,7 +15,6 @@ module.exports = (scenario, c) => {
   const xp = () => ev(`__mockDB.users['u-test'].xp`);
   const moment = () => ev(`(() => { const m = document.getElementById('moment'); return m && !m.classList.contains('hidden') ? m.dataset.moment : ''; })()`);
   const fillButtons = () => ev(`[...document.querySelectorAll('#habits [data-action="fill-in"]')].map(b => b.dataset.id).sort().join(',')`);
-  const yesterdayWeekday = new Date(day(1) + 'T12:00:00Z').getUTCDay();
 
   scenario('fill in: a day missed yesterday can be completed today, from the habit page', async () => {
     await boot({ seed: seed({ a: H('Read', { completedDates: run(2, 8) }), b: H('Run', { order: 2 }) }) }); await rows(); await sleep(900);
@@ -66,6 +65,7 @@ module.exports = (scenario, c) => {
   });
 
   scenario('fill in: not offered when yesterday was done, a rest day, paused, or before the habit began', async () => {
+    const yesterdayWeekday = new Date(day(1) + 'T12:00:00Z').getUTCDay();   // worked out now, not when the suite started: a run can cross midnight
     const others = [0, 1, 2, 3, 4, 5, 6].filter(d => d !== yesterdayWeekday);
     await boot({ seed: seed({
       d: H('Done', { completedDates: [day(1)] }),

@@ -122,3 +122,45 @@ export function monthGrid(habit, month, today, frozen = []) {
     done: inMonth.filter(c => c.state === 'done').length, owed: inMonth.filter(c => ['done', 'missed', 'shield', 'open'].includes(c.state)).length,
   };
 }
+
+// ── Charts: twelve weeks, and the days of the week ─────────
+const mondayOf = day => rules.shiftDay(day, -((rules.weekdayOf(day) + 6) % 7));
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// The last twelve weeks, oldest first. For a day-by-day habit, `due` is the days it was owed that week (up to
+// today) and `done` how many of those were done. For a habit counted by the week ("3 times a week"), `due` is its
+// weekly target and `done` how far it got. A monthly habit has no weekly figures (rate null throughout).
+export function weeklyRates(habit, today) {
+  const h = asHabit(habit), done = doneSet(h), thisMonday = mondayOf(today), out = [];
+  for (let w = 11; w >= 0; w--) {
+    const start = rules.shiftDay(thisMonday, -7 * w), end = rules.shiftDay(start, 6), last = end > today ? today : end;
+    let due = 0, got = 0;
+    const type = rules.scheduleOn(h, last).type;
+    if (type === 'times') {
+      if (createdDay(h) <= last && !rules.isPausedOn(h, last) && rules.isActiveOn(h, last)) { const p = rules.periodProgress(h, last); due = p.target; got = Math.min(p.done, p.target); }
+    } else if (type !== 'monthly') {
+      for (let day = start; day <= last; day = rules.shiftDay(day, 1)) if (owedOn(h, day)) { due++; if (done.has(day)) got++; }
+    }
+    out.push({ start, due, done: got, rate: due ? Math.round((got / due) * 100) : null, current: w === 0 });
+  }
+  return out;
+}
+
+// The days of the week over the last twelve weeks (84 days), Monday first. For a day-by-day habit, each has the
+// days it was owed and done, and a rate; `best` marks the highest rate among days owed at least three times (the
+// earliest wins a tie). For other habits there is no "owed": `done` counts completions and `best` is the busiest day.
+export function weekdayRates(habit, today) {
+  const h = asHabit(habit), done = doneSet(h);
+  const out = DAY_NAMES.map((label, i) => ({ weekday: i + 1, label, due: 0, done: 0, rate: null, best: false }));
+  const daily = rules.baseFreq(h) === 'daily';
+  for (let n = 0; n < 84; n++) {
+    const day = rules.shiftDay(today, -n), slot = out[(rules.weekdayOf(day) + 6) % 7];
+    if (daily) { if (owedOn(h, day)) { slot.due++; if (done.has(day)) slot.done++; } }
+    else if (done.has(day)) slot.done++;
+  }
+  out.forEach(s => { s.rate = daily && s.due ? Math.round((s.done / s.due) * 100) : null; });
+  const score = s => (daily ? (s.due >= 3 ? s.done / s.due : -1) : (s.done > 0 ? s.done : -1));
+  const top = out.reduce((best, s) => (score(s) > score(best) ? s : best), out[0]);
+  if (score(top) > 0) top.best = true;
+  return out;
+}

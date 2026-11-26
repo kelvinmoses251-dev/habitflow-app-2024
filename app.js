@@ -291,6 +291,7 @@ const STARTER_PACKS = [
 ];
 let nudgeFirstHabit = false;
 let habitsEntered = false;       // stagger the list in once, not on every snapshot
+let justCompletedAt = 0;        // when that happened (performance.now), so a redrawn row carries its effect on instead of restarting it
 let justCompletedId = null;      // the row that was just completed (gets a short highlight)   // pulse the first checkbox right after a pack is added
 
 // ── State ─────────────────────────────────────────────────
@@ -1712,6 +1713,7 @@ function renderHabits() {
     }
 
     const li = document.createElement('li');
+    const fxAge = h.id === justCompletedId ? performance.now() - justCompletedAt : Infinity;   // the completion effect, still running?
     li.className = 'habit-item' + (animateRows ? ' enter' : '') + (h.id === justCompletedId ? ' just-done' : '');
     li.dataset.id = h.id;
     li.dataset.group = `${grouped && freq === 'daily' ? timeSlot(h) : 'all'}|${smartSortEnabled && isDone ? 'done' : 'open'}`;
@@ -1755,6 +1757,7 @@ function renderHabits() {
       <button class="btn-icon row-more" type="button" data-action="more" data-id="${h.id}" aria-label="More actions for ${escHtml(h.name)}" aria-expanded="false">
         <svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>
       </button>`;
+    if (fxAge < FX_MS) startTickFx(li, fxAge);
     section.list.appendChild(li);
   });
 
@@ -2633,9 +2636,31 @@ const confirmFirst = () => { try { return localStorage.getItem('habitly_confirm'
 const pendingComplete = new Map();                    // habit id -> timer
 const pendingUncomplete = new Map();                  // habit id -> timer
 const stepBack = new Map();                           // counting habits: habit id -> the count before the step that completed it
+// The completion moment: a ring draws round the box, the box fills, the check draws, the row settles (about 0.8s, once).
+// It starts on the tapped row at once, without waiting for the save. When the save redraws the list, the new row is
+// given the same effect moved on by the time already spent (--fx-skip), so it carries on instead of starting again.
+const FX_MS = 900;
+function startTickFx(row, skipMs = 0) {
+  const label = row && row.querySelector('.habit-label');
+  if (!label) return;
+  row.classList.add('completing');
+  row.style.setProperty('--fx-skip', `-${Math.round(skipMs)}ms`);
+  if (label.querySelector('.tick-fx')) return;
+  const big = !!label.querySelector('.habit-step');   // counting rows have a slightly larger button
+  label.insertAdjacentHTML('beforeend', `<svg class="tick-fx" viewBox="0 0 36 36" aria-hidden="true"><circle class="fx-fill" cx="18" cy="18" r="${big ? 14 : 12}"/><circle class="fx-ring" cx="18" cy="18" r="16" pathLength="100"/><path class="fx-mark" d="M11.6 18.6l4.3 4.3 8.5-9.3" pathLength="100"/></svg>`);
+}
+function stopTickFx(id) {
+  if (justCompletedId === id) justCompletedId = null;
+  const row = document.querySelector(`.habit-item[data-id="${CSS.escape(id)}"]`);
+  if (!row) return;
+  row.classList.remove('completing', 'just-done');
+  row.querySelector('.tick-fx')?.remove();
+}
+
 function uncompleteHabit(id, date) {
   const h = allHabits.find(x => x.id === id);
   if (!h) return false;
+  stopTickFx(id);
   if (pendingComplete.has(id)) {                      // ticked a moment ago and not saved yet: just call it off
     clearTimeout(pendingComplete.get(id));
     pendingComplete.delete(id);
@@ -2676,9 +2701,11 @@ function completeHabit(id, dateToRm, checkboxEl) {
   if (rules.targetOf(habit)) stepBack.set(id, rules.progressOn(habit, dateToRm || todayStr()));   // so Undo removes exactly this step
   nudgeFirstHabit = false;
   justCompletedId = id;
+  justCompletedAt = performance.now();
   setTimeout(() => { if (justCompletedId === id) justCompletedId = null; }, 1600);
+  startTickFx(document.querySelector(`.habit-item[data-id="${CSS.escape(id)}"]`));
   playPop();
-  buzz([40, 20, 40]);
+  buzz([14, 50, 26]);                                 // in step with the effect: the ring, then the check
   pendingComplete.set(id, setTimeout(async () => {
     pendingComplete.delete(id);
     await toggleHabit(id, false, dateToRm);

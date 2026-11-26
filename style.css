@@ -744,9 +744,22 @@ html.dialog-open { overflow: hidden; }
 .habit-item:hover::before, .habit-item:hover + .habit-item::before { opacity: 0; }
 .habit-item:active { transform: scale(.996); }
 .habit-item.enter { animation: rise .38s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
-.habit-item.just-done { animation: rowDone .9s ease-out; }
-.habit-item.just-done .habit-check { animation: tickPop .32s cubic-bezier(.3,1.5,.5,1); }
-.habit-label { display: flex; align-items: center; gap: var(--sp-3); flex: 1; min-width: 0; }
+/* The completion moment. One pass, about 0.8s: ring, fill, check, settle. --fx-skip (a negative time) moves a
+   redrawn row on to where the effect had got to. Only for people who have not asked for less motion. */
+.tick-fx { display: none; position: absolute; left: -6px; top: 50%; width: 36px; height: 36px; margin-top: -18px; pointer-events: none; overflow: visible; }
+.tick-fx .fx-fill { fill: var(--primary); transform-origin: 18px 18px; }
+.tick-fx .fx-ring { fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 100; transform-origin: 18px 18px; transform: rotate(-90deg); }
+.tick-fx .fx-mark { fill: none; stroke: var(--on-primary); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 100; }
+@media (prefers-reduced-motion: no-preference) {
+  .habit-item.completing { animation: fxSettle .5s ease-out both; animation-delay: calc(var(--fx-skip, 0ms) + 300ms); }
+  .habit-item.completing .tick-fx { display: block; }
+  .habit-item.completing .habit-check:checked { background-image: none; }
+  .habit-item.completing .habit-step > .icon { opacity: 0; }
+  .habit-item.completing .fx-fill { animation: fxFill .22s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--fx-skip, 0ms); }
+  .habit-item.completing .fx-ring { animation: fxRing .42s ease-out both; animation-delay: var(--fx-skip, 0ms); }
+  .habit-item.completing .fx-mark { animation: fxMark .3s cubic-bezier(.4,0,.2,1) both; animation-delay: calc(var(--fx-skip, 0ms) + 160ms); }
+}
+.habit-label { position: relative; display: flex; align-items: center; gap: var(--sp-3); flex: 1; min-width: 0; }
 .habit-check {
   -webkit-appearance: none; appearance: none; flex: none; cursor: pointer;
   width: 24px; height: 24px; border-radius: 50%; border: 1.75px solid var(--border-strong); background: var(--surface);
@@ -1049,7 +1062,10 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 /* ── Motion: short, purposeful, played once ───────────── */
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes tickPop { 0% { transform: scale(.7); } 60% { transform: scale(1.14); } 100% { transform: scale(1); } }
-@keyframes rowDone { from { background: var(--primary-soft); } }
+@keyframes fxFill { from { transform: scale(.35); opacity: 0; } }
+@keyframes fxRing { from { stroke-dashoffset: 100; opacity: 1; } 62% { stroke-dashoffset: 0; opacity: 1; transform: rotate(-90deg) scale(1); } to { stroke-dashoffset: 0; opacity: 0; transform: rotate(-90deg) scale(1.2); } }
+@keyframes fxMark { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes fxSettle { from { background: var(--primary-soft); transform: translateY(1px); } }
 @keyframes drawStroke { to { stroke-dashoffset: 0; } }
 @keyframes coachPing { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.06); } }
 .page.active .page-content > * { animation: rise .42s cubic-bezier(.22,1,.36,1) both; }

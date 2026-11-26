@@ -199,3 +199,10 @@ export function dismissMoment() {
 const momentKey = uid => `habitly_moment_${uid}`;
 export function momentAllowed(uid, today) { try { return localStorage.getItem(momentKey(uid)) !== today; } catch (_) { return true; } }
 export function markMoment(uid, today) { try { localStorage.setItem(momentKey(uid), today); } catch (_) {} }
+
+// ── The comeback sheet ─────────────────────────────────────
+// items: [{ id, name, sub }]. Every habit starts ticked ("keep"); un-ticking one means "not for now".
+export function renderComeback(listEl, items) {
+  listEl.innerHTML = items.map(h => `<li><label class="pick-item"><input type="checkbox" class="pick-check" data-id="${esc(h.id)}" checked>
+    <span class="pick-text"><span class="pick-name">${esc(h.name)}</span><span class="pick-sub">${esc(h.sub)}</span></span></label></li>`).join('');
+}

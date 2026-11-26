@@ -974,6 +974,22 @@
   </div>
 </div>
 
+<!-- Welcome back: keep the habits that matter now, pause the rest (opened from the moment card) -->
+<div id="comeback-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="comeback-title">
+  <div class="dialog dialog-scroll">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <h2 class="dialog-title" id="comeback-title">Ease back in</h2>
+    <p class="dialog-text"><strong id="comeback-kept"></strong></p>
+    <p class="dialog-text">Keep the habits you want for now. The rest are paused: their history and streaks stay safe until you resume them.</p>
+    <ul id="comeback-list" class="pick-list" aria-label="Habits to keep"></ul>
+    <p id="comeback-none" class="sheet-note hidden" role="status">Keep at least one habit to start again.</p>
+    <div class="dialog-actions">
+      <button id="comeback-cancel" data-dismiss class="btn-secondary" type="button">Change nothing</button>
+      <button id="comeback-go" class="btn-primary" type="button">Start again</button>
+    </div>
+  </div>
+</div>
+
 <!-- Achievements: earned ones filled, locked ones as outlines (drawn by moments.js) -->
 <div id="achievements-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="achievements-title">
   <div class="dialog dialog-scroll dialog-wide">

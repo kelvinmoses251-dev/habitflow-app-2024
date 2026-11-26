@@ -130,3 +130,16 @@ export function achievements(habits, { today, xp = 0, frozen = [] } = {}) {
     return { id: a.id, name: a.name, icon: a.icon, how: a.how, goal: a.goal, have, earned: have >= a.goal };
   });
 }
+
+// ── Time away ──────────────────────────────────────────────
+// The last day anything was completed (on or before today), or '' when nothing ever was.
+export function lastDoneDay(habits, today) {
+  let last = '';
+  list(habits).forEach(h => doneDays(h).forEach(d => { if (d <= today && d > last) last = d; }));
+  return last;
+}
+// Whole days since then: 0 for today (or never), 1 for yesterday, and so on.
+export function daysAway(habits, today) {
+  const last = lastDoneDay(habits, today);
+  return last ? rules.dayNumber(today) - rules.dayNumber(last) : 0;
+}

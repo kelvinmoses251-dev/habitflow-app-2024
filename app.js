@@ -18,7 +18,7 @@ import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
-import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements } from "./motivation.js?v=1";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -366,7 +366,7 @@ function resetUserState() {
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
   moments.hideMoment();
-  ['milestone-modal', 'level-modal', 'achievements-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
@@ -692,6 +692,57 @@ function refreshShieldOffer(mayRaise = false) {
     track('shield_offer_shown');
   }
 }
+// ── Welcome back: after three or more days with nothing ticked ──
+// Said once per absence (this device remembers the last completion day it spoke for). The card offers to ease back
+// in: keep the habits that matter now and pause the rest, which loses nothing and is undone with Resume.
+const comebackKey = () => `habitly_comeback_${currentUser.uid}`;
+const comebackHabits = () => { const t = todayStr(); return allHabits.filter(h => inPlay(h, t) && !rules.isPausedOn(h, t) && !rules.notStartedOn(h, t)); };
+function maybeWelcomeBack() {
+  if (!currentUser || !habitsLoaded || !userDocLoaded) return;
+  const today = todayStr(), away = daysAway(allHabits, today);
+  if (away < 3) { moments.hideMoment('comeback'); return; }     // they are back at it: the card has done its job
+  if (moments.momentShowing() || !comebackHabits().length) return;
+  const last = lastDoneDay(allHabits, today);
+  try { if (localStorage.getItem(comebackKey()) === last) return; } catch (_) {}
+  if (!moments.momentAllowed(currentUser.uid, today)) return;
+  moments.markMoment(currentUser.uid, today);
+  try { localStorage.setItem(comebackKey(), last); } catch (_) {}
+  moments.showMoment({ id: 'comeback', title: 'Welcome back',
+    text: `It has been ${away} days. Nothing is lost. Carry on as you were, or ease back in with fewer habits.`,
+    actions: [{ label: 'Ease back in', onClick: openComeback }] });
+  track('comeback_shown', { days: away });
+}
+function openComeback() {
+  moments.hideMoment('comeback');
+  const total = calcTotalDone(allHabits);
+  const best = Math.max(0, ...allHabits.filter(h => habitFreq(h) === 'daily').map(calcLongestStreak));
+  document.getElementById('comeback-kept').textContent = `Still yours: ${total.toLocaleString('en')} check-in${total === 1 ? '' : 's'}${best > 1 ? ` and a best streak of ${best} days` : ''}.`;
+  moments.renderComeback(document.getElementById('comeback-list'), comebackHabits().map(h => {
+    const n = (h.completedDates || []).length;
+    return { id: h.id, name: h.name || 'Habit', sub: `${(CATS[h.category] || CATS.health).label} · ${n} check-in${n === 1 ? '' : 's'}` };
+  }));
+  syncComebackButton();
+  document.getElementById('comeback-modal').classList.remove('hidden');
+  track('comeback_opened');
+}
+function syncComebackButton() {
+  const boxes = [...document.querySelectorAll('#comeback-list .pick-check')], kept = boxes.filter(b => b.checked).length;
+  const go = document.getElementById('comeback-go');
+  go.disabled = kept === 0;
+  go.textContent = kept === boxes.length ? `Start again with all ${kept}` : `Start again with ${kept}`;
+  document.getElementById('comeback-none').classList.toggle('hidden', kept > 0);
+}
+document.getElementById('comeback-list')?.addEventListener('change', syncComebackButton);
+document.getElementById('comeback-cancel')?.addEventListener('click', () => document.getElementById('comeback-modal').classList.add('hidden'));
+document.getElementById('comeback-go')?.addEventListener('click', () => {
+  const today = todayStr();
+  const rest = [...document.querySelectorAll('#comeback-list .pick-check')].filter(b => !b.checked).map(b => allHabits.find(h => h.id === b.dataset.id)).filter(Boolean);
+  rest.forEach(h => backgroundWrite(updateDoc(doc(db, 'habits', h.id), { pauses: rules.withPause(h, today) }), 'pause the habit'));
+  document.getElementById('comeback-modal').classList.add('hidden');
+  toast(rest.length ? `${rest.length} habit${rest.length === 1 ? '' : 's'} paused. Resume ${rest.length === 1 ? 'it' : 'them'} from Today when you are ready.` : 'Welcome back. Everything is as you left it.', 'success', 5000);
+  track('comeback_restart', { paused: rest.length });
+});
+
 document.getElementById('greeting-shield-badge')?.addEventListener('click', () => {
   const offer = shieldOffer();
   if (offer) { showShieldQuestion(offer); return; }
@@ -1041,7 +1092,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
-  ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'],
+  ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'], ['comeback-modal', 'comeback-cancel'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'], ['details-modal', 'details-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
@@ -1387,7 +1438,7 @@ function updateAvatars(user) {
     }
     if (!userDocLoaded) {
       userDocLoaded = true;
-      if (allHabits.length) { checkAndApplyStreakShield(); renderHabits(); updateStreak(); }
+      if (allHabits.length) { checkAndApplyStreakShield(); renderHabits(); updateStreak(); maybeWelcomeBack(); }
     }
     seedXPFromHistory();
     
@@ -1612,6 +1663,7 @@ function subscribeToHabits() {
     updateXPUI();
     checkAndApplyStreakShield();
     updateStreakShieldUI();
+    maybeWelcomeBack();
 
     if (location.hash === '#stats') renderStats();
     if (location.hash === '#profile') renderProfile();

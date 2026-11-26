@@ -188,3 +188,22 @@ test('achievements: progress never passes the goal, and junk never throws', asyn
   assert.doesNotThrow(() => achievements([{ id: 'x' }, null, 7, { completedDates: 'no', moods: 3 }], { today: TODAY, xp: NaN, frozen: 'no' }));
   assert.doesNotThrow(() => achievements([H('Read', [0])]));
 });
+
+// ── Time away ──────────────────────────────────────────────
+test('daysAway: whole days since anything was last completed', async () => {
+  const { daysAway, lastDoneDay } = await load();
+  assert.equal(daysAway([H('Read', [0])], TODAY), 0);
+  assert.equal(daysAway([H('Read', [1, 5])], TODAY), 1);
+  assert.equal(daysAway([H('Read', [9]), H('Run', [3, 20])], TODAY), 3);
+  assert.equal(lastDoneDay([H('Read', [9]), H('Run', [3, 20])], TODAY), ago(3));
+});
+
+test('daysAway: nothing ever done, an empty account and junk all count as not away', async () => {
+  const { daysAway, lastDoneDay } = await load();
+  assert.equal(daysAway([H('Read')], TODAY), 0);
+  assert.equal(daysAway([], TODAY), 0);
+  assert.equal(daysAway(null, TODAY), 0);
+  assert.equal(lastDoneDay([], TODAY), '');
+  assert.equal(daysAway([{ completedDates: ['banana', 7, null] }, { completedDates: 'x' }], TODAY), 0);
+  assert.equal(daysAway([H('Read', [4], { completedDates: [ago(4), ago(-2)] })], TODAY), 4);   // a date in the future is not "today"
+});

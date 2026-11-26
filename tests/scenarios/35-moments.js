@@ -95,4 +95,58 @@ module.exports = (scenario, c) => {
     check('and the count never goes below zero', (await text('#greeting-shield-count')) === '0' && (await profile()).streakShields === 0);
     noExceptions();
   });
+  // ── 38: a comeback flow ──────────────────────────────────
+  const open = id => ev(`!document.getElementById(${JSON.stringify(id)}).classList.contains('hidden')`);
+  const awayFor = n => ({ a: H('Read', { completedDates: run(n, n + 16) }), b: H('Run', { order: 2, completedDates: [day(n), day(n + 2)] }), c: H('Walk', { order: 3 }) });
+
+  scenario('comeback: after days away the app says welcome back and offers to ease back in', async () => {
+    await boot({ seed: seed(awayFor(4)) }); await rows(); await sleep(900);
+    check('the welcome-back card is up', (await moment()) === 'comeback', await moment());
+    check('it says how long it has been', (await text('#moment-title')).trim() === 'Welcome back' && /4 days/.test(await text('#moment-text')), await text('#moment-text'));
+    check('habits can still be tapped behind it', await ev(`(() => { const cb = document.querySelector('.habit-item[data-id="a"] .habit-check'); const r = cb.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === cb; })()`));
+    await ev(`${momentBtn('Ease back in')}.click()`); await sleep(450);
+    check('Ease back in opens a sheet and puts the card away', (await open('comeback-modal')) && (await moment()) === '');
+    check('it is a named dialog', await ev(`(() => { const m = document.getElementById('comeback-modal'); return m.getAttribute('role') === 'dialog' && !!document.getElementById(m.getAttribute('aria-labelledby')); })()`));
+    check('it says what is still theirs', /19 check-ins/.test(await text('#comeback-kept')) && /best streak of 17 days/.test(await text('#comeback-kept')), await text('#comeback-kept'));
+    check('every habit is listed, ticked to keep', (await ev(`document.querySelectorAll('#comeback-list .pick-check').length`)) === 3 && (await ev(`document.querySelectorAll('#comeback-list .pick-check:checked').length`)) === 3);
+    check('each tick box is labelled by its habit', await ev(`[...document.querySelectorAll('#comeback-list .pick-check')].every(b => b.closest('label') && b.closest('label').textContent.trim().length > 2)`));
+    check('the button says all three', (await text('#comeback-go')).trim() === 'Start again with all 3');
+    await ev(`['b', 'c'].forEach(id => document.querySelector('#comeback-list .pick-check[data-id="' + id + '"]').click())`); await sleep(200);
+    check('un-ticking two changes the count', (await text('#comeback-go')).trim() === 'Start again with 1');
+    await size(320, 568); await sleep(150);
+    check('320px: fits, rows and buttons are thumb-sized', await ev(`(() => { const d = document.querySelector('#comeback-modal .dialog'); return document.documentElement.scrollWidth <= innerWidth && d.scrollWidth <= d.clientWidth + 1 && [...document.querySelectorAll('#comeback-modal .pick-item, #comeback-modal .dialog-actions button')].every(e => e.getBoundingClientRect().height >= 44); })()`));
+    await ev(`document.getElementById('comeback-go').click()`); await sleep(700);
+    check('the sheet closes', !(await open('comeback-modal')));
+    check('exactly the two un-ticked habits are paused from today', await ev(`(() => { const h = __mockDB.habits, p = x => JSON.stringify(x.pauses || []); return p(h.b) === ${JSON.stringify(JSON.stringify([{ from: day(0) }]))} && p(h.c) === p(h.b) && p(h.a) === '[]'; })()`), await ev(`JSON.stringify([__mockDB.habits.a.pauses, __mockDB.habits.b.pauses, __mockDB.habits.c.pauses])`));
+    check('nothing else about them changed', await ev(`__mockDB.habits.b.completedDates.length === 2 && __mockDB.habits.a.completedDates.length === 17`));
+    check('it says so', await ev(`[...document.querySelectorAll('.toast')].some(t => /2 habits paused/.test(t.textContent))`));
+    check('Today now shows the one habit kept, and where the others went', (await ev(`document.querySelectorAll('#habits .habit-item').length`)) === 1 && await visible('#paused-note'));
+    await reload();
+    check('it is said once: no card after a reload', (await moment()) === '');
+    noExceptions();
+  });
+
+  scenario('comeback: not for a short gap, a new account, a used allowance, or twice', async () => {
+    await boot({ seed: seed(awayFor(2)) }); await rows(); await sleep(900);
+    check('two days away: no welcome back', (await moment()) !== 'comeback', await moment());
+    await boot({ seed: seed({ a: H('Read'), b: H('Run', { order: 2 }) }) }); await rows(); await sleep(900);
+    check('an account with nothing ticked yet: no card', (await moment()) === '');
+    await boot({ seed: seed(awayFor(5), {}, { 'habitly_moment_u-test': day(0) }) }); await rows(); await sleep(900);
+    check('another card already used today: none raised', (await moment()) === '');
+    await boot({ seed: seed(awayFor(5)) }); await rows(); await sleep(900);
+    check('five days away: the card is up', (await moment()) === 'comeback' && /5 days/.test(await text('#moment-text')));
+    await ev(`document.querySelector('.habit-item[data-id="c"] .habit-check').click()`); await sleep(800);
+    check('completing a habit puts it away: they are back', (await moment()) === '');
+    await boot({ seed: seed(awayFor(5)) }); await rows(); await sleep(900);
+    await ev(`document.getElementById('moment-dismiss').click()`); await sleep(300);
+    await reload();
+    check('dismissed: not raised again for the same absence', (await moment()) === '');
+    await boot({ seed: seed(awayFor(5)) }); await rows(); await sleep(900);
+    await ev(`${momentBtn('Ease back in')}.click()`); await sleep(400);
+    await ev(`document.querySelectorAll('#comeback-list .pick-check').forEach(b => b.click())`); await sleep(200);
+    check('with nothing kept the button is off and says why', await ev(`document.getElementById('comeback-go').disabled`) && await visible('#comeback-none'));
+    await key('Escape'); await sleep(300);
+    check('Escape closes the sheet and pauses nothing', !(await open('comeback-modal')) && await ev(`Object.values(__mockDB.habits).every(h => !(h.pauses || []).length)`));
+    noExceptions();
+  });
 };

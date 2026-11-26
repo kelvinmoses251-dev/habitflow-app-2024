@@ -170,4 +170,10 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b4shield }], ['-dark', { seed: b4shield, colorScheme: 'dark' }], ['-desktop', { seed: b4shield, mobile: false }]]) {
     run('b4-shield' + tag, opts, async () => { await ready(); await waitFor(`!document.getElementById('moment').classList.contains('hidden')`); await settle(900); });
   }
+  const away = n => Array.from({ length: n }, (_, i) => key(-i - 5));
+  const b4back = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: db.users, habits: { a: mk('Read 10 pages', 'reading', 1, away(21)), b: mk('Workout for 30 minutes', 'fitness', 2, away(9)), c: mk('Meditate for 10 minutes', 'relaxation', 3, away(4)), d: mk('Write in journal', 'mind', 4, away(2)) } } };
+  for (const [tag, opts] of [['', { seed: b4back }], ['-dark', { seed: b4back, colorScheme: 'dark' }]]) {
+    run('b4-comeback-card' + tag, opts, async () => { await ready(); await waitFor(`!document.getElementById('moment').classList.contains('hidden')`); await settle(900); });
+    run('b4-comeback-sheet' + tag, opts, async () => { await ready(); await waitFor(`!document.getElementById('moment').classList.contains('hidden')`); await settle(400); await ev(`document.querySelector('#moment-actions button').click()`); await settle(500); await ev(`document.querySelector('#comeback-list .pick-check[data-id="d"]').click()`); await settle(); });
+  }
 };

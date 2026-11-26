@@ -224,3 +224,59 @@ export function searchNotes(journals, query = '') {
   }
   return out;
 }
+
+// ── Plain-language insights for one habit ──────────────────
+const MOOD_WORDS = ['awful', 'hard', 'okay', 'good', 'great'];
+const PARTS_OF_DAY = [[12, 'in the morning'], [17, 'in the afternoon'], [21, 'in the evening'], [24, 'at night']];
+// At most four sentences, each with its numbers, and only when there is enough behind it. A habit with too little
+// history gets one line saying what will appear here (placeholder: true).
+export function habitInsights(habit, today, frozen = []) {
+  const h = asHabit(habit), done = doneSet(h), out = [];
+  const waiting = [{ icon: 'info', text: 'Keep at it for a week or two, and what stands out about this habit will be said here.', placeholder: true }];
+  if (done.size < 3) return waiting;                          // nothing worth saying about a habit barely begun
+  const daily = rules.baseFreq(h) === 'daily';
+  const span = (from, to) => { let due = 0, got = 0; for (let n = from; n <= to; n++) { const day = rules.shiftDay(today, -n); if (owedOn(h, day)) { due++; if (done.has(day)) got++; } } return { due, got }; };
+
+  if (daily) {
+    const now = span(0, 29), before = span(30, 59);
+    if (now.due >= 10) {
+      const pNow = now.got / now.due, pBefore = before.due >= 10 ? before.got / before.due : null;
+      const head = `Done on ${now.got} of the last ${now.due} days it was due`;
+      if (pBefore === null) out.push({ icon: 'calendar', text: `${head} (${Math.round(pNow * 100)}%).` });
+      else if (pNow - pBefore >= 0.05) out.push({ icon: 'trend-up', text: `${head}, up from ${before.got} of ${before.due} the month before.` });
+      else if (pBefore - pNow >= 0.05) out.push({ icon: 'trend-down', text: `${head}, down from ${before.got} of ${before.due} the month before.` });
+      else out.push({ icon: 'minus', text: `${head}, about the same as the month before.` });
+    }
+    const byDay = weekdayRates(h, today).filter(d => d.due >= 3);
+    if (byDay.length >= 2) {
+      const best = byDay.reduce((a, b) => (b.rate > a.rate ? b : a)), worst = byDay.reduce((a, b) => (b.rate < a.rate ? b : a));
+      if (best.rate - worst.rate >= 25) out.push({ icon: 'calendar', text: `Strongest on ${best.label}s (${best.done} of ${best.due}), hardest on ${worst.label}s (${worst.done} of ${worst.due}).` });
+    }
+  }
+
+  // When in the day it gets done (days filled in late are left out: the tap was not when it happened)
+  const stamps = h.completedTimestamps && typeof h.completedTimestamps === 'object' ? h.completedTimestamps : {};
+  const late = h.backfilled && typeof h.backfilled === 'object' ? h.backfilled : {};
+  const hours = Object.keys(stamps).filter(d => done.has(d) && late[d] !== true && Number.isFinite(stamps[d]) && stamps[d] > 0).map(d => new Date(stamps[d]).getHours());
+  if (hours.length >= 5) {
+    const counts = PARTS_OF_DAY.map(() => 0);
+    hours.forEach(hr => { counts[PARTS_OF_DAY.findIndex(([end]) => hr < end)]++; });
+    const top = counts.indexOf(Math.max(...counts));
+    if (counts[top] / hours.length >= 0.6) out.push({ icon: 'clock', text: `Usually done ${PARTS_OF_DAY[top][1]} (${counts[top]} of ${hours.length} times).` });
+  }
+
+  let streak = 0, longest = 0;
+  try { streak = rules.habitStreak(h, today, days(frozen)); longest = rules.habitLongestStreak(h, today, days(frozen)); } catch (_) { /* junk dates */ }
+  const unit = { daily: 'days', weekly: 'weeks', monthly: 'months' }[rules.baseFreq(h)];
+  const enough = daily ? 7 : 4;
+  if (longest >= enough) out.push({ icon: 'flame', text: streak >= longest ? `You are on your longest run yet: ${streak} ${unit}.` : `Your longest run is ${longest} ${unit}. You are at ${streak} now.` });
+
+  const moods = h.moods && typeof h.moods === 'object' ? Object.keys(h.moods).filter(d => done.has(d) && Number.isInteger(h.moods[d]) && h.moods[d] >= 1 && h.moods[d] <= 5).map(d => h.moods[d]) : [];
+  if (moods.length >= 3) {
+    const avg = moods.reduce((a, b) => a + b, 0) / moods.length;
+    out.push({ icon: 'mood-' + Math.round(avg), text: `It usually feels ${MOOD_WORDS[Math.round(avg) - 1]} (${Math.round(avg * 10) / 10} out of 5 over ${moods.length} notes).` });
+  }
+
+  if (!out.length) return waiting;
+  return out.slice(0, 4);
+}

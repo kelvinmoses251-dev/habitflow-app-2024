@@ -140,4 +140,24 @@ module.exports = (scenario, c) => {
     check('with only two notes there is no search box', !(await visible('#notes-search')) && (await notesShown()).length === 2);
     noExceptions();
   });
+  // ── 48: plain-language insights ──────────────────────────
+  scenario('insights: the habit page says what stands out, in sentences', async () => {
+    const at = (n, hour) => { const d = new Date(Date.now() - n * 864e5); d.setHours(hour, 10, 0, 0); return d.getTime(); };
+    const days10 = run(0, 23), stamps = Object.fromEntries(days10.map((d, n) => [d, at(n, 7)])), moods = Object.fromEntries(days10.slice(0, 5).map(d => [d, 5]));
+    await boot({ seed: seed({ a: H('Read', { completedDates: [...days10, ...run(30, 47)], completedTimestamps: stamps, moods }), n: H('New <i>one</i>', { order: 2, createdAt: new Date(Date.now() - 2 * 864e5).toISOString(), completedDates: [day(0)], completedTimestamps: { [day(0)]: Date.now() - 4000000 } }) }) }); await rows(); await sleep(300);
+    await open('a');
+    const lines = await ev(`[...document.querySelectorAll('#hp-insights li')].map(li => li.textContent.trim())`);
+    check('up to four sentences, as a list', lines.length >= 3 && lines.length <= 4 && await ev(`document.getElementById('hp-insights').tagName === 'UL'`), JSON.stringify(lines));
+    check('the last thirty days against the month before', lines.some(l => /^Done on 24 of the last 30 days it was due, up from 18 of 30 the month before\.$/.test(l)), JSON.stringify(lines));
+    check('when in the day it gets done', lines.some(l => /^Usually done in the morning \(24 of 24 times\)\.$/.test(l)), JSON.stringify(lines));
+    check('the run it is on', lines.some(l => /longest run yet: 24 days/.test(l)), JSON.stringify(lines));
+    check('how it feels', lines.some(l => /^It usually feels great \(5 out of 5 over 5 notes\)\.$/.test(l)), JSON.stringify(lines));
+    check('each has a drawn icon, hidden from screen readers', await ev(`[...document.querySelectorAll('#hp-insights li')].every(li => !!li.querySelector('.ins-ic[aria-hidden="true"] use') && !!document.querySelector(li.querySelector('use').getAttribute('href')))`));
+    await open('n');
+    const fresh = await ev(`[...document.querySelectorAll('#hp-insights li')].map(li => li.textContent.trim())`);
+    check('a new habit gets one line saying what will come, nothing made up', fresh.length === 1 && /week or two/.test(fresh[0]) && await ev(`document.querySelector('#hp-insights li').classList.contains('is-waiting')`), JSON.stringify(fresh));
+    await size(320, 568); await sleep(200);
+    check('320px: the sentences wrap inside the card', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#hp-insights li')].every(li => li.getBoundingClientRect().right <= innerWidth)`));
+    noExceptions();
+  });
 };

@@ -101,3 +101,9 @@ export function renderNotes(el, items, { total, query }) {
   }
   el.innerHTML = html + '</ol>';
 }
+
+// ── Insights ───────────────────────────────────────────────
+// items: habitHistory.habitInsights(...). Sentences are built from numbers and fixed words, but are escaped anyway.
+export function renderInsights(el, items) {
+  el.innerHTML = items.map(i => `<li${i.placeholder ? ' class="is-waiting"' : ''}><span class="ins-ic" aria-hidden="true">${icon(i.icon)}</span><span>${esc(i.text)}</span></li>`).join('');
+}

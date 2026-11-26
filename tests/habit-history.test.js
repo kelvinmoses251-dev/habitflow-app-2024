@@ -266,3 +266,64 @@ test('searchNotes: things that are not notes are dropped', async () => {
   for (const bad of [null, undefined, 'x', {}]) assert.deepEqual(searchNotes(bad, 'a'), []);
 });
 
+
+// ── Insights for one habit ─────────────────────────────────
+const says = (out, re) => out.some(i => re.test(i.text));
+const stamp = (n, hour) => { const [y, m, d] = ago(n).split('-').map(Number); return new Date(y, m - 1, d, hour, 15).getTime(); };
+
+test('habitInsights: a habit with little history gets one line saying what will come', async () => {
+  const { habitInsights } = await load();
+  for (const h of [H('Read'), H('Read', [0, 1]), null, {}]) {
+    const out = habitInsights(h && h.name ? { ...h, createdAt: new Date(num(ago(3)) * 86400000 + 12 * 3600000).toISOString() } : h, TODAY);
+    assert.equal(out.length, 1); assert.equal(out[0].placeholder, true); assert.ok(out[0].text.length > 20);
+  }
+});
+
+test('habitInsights: the last thirty days against the thirty before', async () => {
+  const { habitInsights } = await load();
+  const up = habitInsights(H('Read', [...range(0, 23), ...range(30, 47)]), TODAY);
+  assert.ok(says(up, /^Done on 24 of the last 30 days it was due, up from 18 of 30 the month before\.$/), JSON.stringify(up));
+  const down = habitInsights(H('Read', [...range(0, 11), ...range(30, 55)]), TODAY);
+  assert.ok(says(down, /Done on 12 of the last 30 days it was due, down from 26 of 30 the month before\./), JSON.stringify(down));
+  const same = habitInsights(H('Read', [...range(0, 19), ...range(30, 49)]), TODAY);
+  assert.ok(says(same, /about the same as the month before/));
+  const young = habitInsights(H('Read', range(0, 11), { createdAt: new Date(num(ago(14)) * 86400000 + 12 * 3600000).toISOString() }), TODAY);
+  assert.ok(says(young, /^Done on 12 of the last 15 days it was due \(80%\)\.$/), JSON.stringify(young));
+});
+
+test('habitInsights: strongest and hardest weekday, only when they really differ', async () => {
+  const { habitInsights } = await load();
+  const weekdays = range(0, 83).filter(n => ![0, 6].includes(new Date(num(ago(n)) * 86400000).getUTCDay()));   // never at weekends
+  const out = habitInsights(H('Read', weekdays), TODAY);
+  assert.ok(says(out, /^Strongest on Mondays \(12 of 12\), hardest on Saturdays \(0 of 12\)\.$/), JSON.stringify(out));
+  assert.ok(!says(habitInsights(H('Read', range(0, 83)), TODAY), /Strongest/));
+});
+
+test('habitInsights: the usual time of day, the longest run, and how it feels', async () => {
+  const { habitInsights } = await load();
+  const days10 = range(0, 9);
+  const morning = Object.fromEntries(days10.map(n => [ago(n), stamp(n, n < 8 ? 7 : 20)]));
+  const moods = Object.fromEntries(days10.slice(0, 4).map(n => [ago(n), 4]));
+  const out = habitInsights(H('Read', days10, { completedTimestamps: morning, moods }), TODAY);
+  assert.ok(says(out, /^Usually done in the morning \(8 of 10 times\)\.$/), JSON.stringify(out));
+  assert.ok(says(out, /^You are on your longest run yet: 10 days\.$/), JSON.stringify(out));
+  assert.ok(says(out, /^It usually feels good \(4 out of 5 over 4 notes\)\.$/), JSON.stringify(out));
+  assert.ok(out.length <= 4);
+  const mixed = Object.fromEntries(days10.map(n => [ago(n), stamp(n, n % 2 ? 7 : 20)]));
+  assert.ok(!says(habitInsights(H('Read', days10, { completedTimestamps: mixed }), TODAY), /Usually done/));
+  const late = habitInsights(H('Read', days10, { completedTimestamps: morning, backfilled: Object.fromEntries(days10.slice(0, 7).map(n => [ago(n), true])) }), TODAY);
+  assert.ok(!says(late, /Usually done/));                     // days filled in late say nothing about when it is done
+  const broken = habitInsights(H('Read', [0, ...range(20, 34)]), TODAY);
+  assert.ok(says(broken, /^Your longest run is 15 days\. You are at 1 now\.$/), JSON.stringify(broken));
+});
+
+test('habitInsights: weekly habits speak in weeks, and junk never throws', async () => {
+  const { habitInsights } = await load();
+  const weekly = habitInsights(H('Call home', [2, 9, 16, 23, 30], { frequency: 'weekly' }), TODAY);
+  assert.ok(says(weekly, /longest run yet: 5 weeks/), JSON.stringify(weekly));
+  assert.ok(!says(weekly, /days it was due/));
+  for (const bad of [{ completedDates: ['x'], completedTimestamps: 'no', moods: [9], backfilled: 4 }, { completedDates: range(0, 20).map(ago), completedTimestamps: { [ago(0)]: 'x', [ago(1)]: -5 }, moods: { [ago(0)]: 'sad' } }]) {
+    assert.doesNotThrow(() => habitInsights(bad, TODAY, 'no'));
+  }
+  assert.ok(habitInsights(H('Read', range(0, 40)), TODAY).every(i => typeof i.icon === 'string' && typeof i.text === 'string' && !/[<>]/.test(i.text)));
+});

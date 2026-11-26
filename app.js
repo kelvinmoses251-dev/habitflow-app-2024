@@ -17,8 +17,8 @@ import {
 import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
-import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
-import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay } from "./motivation.js?v=1";
+import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=7";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay, MOODS, moodInsights } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -1589,6 +1589,7 @@ async function toggleHabit(id, currentlyDone, dateToRemove) {
     if (h && h.completedTimestamps && h.completedTimestamps[d]) {
       updatePayload[`completedTimestamps.${d}`] = deleteField();
     }
+    if (h && h.moods && typeof h.moods === 'object' && d in h.moods) updatePayload[`moods.${d}`] = deleteField();   // how it felt goes with it
     backgroundWrite(updateDoc(habitRef, updatePayload), 'update your habit');
   } else {
     // Checking the habit. A counting habit completed by any route (the last +, focus view, a swipe) has its count filled.
@@ -2823,6 +2824,17 @@ function uncompleteHabit(id, date) {
   return true;
 }
 
+// ── Mood notes: an optional tap on a face after completing ──
+// Saved on the habit as moods.<day> = 1..5, only while that day is still marked done. Profile has the switch.
+const moodOn = () => prefOn('habitly_mood');
+function saveMood(id, day, n) {
+  const h = allHabits.find(x => x.id === id);
+  if (!h || !Number.isInteger(n) || n < 1 || n > 5) return;
+  if (!(h.completedDates || []).includes(day) && !pendingComplete.has(id)) return;   // taken back in the meantime
+  backgroundWrite(updateDoc(doc(db, 'habits', id), { [`moods.${day}`]: n }), 'save how it felt', true);
+  track('mood_noted', { mood: n });
+}
+
 // ── Milestone moments: 7, 30, 100 and 365 days in a row on one habit ──
 // Shown once per run of days: this device remembers the day each was shown, and a card already shown for the
 // run that is still going (un-tick, tick again) is not shown twice. A new run that gets there again earns it again.
@@ -2892,7 +2904,8 @@ function completeHabit(id, dateToRm, checkboxEl) {
     await addXP(XP_PER_HABIT, checkboxEl);
     // Undo stays for six seconds. It finds the date the habit is ticked for now (weekly and monthly habits
     // are ticked for the day they were done), then follows the normal un-tick rules.
-    toast('Completed. +25 XP', 'success', 6000, { label: 'Undo', onClick: () => { track('habit_undo'); uncompleteHabit(id, dateToRm || todayStr()); } });
+    toast('Completed. +25 XP', 'success', 6000, { label: 'Undo', onClick: () => { track('habit_undo'); uncompleteHabit(id, dateToRm || todayStr()); } },
+      moodOn() ? moments.moodRow(MOODS, n => saveMood(id, day, n)) : null);
     track('habit_completed');
     checkAllDone(id);
     maybeAskForReminders();
@@ -3448,6 +3461,11 @@ function buildInsights(habits, today = new Date()) {
   });
   if (top && top.done >= 5) out.push({ ic: 'star', html: `Most consistent: <strong>\u201C${escHtml(top.name)}\u201D</strong>, ${top.done} of the last 30 days.` });
 
+  // 5) How it felt (from the optional mood notes)
+  moodInsights(habits).forEach(m => out.push(m.kind === 'best'
+    ? { ic: 'mood-5', html: `<strong>\u201C${escHtml(m.name)}\u201D</strong> feels best: ${m.avg} out of 5 over ${m.count} notes.` }
+    : { ic: 'mood-2', html: `<strong>\u201C${escHtml(m.name)}\u201D</strong> has felt hard (${m.avg} out of 5). A smaller version may be easier to keep.` }));
+
   return out;
 }
 
@@ -3627,6 +3645,11 @@ if (analyticsToggle) {
     localStorage.setItem('habitly_analytics', e.target.checked ? 'on' : 'off');
     toast(e.target.checked ? 'Anonymous usage data is on.' : 'Anonymous usage data is off.', 'info');
   });
+}
+const moodToggle = document.getElementById('mood-toggle');
+if (moodToggle) {
+  moodToggle.checked = moodOn();
+  moodToggle.addEventListener('change', e => { try { localStorage.setItem('habitly_mood', e.target.checked ? 'on' : 'off'); } catch (_) {} });
 }
 const hapticsToggle = document.getElementById('haptics-toggle');
 if (hapticsToggle) {

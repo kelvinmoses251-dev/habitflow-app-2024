@@ -1139,6 +1139,18 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .toast-msg { flex: 1; min-width: 0; }
 .toast.out { opacity: 0; transform: translateY(-6px); }
 .toast-action { flex: none; align-self: center; background: none; border: none; color: var(--primary-ink); font-weight: 600; font-size: var(--fs-ui); padding: 2px 6px; border-radius: var(--r-sm); text-decoration: underline; text-underline-offset: 3px; }
+/* A second line under the message: the five mood faces after a completion */
+.toast.has-extra { flex-wrap: wrap; }
+.toast:has(.toast-action) { align-items: center; }            /* the message and its button sit level, whatever the button's touch size */
+.toast:has(.toast-action) .toast-ic { margin-top: 0; }
+.toast-extra { flex: 0 0 100%; }
+.toast-moods { display: flex; align-items: center; gap: 2px; margin: 2px -6px -4px; }
+.moods-q { flex: 1; min-width: 0; padding-left: 6px; font-size: var(--fs-sm); font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mood-btn { flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: var(--r-full); background: none; color: var(--text-2); cursor: pointer; transition: background var(--t-fast), color var(--t-fast); }
+.mood-btn .icon { width: 24px; height: 24px; }
+.mood-btn:hover { background: var(--surface-2); color: var(--text); }
+.mood-btn[aria-pressed="true"] { background: var(--primary-soft); color: var(--primary-ink); }
+@media (max-width: 640px), (pointer: coarse) { .mood-btn { width: 44px; height: 44px; } .moods-q { display: none; } .toast-moods { justify-content: space-between; margin: 2px -4px -4px; } }
 /* How long it will stay: a thin bar that empties once */
 .toast-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--tone); opacity: .55; transform-origin: left; animation: toastBar linear 1 forwards; }
 .toast.is-paused .toast-bar { animation-play-state: paused; }

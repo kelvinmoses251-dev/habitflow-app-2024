@@ -176,4 +176,7 @@ module.exports = (scenario, c) => {
     run('b4-comeback-card' + tag, opts, async () => { await ready(); await waitFor(`!document.getElementById('moment').classList.contains('hidden')`); await settle(900); });
     run('b4-comeback-sheet' + tag, opts, async () => { await ready(); await waitFor(`!document.getElementById('moment').classList.contains('hidden')`); await settle(400); await ev(`document.querySelector('#moment-actions button').click()`); await settle(500); await ev(`document.querySelector('#comeback-list .pick-check[data-id="d"]').click()`); await settle(); });
   }
+  for (const [tag, opts] of [['', { seed: b4seed }], ['-dark', { seed: b4seed, colorScheme: 'dark' }], ['-desktop', { seed: b4seed, mobile: false }]]) {
+    run('b4-mood' + tag, opts, async () => { await ready(); await settle(); await ev(`document.querySelector('.habit-item[data-id="d"] .habit-check').click()`); await waitFor(`!!document.querySelector('.toast .toast-moods')`); await settle(300); await ev(`document.querySelector('.toast .mood-btn[data-mood="4"]').click()`); await settle(400); });
+  }
 };

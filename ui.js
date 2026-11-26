@@ -314,7 +314,8 @@ export function watchDialogs(root = document) {
 // `action` is { label, onClick }, for example Undo.
 const TOAST_ICON = { success: 'i-check', warning: 'i-alert', error: 'i-alert', info: 'i-info' };
 const MAX_TOASTS = 3;
-export function toast(msg, type = 'info', ms = 3500, action = null) {
+// extra: an optional element shown as a second line under the message (the mood faces after a completion).
+export function toast(msg, type = 'info', ms = 3500, action = null, extra = null) {
   const container = document.getElementById('toast-container');
   if (!container) return;
   const t = document.createElement('div');
@@ -339,6 +340,7 @@ export function toast(msg, type = 'info', ms = 3500, action = null) {
     b.addEventListener('click', () => { gone = true; clearTimeout(timer); t.remove(); action.onClick(); });
     t.appendChild(b);
   }
+  if (extra) { t.classList.add('has-extra'); extra.classList.add('toast-extra'); t.appendChild(extra); }
   const bar = document.createElement('span');
   bar.className = 'toast-bar';
   bar.style.animationDuration = `${ms}ms`;

@@ -206,3 +206,22 @@ export function renderComeback(listEl, items) {
   listEl.innerHTML = items.map(h => `<li><label class="pick-item"><input type="checkbox" class="pick-check" data-id="${esc(h.id)}" checked>
     <span class="pick-text"><span class="pick-name">${esc(h.name)}</span><span class="pick-sub">${esc(h.sub)}</span></span></label></li>`).join('');
 }
+
+// ── The mood row ───────────────────────────────────────────
+// Five line-drawn faces for the "Completed" toast. One tap notes how it felt; another tap changes it.
+// labels: motivation.MOODS. onPick(n) is called with 1..5.
+export function moodRow(labels, onPick) {
+  const row = document.createElement('div');
+  row.className = 'toast-moods';
+  row.setAttribute('role', 'group');
+  row.setAttribute('aria-label', 'How did it feel?');
+  row.innerHTML = '<span class="moods-q" aria-hidden="true">How did it feel?</span>' + labels.map((l, i) =>
+    `<button type="button" class="mood-btn" data-mood="${i + 1}" aria-label="${esc(l)}" aria-pressed="false" title="${esc(l)}">${icon('mood-' + (i + 1))}</button>`).join('');
+  row.addEventListener('click', e => {
+    const b = e.target.closest('.mood-btn');
+    if (!b) return;
+    row.querySelectorAll('.mood-btn').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    onPick(Number(b.dataset.mood));
+  });
+  return row;
+}

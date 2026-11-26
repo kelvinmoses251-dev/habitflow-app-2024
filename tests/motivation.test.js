@@ -207,3 +207,43 @@ test('daysAway: nothing ever done, an empty account and junk all count as not aw
   assert.equal(daysAway([{ completedDates: ['banana', 7, null] }, { completedDates: 'x' }], TODAY), 0);
   assert.equal(daysAway([H('Read', [4], { completedDates: [ago(4), ago(-2)] })], TODAY), 4);   // a date in the future is not "today"
 });
+
+// ── Mood notes ─────────────────────────────────────────────
+test('moods: five of them, from Awful to Great', async () => {
+  const { MOODS } = await load();
+  assert.deepEqual(MOODS, ['Awful', 'Hard', 'Okay', 'Good', 'Great']);
+});
+
+test('moodOf: a note counts only on a day that is still done, and only as a whole number from 1 to 5', async () => {
+  const { moodOf } = await load();
+  const h = H('Read', [0, 1, 2], { moods: { [ago(0)]: 4, [ago(1)]: 9, [ago(2)]: 2.5, [ago(3)]: 5, banana: 3 } });
+  assert.equal(moodOf(h, ago(0)), 4);
+  assert.equal(moodOf(h, ago(1)), null);                     // 9 is not a mood
+  assert.equal(moodOf(h, ago(2)), null);                     // nor is 2.5
+  assert.equal(moodOf(h, ago(3)), null);                     // that day is not done
+  assert.equal(moodOf(h, 'banana'), null);
+  for (const bad of [null, undefined, {}, { moods: 'x' }, { moods: null, completedDates: [ago(0)] }]) assert.equal(moodOf(bad, ago(0)), null);
+});
+
+test('moodInsights: says which habit feels best and which has felt hard, once there are three notes', async () => {
+  const { moodInsights } = await load();
+  const run = H('Run <i>fast</i>', [1, 2, 3, 4], { moods: { [ago(1)]: 5, [ago(2)]: 5, [ago(3)]: 4 } });
+  const taxes = H('Taxes', [1, 2, 3], { moods: { [ago(1)]: 1, [ago(2)]: 2, [ago(3)]: 2 } });
+  const few = H('Few', [1, 2], { moods: { [ago(1)]: 5, [ago(2)]: 5 } });
+  const middling = H('Walk', [1, 2, 3], { moods: { [ago(1)]: 3, [ago(2)]: 3, [ago(3)]: 3 } });
+  assert.deepEqual(moodInsights([run, taxes, few, middling]), [
+    { kind: 'best', name: 'Run <i>fast</i>', avg: 4.7, count: 3 },      // the name comes back as typed: the caller escapes it
+    { kind: 'hard', name: 'Taxes', avg: 1.7, count: 3 },
+  ]);
+  assert.deepEqual(moodInsights([few, middling]), []);
+  assert.deepEqual(moodInsights([]), []);
+  assert.deepEqual(moodInsights(null), []);
+});
+
+test('moodInsights: one habit is never both the best and the hard one', async () => {
+  const { moodInsights } = await load();
+  const only = H('Only', [1, 2, 3], { moods: { [ago(1)]: 1, [ago(2)]: 1, [ago(3)]: 1 } });
+  assert.deepEqual(moodInsights([only]), [{ kind: 'hard', name: 'Only', avg: 1, count: 3 }]);
+  const great = H('Great', [1, 2, 3], { moods: { [ago(1)]: 5, [ago(2)]: 5, [ago(3)]: 5 } });
+  assert.deepEqual(moodInsights([great]), [{ kind: 'best', name: 'Great', avg: 5, count: 3 }]);
+});

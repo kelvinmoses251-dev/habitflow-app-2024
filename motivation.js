@@ -143,3 +143,26 @@ export function daysAway(habits, today) {
   const last = lastDoneDay(habits, today);
   return last ? rules.dayNumber(today) - rules.dayNumber(last) : 0;
 }
+
+// ── Mood notes ─────────────────────────────────────────────
+// An optional one-tap note of how a completion felt: habit.moods = { 'YYYY-MM-DD': 1..5 }. A note only counts on
+// a day the habit is still marked done.
+export const MOODS = ['Awful', 'Hard', 'Okay', 'Good', 'Great'];        // 1 … 5
+export function moodOf(habit, day) {
+  const v = habit && habit.moods && typeof habit.moods === 'object' ? habit.moods[day] : null;
+  return Number.isInteger(v) && v >= 1 && v <= 5 && doneDays(habit).includes(day) ? v : null;
+}
+// What the notes say, once a habit has at least three: the one that feels best (average 4 or more) and one that
+// has felt hard (average 2 or less). Names are returned as typed: the caller escapes them.
+export function moodInsights(habits) {
+  const scored = list(habits).map(h => {
+    const notes = doneDays(h).map(d => moodOf(h, d)).filter(v => v !== null);
+    return { name: String(h.name || 'Habit'), count: notes.length, avg: notes.length ? notes.reduce((a, b) => a + b, 0) / notes.length : 0 };
+  }).filter(x => x.count >= 3);
+  const out = [];
+  const best = [...scored].sort((a, b) => b.avg - a.avg || b.count - a.count)[0];
+  if (best && best.avg >= 4) out.push({ kind: 'best', name: best.name, avg: Math.round(best.avg * 10) / 10, count: best.count });
+  const hard = [...scored].sort((a, b) => a.avg - b.avg || b.count - a.count)[0];
+  if (hard && hard.avg <= 2 && !(out.length && hard === best)) out.push({ kind: 'hard', name: hard.name, avg: Math.round(hard.avg * 10) / 10, count: hard.count });
+  return out;
+}

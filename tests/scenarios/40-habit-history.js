@@ -105,4 +105,39 @@ module.exports = (scenario, c) => {
     check('dark: a done day stands out from a missed one', await ev(`(() => { const d = getComputedStyle(document.querySelector('.yc.is-done')).backgroundColor, m = getComputedStyle(document.querySelector('.yc.is-missed')).backgroundColor; return d !== m; })()`));
     noExceptions();
   });
+  // ── 44: a notes timeline with search ─────────────────────
+  const noteAt = (n, text) => ({ date: new Date(Date.now() - n * 864e5).toISOString(), text });
+  const setField = (id, value) => ev(`(() => { const e = document.getElementById(${JSON.stringify(id)}); e.value = ${JSON.stringify(value)}; e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  const notesShown = () => ev(`[...document.querySelectorAll('#details-journal-list .journal-text')].map(n => n.textContent)`);
+
+  scenario('notes: a timeline by month that can be searched', async () => {
+    const journals = [noteAt(1, 'Had a Café au lait after the run'), noteAt(2, 'Long run, slow'), noteAt(40, 'Rest day <img src=x onerror=window.__x=1>'), noteAt(41, 'Knee sore'), noteAt(75, 'First try')];
+    await boot({ seed: seed({ a: H('Run', { journals }), few: H('Few', { order: 2, journals: journals.slice(0, 2) }) }) }); await rows(); await sleep(300);
+    await open('a');
+    check('all five notes are listed, newest first', JSON.stringify(await notesShown()) === JSON.stringify(journals.map(j => j.text)), JSON.stringify(await notesShown()));
+    check('they are grouped under month headings', (await ev(`document.querySelectorAll('#details-journal-list .notes-month').length`)) >= 2 && /^[A-Z][a-z]+ [0-9]{4}$/.test((await text('#details-journal-list .notes-month')).trim()), await text('#details-journal-list .notes-month'));
+    check('each note has a real time element and a named delete button', await ev(`[...document.querySelectorAll('#details-journal-list .journal-entry')].every(e => !!e.querySelector('time[datetime]') && /Delete the note from/.test(e.querySelector('.delete-journal-btn').getAttribute('aria-label')))`));
+    check('a note with HTML in it is shown as text and runs nothing', (await ev(`window.__x`)) === undefined && !(await ev(`!!document.querySelector('#details-journal-list img')`)));
+    check('with more than three notes a search box appears', (await visible('#notes-search')) && await ev(`!!document.getElementById('notes-search').getAttribute('aria-label')`));
+    await setField('notes-search', 'RUN'); await sleep(250);
+    check('searching narrows the list, whatever the case', JSON.stringify(await notesShown()) === JSON.stringify([journals[0].text, journals[1].text]), JSON.stringify(await notesShown()));
+    check('and marks what matched', (await ev(`[...document.querySelectorAll('#details-journal-list mark')].map(m => m.textContent).join('|')`)) === 'run|run');
+    check('a count says how many', (await text('#notes-count')).trim() === '2 of 5 notes', await text('#notes-count'));
+    await setField('notes-search', 'cafe run'); await sleep(250);
+    check('accents do not matter and every word must be there', JSON.stringify(await notesShown()) === JSON.stringify([journals[0].text]) && (await ev(`[...document.querySelectorAll('#details-journal-list mark')].map(m => m.textContent).join('|')`)) === 'Café|run');
+    await setField('notes-search', 'zebra'); await sleep(250);
+    check('no match says so, and repeats the words as text', /No notes match/.test(await text('#notes-none')) && /zebra/.test(await text('#notes-none')));
+    await setField('notes-search', '<img src=x onerror=window.__y=1>'); await sleep(250);
+    check('a hostile search is just text', (await ev(`window.__y`)) === undefined && !(await ev(`!!document.querySelector('#hp-notes img')`)));
+    await setField('notes-search', 'knee'); await sleep(250);
+    await ev(`document.querySelector('#details-journal-list .delete-journal-btn').click()`); await sleep(600);
+    check('deleting a note while searching removes that note', await ev(`__mockDB.habits.a.journals.length === 4 && !__mockDB.habits.a.journals.some(j => j.text === 'Knee sore')`));
+    await setField('notes-search', ''); await sleep(250);
+    check('clearing the search brings the rest back', (await notesShown()).length === 4 && !(await visible('#notes-count')));
+    await size(320, 568); await sleep(200);
+    check('320px: notes fit, delete is thumb-sized', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#details-journal-list .delete-journal-btn')].every(b => b.getBoundingClientRect().height >= 44 && b.getBoundingClientRect().width >= 44)`));
+    await open('few');
+    check('with only two notes there is no search box', !(await visible('#notes-search')) && (await notesShown()).length === 2);
+    noExceptions();
+  });
 };

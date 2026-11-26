@@ -187,3 +187,40 @@ export function yearCells(habit, today, frozen = []) {
   const roomy = months.filter((m, i) => i === months.length - 1 || months[i + 1].col - m.col >= 3);
   return { weeks, months: roomy, done, due };
 }
+
+// ── Notes: a timeline that can be searched ─────────────────
+// Folding makes "Café" match "cafe": lower case, accents removed. foldMap also remembers, for every folded
+// character, which character of the original it came from, so a match can be marked in the text as it was typed.
+function foldMap(text) {
+  let folded = '';
+  const from = [];
+  for (let i = 0; i < text.length; i++) {
+    const f = text[i].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    for (let k = 0; k < f.length; k++) { folded += f[k]; from.push(i); }
+  }
+  return { folded, from };
+}
+export const foldText = text => foldMap(String(text == null ? '' : text)).folded;
+// The notes that contain every word of the query, newest first. Each comes with `parts`: the text cut into pieces,
+// the matching ones flagged `hit`, which always join back into the exact text. Entries that are not notes are dropped.
+export function searchNotes(journals, query = '') {
+  const words = foldText(query).split(/\s+/).filter(Boolean);
+  const notes = (Array.isArray(journals) ? journals : [])
+    .filter(j => j && typeof j === 'object' && typeof j.text === 'string' && j.text.trim() && typeof j.date === 'string' && !isNaN(new Date(j.date)))
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const out = [];
+  for (const j of notes) {
+    const { folded, from } = foldMap(j.text);
+    if (!words.every(w => folded.includes(w))) continue;
+    const marked = new Array(j.text.length).fill(false);
+    for (const w of words) for (let at = folded.indexOf(w); at !== -1; at = folded.indexOf(w, at + 1)) for (let k = at; k < at + w.length; k++) marked[from[k]] = true;
+    const parts = [];
+    for (let i = 0; i < j.text.length; i++) {
+      const last = parts[parts.length - 1];
+      if (last && last.hit === marked[i]) last.text += j.text[i]; else parts.push({ text: j.text[i], hit: marked[i] });
+    }
+    const d = new Date(j.date);
+    out.push({ date: j.date, day: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`, text: j.text, parts });
+  }
+  return out;
+}

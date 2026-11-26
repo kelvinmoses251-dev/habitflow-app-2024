@@ -81,3 +81,23 @@ export function renderYear(el, year, keepScroll = false) {
   const box = el.querySelector('.year-scroll');
   box.scrollLeft = was === null ? box.scrollWidth : was;      // start at today (the right-hand end); a redraw stays where the person scrolled to
 }
+
+// ── Notes: a timeline by month ─────────────────────────────
+// items: habitHistory.searchNotes(...). total: how many notes there are before searching. The delete button keeps
+// the class and data attribute the app's handler already listens for.
+const noteWhen = iso => { const d = new Date(iso); return d.toLocaleDateString('en', { weekday: 'short' }) + ' ' + d.getDate() + ' ' + d.toLocaleDateString('en', { month: 'short' }) + ', ' + d.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' }).toLowerCase(); };
+const monthOf = iso => { const d = new Date(iso); return d.toLocaleDateString('en', { month: 'long' }) + ' ' + d.getFullYear(); };
+export function renderNotes(el, items, { total, query }) {
+  if (!total) { el.innerHTML = '<p class="journal-empty">No notes yet.</p>'; return; }
+  if (!items.length) { el.innerHTML = `<p class="journal-empty" id="notes-none">No notes match “${esc(query)}”.</p>`; return; }
+  let html = '', month = '';
+  for (const n of items) {
+    const m = monthOf(n.date);
+    if (m !== month) { html += `${month ? '</ol>' : ''}<h3 class="notes-month">${esc(m)}</h3><ol class="notes-list">`; month = m; }
+    html += `<li class="journal-entry">
+      <div class="journal-meta"><time datetime="${esc(n.date)}">${esc(noteWhen(n.date))}</time>
+        <button class="delete-journal-btn" type="button" data-date="${esc(n.date)}" aria-label="Delete the note from ${esc(noteWhen(n.date))}">${icon('trash')}</button></div>
+      <div class="journal-text">${n.parts.map(p => (p.hit ? `<mark>${esc(p.text)}</mark>` : esc(p.text))).join('')}</div></li>`;
+  }
+  el.innerHTML = html + '</ol>';
+}

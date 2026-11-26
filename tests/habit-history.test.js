@@ -223,3 +223,46 @@ test('yearCells: shield days, rest days and junk', async () => {
   assert.equal(at(ago(5)).state, 'missed');
   for (const bad of [null, {}, { completedDates: 'x' }]) { const r = yearCells(bad, TODAY, 'no'); assert.equal(r.weeks.length, 53); assert.equal(r.done, 0); }
 });
+
+// ── Notes search ───────────────────────────────────────────
+const note = (n, text) => ({ date: new Date(num(ago(n)) * 86400000 + 12 * 3600000).toISOString(), text });
+const joined = item => item.parts.map(p => p.text).join('');
+
+test('searchNotes: newest first, and with no query every note comes back whole', async () => {
+  const { searchNotes } = await load();
+  const out = searchNotes([note(9, 'Old one'), note(1, 'New one'), note(4, 'Middle')]);
+  assert.deepEqual(out.map(n => n.text), ['New one', 'Middle', 'Old one']);
+  assert.ok(out.every(n => n.parts.length === 1 && n.parts[0].hit === false && joined(n) === n.text));
+  assert.equal(out[0].day, ago(1));
+});
+
+test('searchNotes: folds case and accents, needs every word, and marks what matched', async () => {
+  const { searchNotes, foldText } = await load();
+  assert.equal(foldText('  Café AU Lait '), '  cafe au lait ');
+  const notes = [note(1, 'Had a Café au lait after the run'), note(2, 'Long run, slow'), note(3, 'Rest day')];
+  assert.deepEqual(searchNotes(notes, 'RUN').map(n => n.text), ['Had a Café au lait after the run', 'Long run, slow']);
+  assert.deepEqual(searchNotes(notes, 'cafe run').map(n => n.text), ['Had a Café au lait after the run']);
+  assert.deepEqual(searchNotes(notes, 'run zebra'), []);
+  const hit = searchNotes(notes, 'cafe')[0];
+  assert.deepEqual(hit.parts, [{ text: 'Had a ', hit: false }, { text: 'Café', hit: true }, { text: ' au lait after the run', hit: false }]);
+  const twice = searchNotes([note(1, 'run, Run, RUN')], 'run')[0];
+  assert.equal(twice.parts.filter(p => p.hit).length, 3);
+  assert.equal(joined(twice), 'run, Run, RUN');
+});
+
+test('searchNotes: the pieces always join back into the exact text, whatever is in it', async () => {
+  const { searchNotes } = await load();
+  const odd = ['<img src=x onerror=alert(1)>', 'İstanbul ﬁne Straße', 'tab\there\nnew line', 'été already split', '😀 emoji run'];
+  for (const text of odd) for (const q of ['', 'e', 'run', 'i', 'st', 'img']) {
+    for (const item of searchNotes([note(1, text)], q)) assert.equal(joined(item), text, JSON.stringify([text, q]));
+  }
+  assert.equal(searchNotes([note(1, '<b>bold</b>')], 'bold')[0].parts.find(p => p.hit).text, 'bold');
+});
+
+test('searchNotes: things that are not notes are dropped', async () => {
+  const { searchNotes } = await load();
+  const out = searchNotes([note(1, 'Real'), null, 7, { text: 'no date' }, { date: 'never', text: 'bad date' }, { date: note(2, '').date, text: '   ' }, { date: note(2, '').date, text: 12 }]);
+  assert.deepEqual(out.map(n => n.text), ['Real']);
+  for (const bad of [null, undefined, 'x', {}]) assert.deepEqual(searchNotes(bad, 'a'), []);
+});
+

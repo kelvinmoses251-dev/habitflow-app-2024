@@ -20,7 +20,7 @@ import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, at
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
-import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells } from "./habit-history.js?v=1";
+import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -4186,7 +4186,7 @@ function showHabitRoute(arrived) {
   }
   missing.hidden = true; body.hidden = false;
   const fresh = arrived || currentDetailsHabitId !== habit.id;
-  if (currentDetailsHabitId !== habit.id) { document.getElementById('details-journal-input').value = ''; calendarMonth = null; }
+  if (currentDetailsHabitId !== habit.id) { document.getElementById('details-journal-input').value = ''; document.getElementById('notes-search').value = ''; calendarMonth = null; }
   currentDetailsHabitId = habit.id;
   renderHabitPage(habit);
   document.title = `${habit.name} \u00b7 Habitly`;
@@ -4235,26 +4235,21 @@ document.getElementById('details-save-journal').addEventListener('click', async 
   document.getElementById('details-journal-input').value = '';
 });
 
+// The notes are a timeline by month. Once there are more than three, a search box narrows them (case and accents
+// do not matter; every word must be there) and marks what matched.
 function renderJournal(habit) {
-  const list = document.getElementById('details-journal-list');
-  list.innerHTML = '';
-  if (!habit.journals || habit.journals.length === 0) {
-    list.innerHTML = '<p class="journal-empty">No notes yet.</p>';
-    return;
-  }
-  const sorted = [...habit.journals].sort((a, b) => new Date(b.date) - new Date(a.date));
-  sorted.forEach(j => {
-    const div = document.createElement('div');
-    div.className = 'journal-entry';
-    div.innerHTML = `
-      <div class="journal-meta">
-        <span>${new Date(j.date).toLocaleString()}</span>
-        <button class="delete-journal-btn" data-date="${escHtml(j.date)}" aria-label="Delete note"><svg class="icon" aria-hidden="true" width="14" height="14"><use href="#i-trash"/></svg></button>
-      </div>
-      <div class="journal-text">${escHtml(j.text)}</div>`;
-    list.appendChild(div);
-  });
+  const all = searchNotes(habit.journals, ''), box = document.getElementById('notes-search'), count = document.getElementById('notes-count');
+  box.classList.toggle('hidden', all.length <= 3 && !box.value);
+  const query = box.classList.contains('hidden') ? '' : box.value.trim();
+  const items = query ? searchNotes(habit.journals, query) : all;
+  habitPage.renderNotes(document.getElementById('details-journal-list'), items, { total: all.length, query });
+  count.classList.toggle('hidden', !query);
+  count.textContent = query ? `${items.length} of ${all.length} notes` : '';
 }
+document.getElementById('notes-search')?.addEventListener('input', () => {
+  const h = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (h) renderJournal(h);
+});
 
 document.getElementById('details-journal-list').addEventListener('click', async e => {
   const btn = e.target.closest('.delete-journal-btn');

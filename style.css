@@ -1013,6 +1013,16 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .yc.is-future { background: none; }
 .yc.is-today { border-color: var(--primary-ink); }
 
+/* The habit page: notes as a timeline, with search */
+.notes-search { width: 100%; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); color: var(--text); font: inherit; }
+.notes-search.hidden { display: none; }
+.notes-month { margin-top: var(--sp-2); font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.notes-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.journal-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+.journal-text mark { background: var(--warning-soft); color: inherit; border-radius: var(--r-sm); padding: 0 1px; }
+.delete-journal-btn { min-width: 44px; min-height: 44px; margin: -10px -12px -10px 0; align-items: center; justify-content: center; }
+.delete-journal-btn .icon { width: 16px; height: 16px; }
+
 /* Filling in yesterday */
 .hp-fill { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--warning-soft); border: 1px solid var(--warning-line); border-radius: var(--r-lg); }
 .hp-fill.hidden { display: none; }

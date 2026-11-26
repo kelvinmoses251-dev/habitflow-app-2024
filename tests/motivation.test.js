@@ -86,3 +86,30 @@ test('xpHistory: looks back 14 days unless told otherwise, and survives junk', a
   const odd = { id: 'x', name: 'Odd', completedDates: ['banana', 12, null, ago(0)] };
   assert.equal(xpHistory([odd, { id: 'y' }], TODAY)[0].done, 1);
 });
+
+// ── Milestones ─────────────────────────────────────────────
+test('milestones: 7, 30, 100 and 365 days, each with a line to say', async () => {
+  const { MILESTONES, MILESTONE_LINES } = await load();
+  assert.deepEqual(MILESTONES, [7, 30, 100, 365]);
+  for (const m of MILESTONES) assert.ok(typeof MILESTONE_LINES[m] === 'string' && MILESTONE_LINES[m].length > 10 && MILESTONE_LINES[m].length <= 80, String(m));
+});
+
+test('milestoneCrossed: the milestone a streak just passed, or null', async () => {
+  const { milestoneCrossed } = await load();
+  assert.equal(milestoneCrossed(6, 7), 7);
+  assert.equal(milestoneCrossed(29, 30), 30);
+  assert.equal(milestoneCrossed(99, 100), 100);
+  assert.equal(milestoneCrossed(364, 365), 365);
+  assert.equal(milestoneCrossed(7, 8), null);
+  assert.equal(milestoneCrossed(0, 1), null);
+  assert.equal(milestoneCrossed(5, 6), null);
+});
+
+test('milestoneCrossed: a jump over several gives the highest; standing still or falling gives none', async () => {
+  const { milestoneCrossed } = await load();
+  assert.equal(milestoneCrossed(0, 400), 365);
+  assert.equal(milestoneCrossed(3, 31), 30);
+  assert.equal(milestoneCrossed(7, 7), null);
+  assert.equal(milestoneCrossed(30, 7), null);
+  for (const bad of [[undefined, 7], [6, NaN], ['6', '7'], [null, null]]) assert.equal(milestoneCrossed(...bad), null, JSON.stringify(bad));
+});

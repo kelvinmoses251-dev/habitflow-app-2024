@@ -710,6 +710,28 @@ html.dialog-open { overflow: hidden; }
 .stat-tile-btn { cursor: pointer; }
 .stat-tile-btn:hover .tile-value { color: var(--primary-ink); }
 
+/* Milestone moment: a full-screen card. The ring draws once, the number rises once. */
+.modal.milestone-modal { padding: 0; background: var(--bg); }
+.modal.milestone-modal .dialog { width: 100%; max-width: none; height: 100%; max-height: none; border: 0; border-radius: 0; box-shadow: none; background: var(--bg); align-items: center; justify-content: center; text-align: center; gap: var(--sp-3); padding: var(--sp-6); overflow-y: auto; }
+.modal.milestone-modal:not(.hidden) .dialog { animation: momentIn .2s ease both; }
+.modal.milestone-modal .dialog { position: relative; }
+.milestone-modal .sheet-handle { position: absolute; top: var(--sp-2); left: 0; right: 0; margin: 0; }   /* phones: it can be dragged away like any sheet */
+.milestone-ring { position: relative; flex: none; display: grid; place-items: center; width: min(56vw, 220px); aspect-ratio: 1; margin-bottom: var(--sp-3); }
+.milestone-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); fill: none; }
+.milestone-ring .mr-track { stroke: var(--border); stroke-width: 2; }
+.milestone-ring .mr-draw { stroke: var(--primary); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 100; }
+.milestone-num { font-family: var(--font-display); font-size: clamp(64px, 22vw, 104px); line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.milestone-modal .dialog-title { font-size: var(--fs-xl); }
+.milestone-habit { max-width: 28rem; font-weight: 600; color: var(--primary-ink); overflow-wrap: anywhere; }
+.milestone-modal .dialog-text { max-width: 26rem; }
+.milestone-modal .dialog-actions { width: 100%; max-width: 22rem; justify-content: center; margin-top: var(--sp-5); }
+.milestone-modal .dialog-actions > button { flex: 1; }
+@keyframes momentIn { from { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .milestone-modal:not(.hidden) .mr-draw { stroke-dashoffset: 100; animation: drawStroke .8s cubic-bezier(.4,0,.2,1) .1s both; }
+  .milestone-modal:not(.hidden) .milestone-num { animation: rise .5s cubic-bezier(.22,1,.36,1) .2s both; }
+}
+
 /* The level page */
 .level-body { display: flex; flex-direction: column; gap: var(--sp-3); }
 .level-meaning { color: var(--text-2); }

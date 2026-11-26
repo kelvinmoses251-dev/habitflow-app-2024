@@ -18,7 +18,7 @@ import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
-import { LEVELS, levelInfo, xpHistory } from "./motivation.js?v=1";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -364,6 +364,8 @@ function resetUserState() {
   revealedId = null;
   pendingComplete.forEach(clearTimeout); pendingComplete.clear();
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
+  moments.resetCelebrations();
+  ['milestone-modal', 'level-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
@@ -502,16 +504,18 @@ function spawnFloatingXP(targetEl, amount = 25) {
 }
 
 function showLevelUpModal(info) {
-  playLevelUpSound();
-  buzz([60, 40, 60]);
   const modal = document.getElementById('level-up-modal');
   if (!modal) return;
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('level-up-new-level', `Level ${info.level}`);
-  set('level-up-new-title', info.title);
-  set('level-up-perk-text', `You reached level ${info.level}. Next level at ${info.levelTargetXP.toLocaleString()} XP.`);
-  modal.classList.remove('hidden');
-  modal.style.opacity = '1';
+  moments.queueDialog(modal, () => {                  // one celebration at a time: it waits for any card already up
+    if (!currentUser) return false;
+    playLevelUpSound();
+    buzz([60, 40, 60]);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('level-up-new-level', `Level ${info.level}`);
+    set('level-up-new-title', info.title);
+    set('level-up-perk-text', `You reached level ${info.level}. Next level at ${info.levelTargetXP.toLocaleString()} XP.`);
+    modal.style.opacity = '1';
+  });
 }
 
 const levelUpClaimBtn = document.getElementById('level-up-claim-btn');
@@ -889,12 +893,13 @@ function checkAllDone(justCompletedId = null) {
   setTimeout(async () => {
     // Signed out in the half second since the last tick: there is no one to celebrate with or to save a bonus for
     if (!currentUser) { isCelebrating = false; return; }
-    playChime();
-    const overlay = document.getElementById('all-done-overlay');
-    const n = Math.max(calcStreak(allHabits), 1);
-    const line = document.getElementById('all-done-text');
-    if (line) line.textContent = `You completed every daily habit. Your streak is ${n} day${n === 1 ? '' : 's'}.`;
-    if (overlay) overlay.classList.remove('hidden');
+    moments.queueDialog(document.getElementById('all-done-overlay'), () => {   // the card waits its turn; the bonus below does not
+      if (!currentUser) return false;
+      playChime();
+      const n = Math.max(calcStreak(allHabits), 1);
+      const line = document.getElementById('all-done-text');
+      if (line) line.textContent = `You completed every daily habit. Your streak is ${n} day${n === 1 ? '' : 's'}.`;
+    });
     if (userAllDoneBonusDate !== today) {
       userAllDoneBonusDate = today;
       await addXP(XP_DAILY_BONUS);
@@ -947,7 +952,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
-  ['share-card-modal', 'share-card-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'],
+  ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'], ['details-modal', 'details-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
@@ -2673,6 +2678,45 @@ function uncompleteHabit(id, date) {
   return true;
 }
 
+// ── Milestone moments: 7, 30, 100 and 365 days in a row on one habit ──
+// Shown once per run of days: this device remembers the day each was shown, and a card already shown for the
+// run that is still going (un-tick, tick again) is not shown twice. A new run that gets there again earns it again.
+const milestonesKey = () => `habitly_milestones_${currentUser.uid}`;
+function offerMilestone(habit, before, after) {
+  const m = milestoneCrossed(before, after);
+  if (!m || !currentUser) return;
+  const today = todayStr();
+  let seen = {};
+  try { const v = JSON.parse(localStorage.getItem(milestonesKey()) || '{}'); if (v && typeof v === 'object' && !Array.isArray(v)) seen = v; } catch (_) {}
+  const mine = seen[habit.id] && typeof seen[habit.id] === 'object' ? seen[habit.id] : {};
+  if (typeof mine[m] === 'string' && mine[m] >= rules.shiftDay(today, -(m - 1))) return;   // already shown for this run
+  seen[habit.id] = { ...mine, [m]: today };
+  try { localStorage.setItem(milestonesKey(), JSON.stringify(seen)); } catch (_) {}
+  track('milestone_reached', { days: m });
+  moments.queueDialog(document.getElementById('milestone-modal'), () => {
+    if (!currentUser) return false;
+    moments.renderMilestone({ days: m, habit: habit.name, line: MILESTONE_LINES[m] });
+    playChime();
+    buzz([30, 60, 30, 60, 60]);
+  });
+}
+document.getElementById('milestone-close')?.addEventListener('click', () => document.getElementById('milestone-modal').classList.add('hidden'));
+document.getElementById('milestone-share')?.addEventListener('click', async () => {
+  const m = moments.currentMilestone();
+  if (!m) return;
+  track('milestone_share_clicked', { days: m.days });
+  const canvas = document.getElementById('milestone-canvas');
+  try {
+    await moments.drawMilestoneCard(canvas, { ...m, url: SHARE_URL.replace(/^https?:\/\//, '') });
+    const how = await moments.shareCanvas(canvas, { filename: `habitly-${m.days}-days.png`, title: `${m.days} days in a row`, text: `${m.days} days in a row on Habitly. ${SHARE_URL}` });
+    if (how === 'saved') toast('Image saved', 'success');
+    if (how === 'failed') toast('Could not share the picture. Try again.', 'error');
+  } catch (err) {
+    console.warn('Milestone share failed:', err);
+    toast('Could not make the picture. Try again.', 'error');
+  }
+});
+
 function completeHabit(id, dateToRm, checkboxEl) {
   const habit = allHabits.find(x => x.id === id);
   if (!habit) return;
@@ -2694,7 +2738,12 @@ function completeHabit(id, dateToRm, checkboxEl) {
   buzz([14, 50, 26]);                                 // in step with the effect: the ring, then the check
   pendingComplete.set(id, setTimeout(async () => {
     pendingComplete.delete(id);
+    const was = allHabits.find(x => x.id === id) || habit, day = dateToRm || todayStr();
+    const streakBefore = habitFreq(was) === 'daily' ? calcHabitStreak(was) : 0;
     await toggleHabit(id, false, dateToRm);
+    if (habitFreq(was) === 'daily' && day === todayStr()) {
+      offerMilestone(was, streakBefore, rules.habitStreak({ ...was, completedDates: [...new Set([...(was.completedDates || []), day])] }, day, userFrozenDates || []));
+    }
     await addXP(XP_PER_HABIT, checkboxEl);
     // Undo stays for six seconds. It finds the date the habit is ticked for now (weekly and monthly habits
     // are ticked for the day they were done), then follows the normal un-tick rules.

@@ -56,3 +56,85 @@ export function renderLevel(body, { info, levels, history, today }) {
     ${rows ? `<ul class="xp-history">${rows}</ul><p class="sheet-note">Worked out from what you completed in the last 14 days.</p>`
            : '<p class="sheet-note" id="xp-history-none">Nothing in the last 14 days. Complete a habit and it shows here.</p>'}`;
 }
+
+// ── One celebration at a time ──────────────────────────────
+// One tap can reach a milestone, finish the day and reach a new level. Each card waits its turn: the next opens
+// when the one before is closed. `open(done)` shows a card and calls done() when it has gone.
+const waiting = [];
+let showing = false;
+function next() {
+  const open = waiting.shift();
+  if (!open) { showing = false; return; }
+  showing = true;
+  let finished = false;
+  open(() => { if (finished) return; finished = true; setTimeout(next, 250); });
+}
+export function queueCelebration(open) {
+  waiting.push(open);
+  if (!showing) next();
+}
+// A dialog (.modal) as a celebration. prepare() runs just before it shows (set its text, play its sound);
+// returning false skips it.
+export function queueDialog(modal, prepare) {
+  if (!modal) return;
+  queueCelebration(done => {
+    if (prepare && prepare() === false) return done();
+    modal.classList.remove('hidden');
+    const watch = new MutationObserver(() => { if (modal.classList.contains('hidden')) { watch.disconnect(); done(); } });
+    watch.observe(modal, { attributes: true, attributeFilter: ['class'] });
+  });
+}
+export function resetCelebrations() { waiting.length = 0; }
+
+// ── The milestone card ─────────────────────────────────────
+let milestone = null;
+export const currentMilestone = () => milestone;
+export function renderMilestone({ days, habit, line }) {
+  milestone = { days, habit };
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('milestone-num', String(days));
+  set('milestone-title', `${days} days in a row`);
+  set('milestone-habit', habit);
+  set('milestone-line', line || '');
+}
+
+// The picture that Share sends: 1080 x 1350, flat, the same ink and accent as the streak card.
+function fitText(ctx, text, max) {
+  let t = String(text);
+  if (ctx.measureText(t).width <= max) return t;
+  while (t.length > 1 && ctx.measureText(t + '\u2026').width > max) t = t.slice(0, -1);
+  return t.trimEnd() + '\u2026';
+}
+export async function drawMilestoneCard(canvas, { days, habit, url }) {
+  try { await Promise.all([document.fonts.load('600 40px Inter'), document.fonts.load('400 40px "Instrument Serif"')]); } catch (_) { /* system fonts will do */ }
+  const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height, M = 96;
+  const INK = '#111113', LINE = '#2C2C31', TEXT = '#F2F2F4', MUTED = '#9A9AA3', ACCENT = '#A79EF5', FONT = 'Inter, system-ui, sans-serif';
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillStyle = TEXT; ctx.font = `600 44px ${FONT}`; ctx.fillText('Habitly', M, 140);
+  const cx = W / 2, cy = 560, r = 300;
+  ctx.lineWidth = 8; ctx.strokeStyle = ACCENT; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = TEXT; ctx.font = `400 ${days >= 100 ? 270 : 340}px "Instrument Serif", Georgia, serif`; ctx.fillText(String(days), cx, cy + 12);
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `600 64px ${FONT}`; ctx.fillText('days in a row', cx, 990);
+  ctx.fillStyle = ACCENT; ctx.font = `500 46px ${FONT}`; ctx.fillText(fitText(ctx, habit, W - M * 2), cx, 1070);
+  ctx.fillStyle = LINE; ctx.fillRect(M, 1206, W - M * 2, 2);
+  ctx.fillStyle = MUTED; ctx.font = `400 34px ${FONT}`; ctx.fillText(url, cx, 1272);
+}
+// Hand a canvas to the device's share sheet as a picture; where that cannot be done, save it instead.
+// Resolves with 'shared', 'cancelled', 'failed' or 'saved'.
+export function shareCanvas(canvas, { filename, title, text }) {
+  return new Promise(resolve => {
+    const save = () => { const a = document.createElement('a'); a.download = filename; a.href = canvas.toDataURL('image/png'); a.click(); resolve('saved'); };
+    try {
+      canvas.toBlob(async blob => {
+        const file = blob && typeof File === 'function' ? new File([blob], filename, { type: 'image/png' }) : null;
+        if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ title, text, files: [file] }); resolve('shared'); }
+          catch (e) { resolve(e && e.name === 'AbortError' ? 'cancelled' : 'failed'); }
+        } else save();
+      }, 'image/png');
+    } catch (_) { save(); }
+  });
+}

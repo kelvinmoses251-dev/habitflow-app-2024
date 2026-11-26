@@ -159,4 +159,8 @@ module.exports = (scenario, c) => {
     run('b4-level' + tag, opts, async () => { await ready(); await settle(); await ev(`document.getElementById('open-level').click()`); await settle(); });
   }
 
+  const b4mile = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: db.users, habits: { a: mk('Read 10 pages', 'reading', 1, streak(29)), b: mk('Workout for 30 minutes', 'fitness', 2, streak(3)) } } };
+  for (const [tag, opts] of [['', { seed: b4mile }], ['-dark', { seed: b4mile, colorScheme: 'dark' }], ['-desktop', { seed: b4mile, mobile: false }]]) {
+    run('b4-milestone' + tag, opts, async () => { await ready(); await settle(); await ev(`document.querySelector('.habit-item[data-id="a"] .habit-check').click()`); await waitFor(`!document.getElementById('milestone-modal').classList.contains('hidden')`); await settle(1400); });
+  }
 };

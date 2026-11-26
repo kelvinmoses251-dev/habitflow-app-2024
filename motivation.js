@@ -65,3 +65,20 @@ export function xpHistory(habits, today, days = 14) {
   }
   return out;
 }
+
+// ── Milestones ─────────────────────────────────────────────
+// Day streaks worth stopping for. One line each, said on the card.
+export const MILESTONES = [7, 30, 100, 365];
+export const MILESTONE_LINES = {
+  7: 'A full week. The habit is taking root.',
+  30: 'Thirty days. This is part of your routine now.',
+  100: 'One hundred days. Very few people get this far.',
+  365: 'A whole year, one day at a time.',
+};
+// The highest milestone a streak passed going from `before` to `after` (null when it passed none).
+export function milestoneCrossed(before, after) {
+  if (!Number.isFinite(before) || !Number.isFinite(after) || after <= before) return null;
+  let hit = null;
+  for (const m of MILESTONES) if (before < m && after >= m) hit = m;
+  return hit;
+}

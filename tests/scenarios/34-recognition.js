@@ -64,4 +64,76 @@ module.exports = (scenario, c) => {
     check('dark: the current level stands out from the page', await ev(`(() => { const li = document.querySelector('#level-modal .level-ladder li.is-current'); return getComputedStyle(li).backgroundColor !== getComputedStyle(li.parentElement).backgroundColor; })()`));
     noExceptions();
   });
+  // ── 32: milestone moments ────────────────────────────────
+  const run = (from, to) => { const out = []; for (let n = from; n <= to; n++) out.push(day(n)); return out; };
+  const tick = id => ev(`document.querySelector('.habit-item[data-id="${id}"] .habit-check').click()`);
+  const dlSpy = `window.__dl = []; const _click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__dl.push({ name: this.download, size: (this.href || '').length, png: /^data:image\\/png/.test(this.href || '') }); return; } return _click.call(this); };
+    try { Object.defineProperty(Navigator.prototype, 'share', { configurable: true, value: undefined }); } catch (_) {}`;
+
+  scenario('milestone: the seventh day in a row gets a full-screen card, once', async () => {
+    await boot({ seed: seed({ a: H('Read', { completedDates: run(1, 6) }), b: H('Run', { order: 2 }) }), initScript: dlSpy }); await rows(); await sleep(300);
+    await tick('a');
+    check('the card opens', await waitFor(`!document.getElementById('milestone-modal').classList.contains('hidden')`, 2500));
+    check('the completion was saved before it showed', await ev(`__mockDB.habits.a.completedDates.includes(${JSON.stringify(day(0))})`));
+    check('it shows the number', (await text('#milestone-num')).trim() === '7', await text('#milestone-num'));
+    check('says what it is', (await text('#milestone-title')).trim() === '7 days in a row', await text('#milestone-title'));
+    check('and names the habit', (await text('#milestone-habit')).trim() === 'Read', await text('#milestone-habit'));
+    check('it is a named dialog', await ev(`(() => { const m = document.getElementById('milestone-modal'); return m.getAttribute('role') === 'dialog' && m.getAttribute('aria-modal') === 'true' && !!document.getElementById(m.getAttribute('aria-labelledby')); })()`));
+    check('it fills the screen', await ev(`(() => { const r = document.querySelector('#milestone-modal .dialog').getBoundingClientRect(); return r.width >= innerWidth - 1 && r.height >= innerHeight - 1; })()`));
+    check('Continue has the focus, so Enter moves on', await ev(`document.activeElement === document.getElementById('milestone-close')`));
+    check('its animation runs once', await ev(`[...document.querySelectorAll('#milestone-modal *')].every(e => getComputedStyle(e).animationIterationCount !== 'infinite')`));
+    await ev(`document.getElementById('milestone-share').click()`); await sleep(900);
+    const dl = await ev(`window.__dl`);
+    check('Share makes a picture (saved when the device cannot share files)', dl.length === 1 && dl[0].png && dl[0].size > 20000 && /habitly-7-days/.test(dl[0].name), JSON.stringify(dl));
+    check('the card is still open after sharing', await open('milestone-modal'));
+    await key('Escape'); await sleep(300);
+    check('Escape closes it', !(await open('milestone-modal')));
+    await sleep(900);
+    await tick('a'); await sleep(500);
+    check('the tick can be taken back', await ev(`__mockDB.habits.a.completedDates.length === 6`));
+    await tick('a'); await sleep(1200);
+    check('ticking it again does not show the card twice', !(await open('milestone-modal')) && await ev(`__mockDB.habits.a.completedDates.length === 7`));
+    noExceptions();
+  });
+
+  scenario('milestone: one card at a time when the same tap finishes the day and reaches a new level', async () => {
+    await boot({ seed: seed({ a: H('Read', { completedDates: run(1, 29) }) }, { xp: 75 }) }); await rows(); await sleep(300);
+    await tick('a');
+    check('the milestone card comes first', await waitFor(`!document.getElementById('milestone-modal').classList.contains('hidden')`, 2500));
+    check('it is the 30', (await text('#milestone-num')).trim() === '30' && /30 days in a row/.test(await text('#milestone-title')));
+    await sleep(1500);
+    check('nothing else is stacked on it', !(await open('all-done-overlay')) && !(await open('level-up-modal')));
+    check('the XP and the bonus are already saved underneath', await ev(`__mockDB.users['u-test'].xp === 200 && __mockDB.users['u-test'].allDoneBonusDate === ${JSON.stringify(day(0))}`), await ev(`JSON.stringify(__mockDB.users['u-test'])`));
+    await ev(`document.getElementById('milestone-close').click()`);
+    check('closing it brings the all-done card', await waitFor(`!document.getElementById('all-done-overlay').classList.contains('hidden')`, 2000));
+    check('and still not the level card', !(await open('level-up-modal')) && !(await open('milestone-modal')));
+    await ev(`document.getElementById('all-done-close').click()`);
+    check('then the new level', await waitFor(`!document.getElementById('level-up-modal').classList.contains('hidden')`, 2000));
+    check('which is the right one', /Level 2/.test(await text("#level-up-new-level")), await text('#level-up-new-level'));
+    await ev(`document.getElementById('level-up-claim-btn').click()`); await sleep(600);
+    check('after that the screen is clear', !(await open('level-up-modal')) && !(await open('all-done-overlay')) && !(await open('milestone-modal')));
+    noExceptions();
+  });
+
+  scenario('milestone: only day streaks at 7, 30, 100 and 365, and it fits a small dark screen', async () => {
+    await boot({ colorScheme: 'dark', seed: seed({
+      w: H('Call home', { frequency: 'weekly', completedDates: [7, 14, 21, 28, 35, 42].map(day) }),
+      e: H('Stretch', { order: 2, completedDates: run(1, 7) }),
+      y: H('Walk <b>far</b>', { order: 3, completedDates: run(1, 364) }),
+      z: H('Rest', { order: 4 }),
+    }) }); await rows(); await sleep(300);
+    await ev(`document.querySelector('.habit-item[data-id="w"] .habit-check').click()`); await sleep(1300);
+    check('a weekly habit reaching 7 weeks shows no day milestone', !(await open('milestone-modal')));
+    await tick('e'); await sleep(1300);
+    check('the eighth day shows none', !(await open('milestone-modal')));
+    await size(320, 568); await sleep(150);
+    await tick('y');
+    check('the 365th day does', await waitFor(`!document.getElementById('milestone-modal').classList.contains('hidden')`, 2500) && (await text('#milestone-num')).trim() === '365');
+    check('a name with HTML in it is shown as text', (await text('#milestone-habit')).trim() === 'Walk <b>far</b>' && !(await ev(`!!document.querySelector('#milestone-habit b')`)));
+    check('320px: nothing spills sideways and both buttons are thumb-sized', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#milestone-modal .dialog-actions button')].every(b => { const r = b.getBoundingClientRect(); return r.height >= 44 && r.right <= innerWidth && r.bottom <= innerHeight; })`));
+    check('dark: the number can be read against the card', await ev(`(() => { const n = document.getElementById('milestone-num'); const lum = c => { const [r, g, b] = c.match(/[\\d.]+/g).map(Number).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * r + .7152 * g + .0722 * b; };
+      const a = lum(getComputedStyle(n).color), b2 = lum(getComputedStyle(document.querySelector('#milestone-modal .dialog')).backgroundColor); return (Math.max(a, b2) + .05) / (Math.min(a, b2) + .05) >= 4.5; })()`));
+    await ev(`document.getElementById('milestone-close').click()`); await sleep(300);
+    noExceptions();
+  });
 };

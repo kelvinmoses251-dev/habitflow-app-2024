@@ -82,7 +82,7 @@ module.exports = (scenario, c) => {
     await swipe('a', 110); await sleep(900);
     check('a swipe right completes the habit', await done('a'));
     check('with the same Undo toast as a tap', await ev(`!!document.querySelector('#toast-container .toast-action')`));
-    check('a swipe does not open the details dialog', !(await visible('#details-modal')));
+    check('a swipe does not open the habit page', !(await ev(`document.getElementById('page-habit').classList.contains('active')`)));
     await swipe('b', -110); await sleep(400);
     check('a swipe left reveals the actions', await revealed('b'));
     await swipe('c', 110); await sleep(600);

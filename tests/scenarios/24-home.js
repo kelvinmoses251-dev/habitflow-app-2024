@@ -151,7 +151,7 @@ module.exports = (scenario, c) => {
     check('completing a weekly habit works from its section', await waitFor(`(__mockDB.habits.w2.completedDates || []).length === 1`, 3000));
     check('and its count updates', await waitFor(`document.getElementById('week-count').textContent.trim() === '2 of 2'`, 3000));
     await ev(`document.querySelector('.habit-item[data-id="m1"] [data-action="details"]').click()`); await sleep(300);
-    check('row actions work in the other sections too', await visible('#details-modal'));
+    check('row actions work in the other sections too', await ev(`document.getElementById('page-habit').classList.contains('active')`));   // the habit page (a dialog before batch 5)
     check('no horizontal scroll', await ev(`document.documentElement.scrollWidth <= innerWidth`));
     noExceptions();
   });

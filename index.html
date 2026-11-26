@@ -59,7 +59,7 @@
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=66" />
+  <link rel="stylesheet" href="style.css?v=67" />
 </head>
 <body>
 
@@ -532,6 +532,56 @@
     </section>
 
     <!-- Profile -->
+    <!-- A habit's own page (roadmap batch 5). Filled in by app.js with habit-history.js and habit-page.js -->
+    <section id="page-habit" class="page">
+      <div class="page-content habit-page">
+        <header class="hp-head">
+          <button id="details-close" class="btn-ghost hp-back" type="button"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>Back</button>
+          <div class="hp-title">
+            <span class="cat-ico hp-ico" id="hp-ico" aria-hidden="true"></span>
+            <div class="hp-title-text">
+              <h1 id="details-habit-name" class="page-title" tabindex="-1">Habit</h1>
+              <p id="hp-sub" class="hp-sub"></p>
+            </div>
+          </div>
+        </header>
+
+        <dl class="details-stats hp-stats">
+          <div><dt>Streak</dt><dd id="details-current-streak">0</dd></div>
+          <div><dt>Longest</dt><dd id="details-longest-streak">0</dd></div>
+          <div><dt>Total days</dt><dd id="details-total-days">0</dd></div>
+          <div><dt>Last 30 days</dt><dd id="hp-rate">0%</dd></div>
+        </dl>
+
+        <div class="card hp-card">
+          <div class="hp-actions">
+            <button id="hp-edit" class="btn-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg><span>Edit</span></button>
+            <button id="details-pause" class="btn-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-pause"/></svg><span>Pause</span></button>
+            <button id="details-archive" class="btn-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-archive"/></svg><span>Archive</span></button>
+          </div>
+          <p id="details-life-note" class="details-life-note"></p>
+          <div class="details-time" id="details-time-row">
+            <span class="details-time-label">Time of day</span>
+            <select id="details-time" aria-label="Time of day">
+              <option value="any" selected>Any time</option>
+              <option value="morning">Morning</option>
+              <option value="afternoon">Afternoon</option>
+              <option value="evening">Evening</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card hp-card" id="hp-notes">
+          <h2 class="card-title">Notes</h2>
+          <div class="details-journal">
+            <textarea id="details-journal-input" aria-label="Note for today" placeholder="Add a note for today"></textarea>
+            <button id="details-save-journal" class="btn-primary btn-full" type="button">Save note</button>
+          </div>
+          <div id="details-journal-list" class="journal-list"></div>
+        </div>
+      </div>
+    </section>
+
     <section id="page-profile" class="page">
       <div class="page-content">
         <h1 class="page-title">Profile</h1>
@@ -912,48 +962,6 @@
   </div>
 </div>
 
-<!-- Habit details -->
-<div id="details-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Habit details">
-  <div class="dialog dialog-scroll">
-    <span class="sheet-handle" aria-hidden="true"></span>
-    <h2 id="details-habit-name" class="dialog-title">Habit</h2>
-
-    <dl class="details-stats">
-      <div><dt>Streak</dt><dd id="details-current-streak">0</dd></div>
-      <div><dt>Longest</dt><dd id="details-longest-streak">0</dd></div>
-      <div><dt>Total days</dt><dd id="details-total-days">0</dd></div>
-    </dl>
-
-    <div class="details-time" id="details-time-row">
-      <span class="details-time-label">Time of day</span>
-      <select id="details-time" aria-label="Time of day">
-        <option value="any" selected>Any time</option>
-        <option value="morning">Morning</option>
-        <option value="afternoon">Afternoon</option>
-        <option value="evening">Evening</option>
-      </select>
-    </div>
-
-    <div class="details-life">
-      <button id="details-pause" class="btn-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-pause"/></svg><span>Pause</span></button>
-      <button id="details-archive" class="btn-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-archive"/></svg><span>Archive</span></button>
-    </div>
-    <p id="details-life-note" class="details-life-note"></p>
-
-    <div class="details-journal">
-      <h3>Notes</h3>
-      <textarea id="details-journal-input" aria-label="Note for today" placeholder="Add a note for today"></textarea>
-      <button id="details-save-journal" class="btn-primary btn-full" type="button">Save note</button>
-    </div>
-
-    <div id="details-journal-list" class="journal-list"></div>
-
-    <div class="dialog-actions">
-      <button id="details-close" data-dismiss class="btn-secondary" type="button">Close</button>
-    </div>
-  </div>
-</div>
-
 <!-- Confirm completion -->
 <div id="confirm-check-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Mark habit complete">
   <div class="dialog dialog-narrow">
@@ -1090,6 +1098,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=68"></script>
+<script type="module" src="app.js?v=69"></script>
 </body>
 </html>

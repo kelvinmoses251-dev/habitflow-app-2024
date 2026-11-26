@@ -58,7 +58,7 @@ module.exports = (scenario, c) => {
     await boot({ seed: seed({ a: H('Old habit', { createdAt: '2025-01-01T10:00:00Z' }) }) }); await rows(); await sleep(300);
     check('an old habit can be edited as well (since batch 3)', (await ev(`document.querySelectorAll('.habit-item[data-id="a"] [data-action="edit"]').length`)) === 1);
     await ev(`document.querySelector('.habit-item[data-id="a"] [data-action="details"]').click()`); await sleep(350);
-    check('its details offer a time of day', (await ev(`document.getElementById('details-time').value`)) === 'any' && await visible('#details-modal .select-btn'));
+    check('its details offer a time of day', (await ev(`document.getElementById('details-time').value`)) === 'any' && await visible('#page-habit .select-btn'));
     await ev(`(() => { const s = document.getElementById('details-time'); s.value = 'evening'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(400);
     check('choosing one saves it', (await ev(`__mockDB.habits.a.timeOfDay`)) === 'evening');
     await ev(`(() => { const s = document.getElementById('details-time'); s.value = 'any'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`); await sleep(400);

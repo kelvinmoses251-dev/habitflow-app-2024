@@ -198,4 +198,11 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b4sound }], ['-dark', { seed: b4sound, colorScheme: 'dark' }]]) {
     run('b4-settings' + tag, opts, async () => { await ready(); await ev(`location.hash = '#profile'`); await settle(600); await ev(`document.getElementById('sound-theme-row').scrollIntoView({ block: 'center' })`); await settle(400); });
   }
+  // ── Batch 5: the habit page ───────────────────────────────
+  const b5seed = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: db.users, habits: { ...db.habits,
+    c: { ...db.habits.c, cue: 'After work, before dinner', journals: [{ date: new Date(Date.now() - 2 * 864e5).toISOString(), text: 'Legs day. Slow but done.' }, { date: new Date(Date.now() - 9 * 864e5).toISOString(), text: 'New shoes help.' }] } } } };
+  const openHabit = async id => { await ready(); await settle(); await ev(`document.querySelector('.habit-item[data-id="${id}"] [data-action="details"]').click()`); await settle(700); };
+  for (const [tag, opts] of [['', { seed: b5seed }], ['-dark', { seed: b5seed, colorScheme: 'dark' }], ['-desktop', { seed: b5seed, mobile: false }]]) {
+    run('b5-habit-page' + tag, opts, async () => { await openHabit('c'); });
+  }
 };

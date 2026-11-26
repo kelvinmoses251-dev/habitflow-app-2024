@@ -96,7 +96,8 @@ module.exports = (scenario, c) => {
     check('details offers Pause and Archive', (await text('#details-pause')).trim() === 'Pause' && (await text('#details-archive')).trim() === 'Archive');
     await ev(`document.getElementById('details-pause').click()`); await sleep(500);
     check('pausing records an open pause from today', (await pauses('g')) === JSON.stringify([{ from: day(0) }]), await pauses('g'));
-    check('the dialog closes and a toast confirms', !(await visible('#details-modal')) && /Paused/.test(await ev(`document.getElementById('toast-container').innerText`)));
+    check('the page stays, offers Resume, and a toast confirms', (await ev(`document.getElementById('page-habit').classList.contains('active')`)) && /Resume/.test(await ev(`document.getElementById('details-pause').textContent`)) && /Paused/.test(await ev(`document.getElementById('toast-container').innerText`)));
+    await ev(`document.getElementById('details-close').click()`); await sleep(400);
     check('the habit leaves Today', !(await inToday('Gym')));
     check('and the ring counts one habit', /of 1$/.test(await text('#ring-of')), await text('#ring-of'));
     check('a quiet line says one habit is paused', (await visible('#paused-note')) && /1 habit paused/.test(await text('#paused-note')), await text('#paused-note'));

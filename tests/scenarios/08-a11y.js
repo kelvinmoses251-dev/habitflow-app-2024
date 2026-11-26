@@ -19,7 +19,7 @@ module.exports = (scenario, c) => {
   scenario('a11y: modals are dialogs and Escape closes the top-most one', async () => {
     await boot({ seed: { ...signedIn(), mock_fb_db: { habits: { h1: habit('Evening Run') } } } });
     await ready();
-    const modals = ['habit-sheet', 'recovery-modal', 'timer-modal', 'details-modal', 'confirm-check-modal', 'confirm-export-modal', 'level-up-modal', 'share-card-modal', 'crop-modal'];
+    const modals = ['habit-sheet', 'recovery-modal', 'timer-modal', 'confirm-check-modal', 'confirm-export-modal', 'level-up-modal', 'share-card-modal', 'crop-modal'];
     const ok = await ev(`${JSON.stringify(modals)}.every(id => { const m = document.getElementById(id); return m.getAttribute('role') === 'dialog' && m.getAttribute('aria-modal') === 'true' && !!(m.getAttribute('aria-label') || m.getAttribute('aria-labelledby')); })`);
     check('all 9 modals declare role=dialog + aria-modal + label', ok === true);
 

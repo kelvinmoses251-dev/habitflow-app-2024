@@ -953,6 +953,29 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .row-move { display: none; }
 /* Any touch screen (tablets too, where the row actions are always visible) reorders with Move up / Move down */
 @media (pointer: coarse) { .habit-item .row-move { display: grid; } }
+/* The habit page */
+.hp-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.hp-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-left: calc(var(--sp-3) * -1); padding: 0 var(--sp-3); color: var(--text-2); }
+.hp-back .icon { width: 18px; height: 18px; }
+.hp-title { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; width: 100%; }
+.hp-ico { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-lg); }
+.hp-ico .icon { width: 22px; height: 22px; }
+.hp-title-text { min-width: 0; }
+.hp-title-text .page-title { overflow-wrap: anywhere; outline: none; }
+.hp-sub { font-size: var(--fs-sm); color: var(--muted); overflow-wrap: anywhere; }
+.hp-sub:empty { display: none; }
+.hp-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); }
+.hp-stats dd { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-2xl); line-height: 1.15; }
+.hp-card { display: flex; flex-direction: column; gap: var(--sp-3); }
+.hp-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.hp-actions .btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 44px; min-width: 0; padding-left: var(--sp-2); padding-right: var(--sp-2); }
+.hp-actions .icon { flex: none; width: 16px; height: 16px; }
+#hp-notes .journal-list { max-height: none; }
+@media (max-width: 480px) {
+  .hp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hp-stats > div:nth-child(3) { border-left: 0; }
+  .hp-stats > div:nth-child(n + 3) { border-top: 1px solid var(--border); }
+}
 .details-time { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); font-size: var(--fs-ui); color: var(--text-2); }
 .details-time.hidden { display: none; }
 /* Habit ideas library */

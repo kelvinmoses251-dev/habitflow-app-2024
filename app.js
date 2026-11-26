@@ -20,6 +20,7 @@ import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, at
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
+import { habitSummary } from "./habit-history.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -1044,8 +1045,10 @@ function initRouter() {
       const active = p.id === `page-${page}`;
       p.classList.toggle('active', active);
     });
-    links.forEach(l    => { const on = l.dataset.page === page; l.classList.toggle('active', on); on ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current'); });
-    bnItems.forEach(b  => { const on = b.dataset.page === page; b.classList.toggle('active', on); on ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'); });
+    const tab = page === 'habit' ? 'home' : page;       // a habit's page belongs to Home
+    links.forEach(l    => { const on = l.dataset.page === tab; l.classList.toggle('active', on); on ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current'); });
+    bnItems.forEach(b  => { const on = b.dataset.page === tab; b.classList.toggle('active', on); on ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'); });
+    habitPageRouted(page === 'habit');
     if (page === 'stats')   renderStats();
     if (page === 'profile') renderProfile();
   }
@@ -1058,7 +1061,7 @@ function initRouter() {
 const ESC_CLOSERS = [   // ordered top of the stack first
   ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'], ['comeback-modal', 'comeback-cancel'], ['recap-modal', 'recap-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
-  ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'], ['details-modal', 'details-close'],
+  ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
   ['focus-view', 'focus-exit'],
   ['notif-ask', 'notif-ask-no'],
@@ -2716,7 +2719,7 @@ document.getElementById('page-home').addEventListener('click', async e => {
   if (detailsBtn) {
     const h = allHabits.find(x => x.id === detailsBtn.dataset.id);
     if (!h) return;
-    openDetailsModal(h);
+    openHabitPage(h.id);
     return;
   }
 });
@@ -2968,7 +2971,7 @@ document.getElementById('page-home').addEventListener('dblclick', async e => {
   if (item) {
     const h = allHabits.find(x => x.id === item.dataset.id);
     if (!h) return;
-    openDetailsModal(h);
+    openHabitPage(h.id);
   }
 });
 
@@ -3089,18 +3092,16 @@ function setArchived(id, archived) {
   if (!archived && rules.hasEndedOn(h, today)) changes.endDate = deleteField();   // a finished run comes back without its end date, so it runs on
   return backgroundWrite(updateDoc(doc(db, 'habits', id), changes), archived ? 'archive the habit' : 'restore the habit');
 }
-const closeDetails = () => { document.getElementById('details-modal').classList.add('hidden'); currentDetailsHabitId = null; };
 document.getElementById('details-pause')?.addEventListener('click', () => {
   const h = allHabits.find(x => x.id === currentDetailsHabitId);
   if (!h) return;
-  setPaused(h.id, !rules.isPausedOn(h, todayStr()));
-  closeDetails();
+  setPaused(h.id, !rules.isPausedOn(h, todayStr()));          // the page stays and shows the new state
 });
 document.getElementById('details-archive')?.addEventListener('click', () => {
   const id = currentDetailsHabitId;
   if (!id || !allHabits.some(x => x.id === id)) return;
   setArchived(id, true);
-  closeDetails();
+  leaveHabitPage();
   toast('Archived. You can bring it back from Profile, under Archive.', 'success', 6000, { label: 'Undo', onClick: () => setArchived(id, false) });
   track('habit_archived');
 });
@@ -4068,33 +4069,64 @@ if ('serviceWorker' in navigator) {
 // ── Details & Journal ────────────────────────────────────
 let currentDetailsHabitId = null;
 
-function openDetailsModal(habit) {
-  currentDetailsHabitId = habit.id;
+// ── The habit page ─────────────────────────────────────────
+// Each habit has a page of its own (it used to be a small dialog). currentDetailsHabitId is the habit shown.
+const habitPageActive = () => document.getElementById('page-habit').classList.contains('active');
+function renderHabitPage(habit) {
+  const today = todayStr(), look = habitLook(habit), sum = habitSummary(habit, today, userFrozenDates || []);
   document.getElementById('details-habit-name').textContent = habit.name;
-  
-  const streak = calcHabitStreak(habit);
-  const longest = calcLongestStreak(habit);
-
-  document.getElementById('details-current-streak').textContent = habitFreq(habit) === 'daily' ? streak : streakShort(habit, streak);
-  document.getElementById('details-longest-streak').textContent = habitFreq(habit) === 'daily' ? longest : streakShort(habit, longest);
-  document.getElementById('details-total-days').textContent = habit.completedDates ? habit.completedDates.length : 0;
+  const ico = document.getElementById('hp-ico');
+  ico.innerHTML = look.icon; ico.style.setProperty('--cat', look.color);
+  const cue = typeof habit.cue === 'string' ? habit.cue.trim().slice(0, 80) : '';
+  document.getElementById('hp-sub').textContent = [look.cat.label, habitFreq(habit) === 'daily' ? '' : habitFreq(habit) === 'weekly' ? 'Weekly' : 'Monthly', cue].filter(Boolean).join(' · ');
+  const inUnit = n => (habitFreq(habit) === 'daily' ? String(n) : streakShort(habit, n));
+  document.getElementById('details-current-streak').textContent = inUnit(sum.streak);
+  document.getElementById('details-longest-streak').textContent = inUnit(sum.longest);
+  document.getElementById('details-total-days').textContent = sum.total;
+  document.getElementById('hp-rate').textContent = sum.rate30 === null ? '\u2013' : sum.rate30 + '%';
   // Time of day can be changed here at any age of the habit (it only affects how Today is grouped)
   document.getElementById('details-time-row').classList.toggle('hidden', habitFreq(habit) !== 'daily');
   document.getElementById('details-time').value = timeSlot(habit);
-  
-  const pausedFrom = rules.pausedSince(habit, todayStr());
+  const pausedFrom = rules.pausedSince(habit, today);
   document.getElementById('details-pause').innerHTML = iconSvg(pausedFrom ? 'play' : 'pause') + `<span>${pausedFrom ? 'Resume' : 'Pause'}</span>`;
   document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
-
-  document.getElementById('details-journal-input').value = '';
   renderJournal(habit);
-  
-  document.getElementById('details-modal').classList.remove('hidden');
 }
-
-document.getElementById('details-close').addEventListener('click', () => {
-  document.getElementById('details-modal').classList.add('hidden');
-  currentDetailsHabitId = null;
+let habitPageCameFrom = '';                    // where Back goes: the page the person was on
+function openHabitPage(id) {
+  const habit = allHabits.find(x => x.id === id);
+  if (!habit) return;
+  habitPageCameFrom = location.hash || '#home';
+  currentDetailsHabitId = id;
+  document.getElementById('details-journal-input').value = '';
+  renderHabitPage(habit);
+  location.hash = '#habit';
+  track('habit_page_opened');
+}
+// Called by the router whenever the page shown changes
+function habitPageRouted(showing) {
+  if (!showing) { if (!habitPageActive()) currentDetailsHabitId = null; return; }
+  const habit = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (!habit) { location.replace('#home'); return; }       // nothing to show (a reload, or a stale address)
+  window.scrollTo(0, 0);
+  document.getElementById('details-habit-name').focus({ preventScroll: true });
+}
+function leaveHabitPage() {
+  const id = currentDetailsHabitId, cameFromApp = !!habitPageCameFrom;
+  const back = habitPageCameFrom || '#home';
+  habitPageCameFrom = '';
+  if (cameFromApp && history.length > 1) history.back(); else location.hash = back;
+  // Put the focus back on the habit's row, so a keyboard or screen-reader user is where they left off
+  setTimeout(() => {
+    const row = id && document.querySelector(`.habit-item[data-id="${CSS.escape(id)}"]`);
+    const target = row && (row.querySelector('.habit-step:not([hidden])') || row.querySelector('.habit-check:not([hidden]):not([disabled])') || row.querySelector('button'));
+    if (target) target.focus({ preventScroll: true });
+  }, 120);
+}
+document.getElementById('details-close').addEventListener('click', leaveHabitPage);
+document.getElementById('hp-edit')?.addEventListener('click', () => {
+  const h = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (h) openHabitSheet(h);
 });
 
 document.getElementById('details-save-journal').addEventListener('click', async () => {
@@ -4155,13 +4187,16 @@ document.getElementById('details-journal-list').addEventListener('click', async 
 });
 
 // Update details view if it's open and data changes
+// Keep an open habit page in step with the data; if its habit has gone (deleted, or archived elsewhere), leave.
 const originalRenderHabits = renderHabits;
 renderHabits = function() {
   originalRenderHabits();
-  if (currentDetailsHabitId && !document.getElementById('details-modal').classList.contains('hidden')) {
-    const h = allHabits.find(x => x.id === currentDetailsHabitId);
-    if (h) openDetailsModal(h); // Re-render details with new data
-  }
+  if (!currentDetailsHabitId || !habitPageActive()) return;
+  const h = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (h && !h.archivedAt) { renderHabitPage(h); return; }
+  if (!h) toast('That habit has been removed.', 'info');
+  habitPageCameFrom = '';
+  location.hash = '#home';
 };
 
 // ── Timer Logic ───────────────────────────────────────────

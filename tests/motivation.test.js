@@ -299,3 +299,52 @@ test('dayRecap: nothing due, an empty account and junk', async () => {
   }
   assert.equal(dayRecap([], TODAY).total, 0);
 });
+
+// ── Perfect weeks and months ───────────────────────────────
+test('perfectStretch: seven days with nothing missed is a perfect week; six is not', async () => {
+  const { perfectStretch } = await load();
+  const seven = perfectStretch([H('Read', range(0, 6)), H('Run', range(0, 6))], TODAY);
+  assert.equal(seven.week, true); assert.equal(seven.month, false); assert.equal(seven.days, 7); assert.equal(seven.start, ago(6)); assert.equal(seven.end, TODAY);
+  assert.equal(perfectStretch([H('Read', range(0, 5)), H('Run', range(0, 5))], TODAY).week, false);
+  assert.equal(perfectStretch([H('Read', range(0, 6)), H('Run', range(0, 5))], TODAY).week, false);   // Run missed a day
+});
+
+test('perfectStretch: today only counts once it is perfect, so a perfect week does not vanish each morning', async () => {
+  const { perfectStretch } = await load();
+  const open = perfectStretch([H('Read', range(1, 7))], TODAY);          // through yesterday, today still open
+  assert.equal(open.week, true); assert.equal(open.end, ago(1)); assert.equal(open.days, 7);
+  assert.equal(perfectStretch([H('Read', range(1, 6))], TODAY).week, false);
+  const half = perfectStretch([H('Read', range(0, 7)), H('Run', range(1, 7))], TODAY);   // today one of two
+  assert.equal(half.week, true); assert.equal(half.end, ago(1));
+});
+
+test('perfectStretch: rest days and paused habits are not owed, but a week needs five real days', async () => {
+  const { perfectStretch } = await load();
+  // TODAY is a Wednesday. Weekdays only: the last 7 days hold 5 perfect weekdays and a weekend of nothing.
+  const weekdays = H('Work out', [0, 1, 2, 5, 6, 7, 8, 9], { schedule: { type: 'days', days: [1, 2, 3, 4, 5] } });
+  assert.equal(perfectStretch([weekdays], TODAY).week, true);
+  const paused = H('Swim', [], { pauses: [{ from: ago(20) }] });
+  assert.equal(perfectStretch([H('Read', range(0, 6)), paused], TODAY).week, true);
+  // Three days a week: no misses, but only three perfect days in seven is not a perfect week
+  const few = H('Yoga', [0, 2, 5, 7, 9, 12, 14], { schedule: { type: 'days', days: [1, 3, 5] } });
+  const r = perfectStretch([few], TODAY);
+  assert.equal(r.week, false); assert.ok(r.days >= 7);
+});
+
+test('perfectStretch: thirty days is a perfect month, and a brand-new habit does not get one for free', async () => {
+  const { perfectStretch } = await load();
+  const month = perfectStretch([H('Read', range(0, 29))], TODAY);
+  assert.equal(month.month, true); assert.equal(month.week, true); assert.equal(month.days, 30);
+  assert.equal(perfectStretch([H('Read', range(0, 28))], TODAY).month, false);
+  const fresh = H('New', [0, 1, 2], { createdAt: new Date(num(ago(2)) * 86400000 + 12 * 3600000).toISOString() });
+  const r = perfectStretch([fresh], TODAY);
+  assert.equal(r.week, false);                                // three perfect days, however empty the days before were
+});
+
+test('perfectStretch: an empty account and junk', async () => {
+  const { perfectStretch } = await load();
+  for (const habits of [[], null, [{ id: 'x', completedDates: 'no' }], [H('Read')]]) {
+    const r = perfectStretch(habits, TODAY);
+    assert.equal(r.week, false); assert.equal(r.month, false);
+  }
+});

@@ -700,6 +700,14 @@ html.dialog-open { overflow: hidden; }
 .wk-day.is-today .wk-dot { border-color: var(--primary-ink); border-width: 2px; }
 .wk-day.full.is-today .wk-dot { border-color: var(--primary); }
 .wk-lbl { font-size: var(--fs-2xs); color: var(--muted); }
+/* A perfect week: the seven dots are joined by one line, and a note under the strip says so */
+.week.is-perfect { position: relative; }
+.week.is-perfect::before { content: ''; position: absolute; top: 14px; left: calc(100% / 14); right: calc(100% / 14); height: 2px; background: var(--primary); }
+.week.is-perfect .wk-day { position: relative; }
+.week.is-perfect .wk-day:not(.full) .wk-dot { background: var(--surface); }
+.week-note { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; font-size: var(--fs-xs); font-weight: 500; color: var(--text); }
+.week-note.hidden { display: none; }
+.week-note .icon { width: 14px; height: 14px; color: var(--primary-ink); }
 .wk-day.is-today .wk-lbl { color: var(--text); font-weight: 600; }
 
 .summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--border); padding-top: var(--sp-4); margin-top: calc(var(--sp-1) * -1); }

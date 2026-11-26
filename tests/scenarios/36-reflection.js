@@ -172,4 +172,55 @@ module.exports = (scenario, c) => {
     check('and Profile shows it on', await ev(`document.getElementById('recap-toggle').checked`));
     noExceptions();
   });
+  // ── 39: perfect weeks and months on the week strip ───────
+  const done = (from, to, tz) => { const out = {}; const dates = []; for (let n = from; n <= to; n++) dates.push(dayIn(n, tz)); return { completedDates: dates, completedTimestamps: { [dayIn(0, tz)]: Date.now() - 4000000 } }; };
+  const strip = () => ev(`JSON.stringify((() => { const w = document.getElementById('week-strip'), n = document.getElementById('week-note'); const line = getComputedStyle(w, '::before');
+    return { perfect: w.classList.contains('is-perfect'), label: w.getAttribute('aria-label'), note: n && !n.classList.contains('hidden') && getComputedStyle(n).display !== 'none' ? n.textContent.trim() : '', line: line.content !== 'none' && line.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(line.height) > 0 }; })())`).then(JSON.parse);
+  const toastSays = re => ev(`[...document.querySelectorAll('.toast')].filter(t => ${re}.test(t.textContent)).length`);
+
+  scenario('perfect week: seven days with nothing missed join up on the week strip', async () => {
+    await boot({ tz: daytime, mobile: false, seed: seed({ a: H('Read', done(0, 6, daytime)), b: H('Run', { order: 2, ...done(0, 6, daytime) }) }) }); await rows(); await sleep(600);
+    let s = await strip();
+    check('the strip is marked perfect and its dots are joined by a line', s.perfect && s.line, JSON.stringify(s));
+    check('a note under it says so', /^Perfect week: 7 days, nothing missed$/.test(s.note), s.note);
+    check('and so does its label for screen readers', s.label === 'Last 7 days. Perfect week', s.label);
+    check('all seven dots are full', (await ev(`document.querySelectorAll('#week-strip .wk-day.full').length`)) === 7);
+    await sleep(2200);
+    check('a week that was already perfect is not announced on opening the app', (await toastSays('/Perfect week/')) === 0);
+    await boot({ tz: daytime, mobile: false, colorScheme: 'dark', seed: seed({ a: H('Read', done(0, 5, daytime)), b: H('Run', { order: 2, ...done(0, 5, daytime) }) }) }); await rows(); await sleep(600);
+    s = await strip();
+    check('six days is not a perfect week: no line, no note, plain label', !s.perfect && !s.line && s.note === '' && s.label === 'Last 7 days', JSON.stringify(s));
+    check('and the note takes no room when it has nothing to say', await ev(`document.getElementById('week-note').getBoundingClientRect().height === 0`));
+    noExceptions();
+  });
+
+  scenario('perfect week: reaching it is said once, rest days do not break it, and thirty days is a month', async () => {
+    const six = () => { const dates = []; for (let n = 1; n <= 6; n++) dates.push(dayIn(n, daytime)); return { completedDates: dates }; };
+    await boot({ tz: daytime, mobile: false, seed: seed({ a: H('Read', six()), b: H('Run', { order: 2, ...six() }) }) }); await rows(); await sleep(600);
+    check('six perfect days and today still open: not yet', !(await strip()).perfect);
+    await tick('a'); await sleep(900);
+    check('one of two done today: still not', !(await strip()).perfect);
+    await tick('b'); await sleep(900);
+    const s = await strip();
+    check('finishing today makes the seventh perfect day', s.perfect && /Perfect week/.test(s.note), JSON.stringify(s));
+    check('and that is announced', await waitFor(`[...document.querySelectorAll('.toast')].some(t => /Perfect week\\. Seven days, nothing missed\\./.test(t.textContent))`, 4000));
+    check('once', (await toastSays('/Perfect week/')) === 1);
+    await ev(`document.getElementById('all-done-close')?.click()`); await sleep(300);
+
+    const wd = new Date(dayIn(0, daytime) + 'T12:00:00Z').getUTCDay();
+    const restDays = [(wd + 6) % 7, (wd + 5) % 7];             // yesterday and the day before are rest days
+    const workDays = [0, 1, 2, 3, 4, 5, 6].filter(x => !restDays.includes(x));
+    const dates = []; for (let n = 0; n <= 8; n++) if (workDays.includes(new Date(dayIn(n, daytime) + 'T12:00:00Z').getUTCDay())) dates.push(dayIn(n, daytime));
+    await boot({ tz: daytime, mobile: false, seed: seed({ a: H('Gym', { schedule: { type: 'days', days: workDays }, completedDates: dates, completedTimestamps: { [dayIn(0, daytime)]: Date.now() - 4000000 } }) }) }); await rows(); await sleep(600);
+    check('two rest days inside the week do not break it', (await strip()).perfect, JSON.stringify(await strip()));
+
+    await boot({ tz: daytime, seed: seed({ a: H('Read', done(0, 29, daytime)) }) }); await rows(); await sleep(400);
+    await ev(`document.getElementById('summary-toggle').click()`); await sleep(400);
+    const m = await strip();
+    check('thirty days with nothing missed is a perfect month', m.perfect && /^Perfect month: 30 days, nothing missed$/.test(m.note) && m.label === 'Last 7 days. Perfect month', JSON.stringify(m));
+    check('phone: the open summary still fits the screen width', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    await ev(`document.getElementById('summary-toggle').click()`); await sleep(400);
+    check('phone: with the summary folded, the first habit still starts near the top', await ev(`document.querySelector('#habits .habit-item').getBoundingClientRect().top <= 320`), String(await ev(`document.querySelector('#habits .habit-item').getBoundingClientRect().top`)));
+    noExceptions();
+  });
 };

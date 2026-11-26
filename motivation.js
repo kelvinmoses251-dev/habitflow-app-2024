@@ -186,3 +186,20 @@ export function dayRecap(habits, today, { frozen = [] } = {}) {
     tomorrowDue: all.filter(h => rules.baseFreq(h) === 'daily' && rules.isDueOn(h, tomorrow)).length,
   };
 }
+
+// ── Perfect weeks and months ───────────────────────────────
+// Each day is 'perfect' (something was owed and all of it was done), 'missed' (something owed was not done) or
+// 'none' (nothing was owed: a rest day, everything paused, before the first habit). Today only counts once it is
+// perfect; until then the stretch is judged up to yesterday, so the recognition does not flicker off each morning.
+// A perfect week: the last 7 days have no missed day and at least 5 perfect ones. A perfect month: the last 30
+// have no missed day and at least 20 perfect ones. `days` is how long the unbroken stretch is, `start` its first day.
+export function perfectStretch(habits, today) {
+  const all = list(habits);
+  const stateOf = day => { const owed = owedOn(all, day); return !owed.length ? 'none' : owed.every(h => doneDays(h).includes(day)) ? 'perfect' : 'missed'; };
+  const end = stateOf(today) === 'perfect' ? today : rules.shiftDay(today, -1);
+  const states = [];
+  for (let n = 0; n < 400; n++) { const s = stateOf(rules.shiftDay(end, -n)); if (s === 'missed') break; states.push(s); }
+  const perfectIn = n => states.slice(0, n).filter(s => s === 'perfect').length;
+  const week = states.length >= 7 && perfectIn(7) >= 5, month = states.length >= 30 && perfectIn(30) >= 20;
+  return { week, month, days: states.length, end, start: states.length ? rules.shiftDay(end, -(states.length - 1)) : end };
+}

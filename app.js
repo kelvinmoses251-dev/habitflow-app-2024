@@ -18,7 +18,7 @@ import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=7";
-import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap } from "./motivation.js?v=1";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -2363,6 +2363,34 @@ function renderWeekStrip() {
     cells.push(`<div class="wk-day ${state}${n === 0 ? ' is-today' : ''}" data-day="${key}" role="img" aria-label="${escHtml(label)}: ${what}"><span class="wk-dot">${state === 'full' ? '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>' : ''}</span><span class="wk-lbl">${d.toLocaleDateString('en', { weekday: 'narrow' })}</span></div>`);
   }
   el.innerHTML = cells.join('');
+
+  // A perfect week (or month) is recognised on the strip itself: the dots are joined and a line says so.
+  const stretch = perfectStretch(allHabits, todayStr());
+  const label = stretch.month ? 'Perfect month' : stretch.week ? 'Perfect week' : '';
+  el.classList.toggle('is-perfect', !!label);
+  el.setAttribute('aria-label', label ? `Last 7 days. ${label}` : 'Last 7 days');
+  const note = document.getElementById('week-note');
+  if (note) {
+    note.classList.toggle('hidden', !label);
+    document.getElementById('week-note-text').textContent = label ? `${label}: ${stretch.month ? 30 : 7} days, nothing missed` : '';
+  }
+  announcePerfect(stretch);
+}
+
+// Said once per stretch (this device remembers which stretch it spoke for). The first look only takes note, so
+// nobody is greeted with news of a week that was already perfect before this existed.
+function announcePerfect(stretch) {
+  if (!currentUser || !habitsLoaded || !userDocLoaded) return;
+  const key = `habitly_perfect_${currentUser.uid}`;
+  let seen = null;
+  try { const v = JSON.parse(localStorage.getItem(key) || 'null'); if (v && typeof v === 'object' && !Array.isArray(v)) seen = v; } catch (_) {}
+  const next = { week: stretch.week ? stretch.start : (seen && seen.week) || '', month: stretch.month ? stretch.start : (seen && seen.month) || '' };
+  const say = !seen ? '' : stretch.month && seen.month !== stretch.start ? 'Perfect month. Thirty days, nothing missed.' : stretch.week && seen.week !== stretch.start ? 'Perfect week. Seven days, nothing missed.' : '';
+  if (!seen || next.week !== seen.week || next.month !== seen.month) { try { localStorage.setItem(key, JSON.stringify(next)); } catch (_) {} }
+  if (!say) return;
+  const uid = currentUser.uid;
+  setTimeout(() => { if (currentUser && currentUser.uid === uid) toast(say, 'success', 6000); }, 1800);
+  track('perfect_stretch', { month: stretch.month });
 }
 
 let previousMaxStreak = null;

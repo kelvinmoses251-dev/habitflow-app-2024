@@ -185,4 +185,13 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b4day }], ['-dark', { seed: b4day, colorScheme: 'dark' }], ['-desktop', { seed: b4day, mobile: false }]]) {
     run('b4-recap' + tag, opts, async () => { await ready(); await settle(); await ev(`document.getElementById('today-ring').click()`); await settle(); });
   }
+  const full = n => [today, ...streak(n)];
+  const b4perfect = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: db.users, habits: {
+    a: mk('Drink 2 litres of water', 'health', 1, full(11), { completedTimestamps: { [today]: Date.now() - 4000000 } }),
+    b: mk('Read 10 pages', 'reading', 2, full(9), { completedTimestamps: { [today]: Date.now() - 4000000 } }),
+    c: mk('Workout for 30 minutes', 'fitness', 3, full(8), { completedTimestamps: { [today]: Date.now() - 4000000 } }) } } };
+  for (const [tag, opts] of [['-desktop', { seed: b4perfect, mobile: false }], ['-desktop-dark', { seed: b4perfect, mobile: false, colorScheme: 'dark' }]]) {
+    run('b4-perfect-week' + tag, opts, async () => { await ready(); await settle(900); });
+  }
+  run('b4-perfect-week', { seed: b4perfect }, async () => { await ready(); await settle(); await ev(`document.getElementById('summary-toggle').click()`); await settle(600); });
 };

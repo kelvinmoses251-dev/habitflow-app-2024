@@ -110,7 +110,9 @@ export function onSnapshot(ref, ...rest) {
     : (ref.name === 'habits' ? (W.__mockSnapshotDelay || 0) : 0);          // __mockSnapshotDelay: habits arrive late, as on a slow connection
   let stopped = false;
   if (!delay) dbListeners.add(l);
-  setTimeout(() => { if (!stopped) { dbListeners.add(l); cb(snapFor(ref)); } }, delay);
+  // window.__mockCacheFirst: the first habits snapshot is marked as coming from the device's cache (it may be stale);
+  // later ones (after a write, or window.__mockRemote) are server answers, as with real Firestore.
+  setTimeout(() => { if (!stopped) { dbListeners.add(l); const snap = snapFor(ref); if (W.__mockCacheFirst && ref.name === 'habits') snap.metadata = { fromCache: true }; cb(snap); } }, delay);
   return () => { stopped = true; dbListeners.delete(l); };
 }
 export async function addDoc(c, data) {

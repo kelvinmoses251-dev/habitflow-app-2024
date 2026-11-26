@@ -9,15 +9,31 @@ import * as rules from './habit-rules.js?v=6';
 
 const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const list = habits => (Array.isArray(habits) ? habits.filter(h => h && typeof h === 'object') : []);
-const doneDays = h => (Array.isArray(h.completedDates) ? h.completedDates.filter(isDay) : []);
 const pad2 = n => String(n).padStart(2, '0');
+// These sums ask "was this habit done on that day?" thousands of times (every day of a long record, for every
+// habit), and they run on every tap. So each habit's done days are put in a Set once, and its creation day is
+// worked out once. The app makes fresh habit objects whenever the data changes, so nothing here goes stale.
+const doneCache = new WeakMap(), createdCache = new WeakMap();
+function doneSet(h) {
+  let set = doneCache.get(h);
+  if (!set) { set = new Set(Array.isArray(h.completedDates) ? h.completedDates.filter(isDay) : []); doneCache.set(h, set); }
+  return set;
+}
+const doneDays = h => [...doneSet(h)];
+const isDone = (h, day) => doneSet(h).has(day);
 // The local day a habit was created (a habit owes nothing before it existed). Unknown: it always existed.
 function createdDay(h) {
+  if (createdCache.has(h)) return createdCache.get(h);
   const d = h.createdAt ? new Date(h.createdAt) : null;
-  return d && !isNaN(d) ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` : '';
+  const day = d && !isNaN(d) ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` : '';
+  createdCache.set(h, day);
+  return day;
 }
+// Was this a day-by-day habit on `day`? Judged by the schedule in force that day, never by what the habit is now:
+// a habit that was weekly last month and is daily today owed nothing daily last month. (History is never re-judged.)
+const isDailyOn = (h, day) => { const t = rules.scheduleOn(h, day).type; return t === 'daily' || t === 'days'; };
 // The daily habits that were owed on `day`: due by their schedule, not paused or archived, and already created.
-const owedOn = (habits, day) => habits.filter(h => rules.baseFreq(h) === 'daily' && createdDay(h) <= day && rules.isDueOn(h, day));
+const owedOn = (habits, day) => habits.filter(h => createdDay(h) <= day && isDailyOn(h, day) && rules.isDueOn(h, day));
 
 export const XP_PER_HABIT = 25;
 export const XP_DAILY_BONUS = 100;
@@ -57,10 +73,10 @@ export function xpHistory(habits, today, days = 14) {
   const all = list(habits), out = [];
   for (let n = 0; n < days; n++) {
     const day = rules.shiftDay(today, -n);
-    const done = all.filter(h => doneDays(h).includes(day));
+    const done = all.filter(h => isDone(h, day));
     if (!done.length) continue;
     const owed = owedOn(all, day);
-    const bonus = owed.length > 0 && owed.every(h => doneDays(h).includes(day));
+    const bonus = owed.length > 0 && owed.every(h => isDone(h, day));
     out.push({ day, done: done.length, bonus, xp: done.length * XP_PER_HABIT + (bonus ? XP_DAILY_BONUS : 0), names: done.map(h => String(h.name || 'Habit')) });
   }
   return out;
@@ -88,13 +104,13 @@ export function milestoneCrossed(before, after) {
 // A perfect day: at least one daily habit was owed and every one of them was done.
 export function perfectDays(habits) {
   const all = list(habits), days = new Set();
-  all.forEach(h => { if (rules.baseFreq(h) === 'daily') doneDays(h).forEach(d => days.add(d)); });
+  all.forEach(h => doneSet(h).forEach(d => days.add(d)));
   let n = 0;
-  days.forEach(day => { const owed = owedOn(all, day); if (owed.length && owed.every(h => doneDays(h).includes(day))) n++; });
+  days.forEach(day => { const owed = owedOn(all, day); if (owed.length && owed.every(h => isDone(h, day))) n++; });
   return n;
 }
 const measures = {
-  checkins: ({ habits }) => habits.reduce((sum, h) => sum + new Set(doneDays(h)).size, 0),
+  checkins: ({ habits }) => habits.reduce((sum, h) => sum + doneSet(h).size, 0),
   streak: ({ habits, today, frozen }) => habits.filter(h => rules.baseFreq(h) === 'daily').reduce((best, h) => Math.max(best, rules.habitLongestStreak(h, today, frozen)), 0),
   perfect: ({ habits }) => perfectDays(habits),
   kept: ({ habits, today }) => habits.filter(h => !h.archivedAt && !rules.hasEndedOn(h, today)).length,
@@ -138,6 +154,15 @@ export function lastDoneDay(habits, today) {
   list(habits).forEach(h => doneDays(h).forEach(d => { if (d <= today && d > last) last = d; }));
   return last;
 }
+// How many whole days since then had something owed and left undone (today is not counted: it is not over).
+// This is what "away" means: someone whose only habit is weekly, or who rests on those days, never left.
+export function daysMissed(habits, today) {
+  const all = list(habits), last = lastDoneDay(all, today);
+  if (!last) return 0;
+  let n = 0;
+  for (let day = rules.shiftDay(last, 1), i = 0; day < today && i < 400; day = rules.shiftDay(day, 1), i++) if (owedOn(all, day).length) n++;
+  return n;
+}
 // Whole days since then: 0 for today (or never), 1 for yesterday, and so on.
 export function daysAway(habits, today) {
   const last = lastDoneDay(habits, today);
@@ -150,7 +175,7 @@ export function daysAway(habits, today) {
 export const MOODS = ['Awful', 'Hard', 'Okay', 'Good', 'Great'];        // 1 … 5
 export function moodOf(habit, day) {
   const v = habit && habit.moods && typeof habit.moods === 'object' ? habit.moods[day] : null;
-  return Number.isInteger(v) && v >= 1 && v <= 5 && doneDays(habit).includes(day) ? v : null;
+  return Number.isInteger(v) && v >= 1 && v <= 5 && isDone(habit, day) ? v : null;
 }
 // What the notes say, once a habit has at least three: the one that feels best (average 4 or more) and one that
 // has felt hard (average 2 or less). Names are returned as typed: the caller escapes them.
@@ -172,10 +197,10 @@ export function moodInsights(habits) {
 // how it felt, and how many daily habits are due tomorrow.
 export function dayRecap(habits, today, { frozen = [] } = {}) {
   const all = list(habits), frozenDays = Array.isArray(frozen) ? frozen : [];
-  const done = all.filter(h => !h.archivedAt && doneDays(h).includes(today));
+  const done = all.filter(h => !h.archivedAt && isDone(h, today));
   const open = all.filter(h => rules.isOpenOn(h, today));
   const owed = owedOn(all, today);
-  const bonus = owed.length > 0 && owed.every(h => doneDays(h).includes(today));
+  const bonus = owed.length > 0 && owed.every(h => isDone(h, today));
   const notes = done.map(h => moodOf(h, today)).filter(v => v !== null);
   const tomorrow = rules.shiftDay(today, 1);
   return {
@@ -183,7 +208,7 @@ export function dayRecap(habits, today, { frozen = [] } = {}) {
     xp: done.length * XP_PER_HABIT + (bonus ? XP_DAILY_BONUS : 0),
     streak: all.filter(h => rules.baseFreq(h) === 'daily' && !h.archivedAt && !rules.hasEndedOn(h, today)).reduce((best, h) => Math.max(best, rules.habitStreak(h, today, frozenDays)), 0),
     moodAvg: notes.length ? Math.round((notes.reduce((a, b) => a + b, 0) / notes.length) * 10) / 10 : null,
-    tomorrowDue: all.filter(h => rules.baseFreq(h) === 'daily' && rules.isDueOn(h, tomorrow)).length,
+    tomorrowDue: all.filter(h => isDailyOn(h, tomorrow) && rules.isDueOn(h, tomorrow)).length,
   };
 }
 
@@ -192,14 +217,29 @@ export function dayRecap(habits, today, { frozen = [] } = {}) {
 // 'none' (nothing was owed: a rest day, everything paused, before the first habit). Today only counts once it is
 // perfect; until then the stretch is judged up to yesterday, so the recognition does not flicker off each morning.
 // A perfect week: the last 7 days have no missed day and at least 5 perfect ones. A perfect month: the last 30
-// have no missed day and at least 20 perfect ones. `days` is how long the unbroken stretch is, `start` its first day.
+// have no missed day and at least 20 perfect ones. Days before the record began (before the first habit existed)
+// are not part of any stretch, so a week needs seven real days. `days` is how long the unbroken stretch is and
+// `start` its first day: the day after the last miss, or the day the record began. It stays the same as the
+// stretch grows, which is how the app knows it has already spoken about it. Past STRETCH_CAP days the walk stops
+// (`capped`); by then the stretch has long been a perfect month and its start no longer matters.
+const STRETCH_CAP = 120;
 export function perfectStretch(habits, today) {
   const all = list(habits);
-  const stateOf = day => { const owed = owedOn(all, day); return !owed.length ? 'none' : owed.every(h => doneDays(h).includes(day)) ? 'perfect' : 'missed'; };
+  const stateOf = day => { const owed = owedOn(all, day); return !owed.length ? 'none' : owed.every(h => isDone(h, day)) ? 'perfect' : 'missed'; };
+  let first = today;                                            // the day the record began
+  all.forEach(h => { const began = createdDay(h) || doneDays(h).sort()[0] || ''; if (began < first) first = began; });
   const end = stateOf(today) === 'perfect' ? today : rules.shiftDay(today, -1);
   const states = [];
-  for (let n = 0; n < 400; n++) { const s = stateOf(rules.shiftDay(end, -n)); if (s === 'missed') break; states.push(s); }
+  let capped = false;
+  for (let n = 0; ; n++) {
+    if (n >= STRETCH_CAP) { capped = true; break; }
+    const day = rules.shiftDay(end, -n);
+    if (day < first) break;
+    const s = stateOf(day);
+    if (s === 'missed') break;
+    states.push(s);
+  }
   const perfectIn = n => states.slice(0, n).filter(s => s === 'perfect').length;
   const week = states.length >= 7 && perfectIn(7) >= 5, month = states.length >= 30 && perfectIn(30) >= 20;
-  return { week, month, days: states.length, end, start: states.length ? rules.shiftDay(end, -(states.length - 1)) : end };
+  return { week, month, days: states.length, end, start: states.length ? rules.shiftDay(end, -(states.length - 1)) : end, capped };
 }

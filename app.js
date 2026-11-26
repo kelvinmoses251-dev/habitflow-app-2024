@@ -17,8 +17,8 @@ import {
 import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
-import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=7";
-import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
+import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -308,6 +308,8 @@ function resetUserState() {
   devicePushToken = null;
   profileHasXP = true;
   habitsLoaded = false;
+  habitsFresh = false; clearTimeout(freshTimer); freshTimer = 0;
+  achievementsMemo = null; stretchMemo = null;
   previousMaxStreak = null;
 }
 
@@ -378,7 +380,28 @@ function updateXPUI() {
 // This device remembers which ones it has already announced (habitly_achievements_<uid>). The first time it looks,
 // it notes what is already earned without a word: nobody wants eight toasts for things they did last year.
 const achievementsOpen = () => { const m = document.getElementById('achievements-modal'); return !!m && !m.classList.contains('hidden'); };
-const myAchievements = () => achievements(allHabits, { today: todayStr(), xp: currentUserXP, frozen: userFrozenDates || [] });
+// Summing a long record is real work and this is asked several times per tap, so the answer is kept until the
+// habits, the day, the level or the shield days change. (allHabits is a new array after every change of data.)
+let habitsFresh = false, freshTimer = 0;      // has the server (not just this device's cache) said what the habits are?
+const mayRaiseCards = () => habitsFresh || navigator.onLine === false;   // offline, the cache is all there is
+let stretchMemo = null;
+let achievementsMemo = null;
+function derivedAchievements() {
+  const today = todayStr(), level = getLevelInfo(currentUserXP).level, frozen = userFrozenDates || [], m = achievementsMemo;
+  if (!m || m.habits !== allHabits || m.today !== today || m.level !== level || m.frozen !== frozen) {
+    achievementsMemo = { habits: allHabits, today, level, frozen, items: achievements(allHabits, { today, xp: currentUserXP, frozen }) };
+  }
+  return achievementsMemo.items;
+}
+function knownAchievements() {
+  try { const v = JSON.parse(localStorage.getItem(`habitly_achievements_${currentUser.uid}`) || 'null'); return Array.isArray(v) ? v.filter(x => typeof x === 'string') : null; } catch (_) { return null; }
+}
+// What the gallery shows: what the record says, plus anything this device has already seen earned. Deleting or
+// archiving a habit later does not take an achievement back.
+function myAchievements() {
+  const kept = new Set(knownAchievements() || []);
+  return derivedAchievements().map(a => (!a.earned && kept.has(a.id) ? { ...a, earned: true, have: a.goal } : a));
+}
 function updateAchievements() {
   if (!currentUser || !habitsLoaded || !userDocLoaded) return;
   const items = myAchievements(), earned = items.filter(a => a.earned);
@@ -386,8 +409,7 @@ function updateAchievements() {
   if (row) row.textContent = `${earned.length} of ${items.length}`;
   if (achievementsOpen()) moments.renderAchievements(document.getElementById('achievements-body'), items);
   const key = `habitly_achievements_${currentUser.uid}`;
-  let known = null;
-  try { const v = JSON.parse(localStorage.getItem(key) || 'null'); if (Array.isArray(v)) known = v.filter(x => typeof x === 'string'); } catch (_) {}
+  const known = knownAchievements();
   const fresh = known ? earned.filter(a => !known.includes(a.id)) : [];
   if (known && !fresh.length) return;
   try { localStorage.setItem(key, JSON.stringify([...new Set([...(known || []), ...earned.map(a => a.id)])])); } catch (_) {}
@@ -582,7 +604,7 @@ function refreshShieldOffer(mayRaise = false) {
   }
   if (!offer) { moments.hideMoment('shield'); return; }
   if (moments.momentShowing() === 'shield') { showShieldQuestion(offer); return; }      // keep its words current
-  if (mayRaise && !moments.momentShowing() && moments.momentAllowed(currentUser.uid, todayStr())) {
+  if (mayRaise && mayRaiseCards() && !moments.momentShowing() && moments.momentAllowed(currentUser.uid, todayStr())) {
     moments.markMoment(currentUser.uid, todayStr());
     showShieldQuestion(offer);
     track('shield_offer_shown');
@@ -613,7 +635,7 @@ function openRecap() {
   track('recap_opened');
 }
 function maybeOfferRecap() {
-  if (!currentUser || !habitsLoaded || !userDocLoaded || moments.momentShowing() || recapOpen()) return;
+  if (!currentUser || !habitsLoaded || !userDocLoaded || !mayRaiseCards() || moments.momentShowing() || recapOpen()) return;
   if (!recapOfferOn() || new Date().getHours() < RECAP_FROM_HOUR) return;
   const today = todayStr(), r = dayRecap(allHabits, today, { frozen: userFrozenDates || [] });
   if (!r.total || !moments.momentAllowed(currentUser.uid, today)) return;
@@ -640,8 +662,9 @@ const comebackHabits = () => { const t = todayStr(); return allHabits.filter(h =
 function maybeWelcomeBack() {
   if (!currentUser || !habitsLoaded || !userDocLoaded) return;
   const today = todayStr(), away = daysAway(allHabits, today);
-  if (away < 3) { moments.hideMoment('comeback'); return; }     // they are back at it: the card has done its job
-  if (moments.momentShowing() || !comebackHabits().length) return;
+  // "Away" is three or more days on which something was owed and left: a weekly habit, or rest days, are not absence
+  if (away < 3 || daysMissed(allHabits, today) < 3) { moments.hideMoment('comeback'); return; }
+  if (!mayRaiseCards() || moments.momentShowing() || !comebackHabits().length) return;
   const last = lastDoneDay(allHabits, today);
   try { if (localStorage.getItem(comebackKey()) === last) return; } catch (_) {}
   if (!moments.momentAllowed(currentUser.uid, today)) return;
@@ -1568,6 +1591,10 @@ function subscribeToHabits() {
   const q = query(collection(db, 'habits'), where('userId', '==', currentUser.uid));
   unsubHabits = onSnapshot(q, snap => {
     const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // The first snapshot can come from this device's cache and be days out of date. Cards the app raises itself
+    // wait for the server (or, when the cache was already right and no second snapshot comes, a few seconds).
+    if (!snap.metadata.fromCache) habitsFresh = true;
+    else if (!habitsFresh && !freshTimer) freshTimer = setTimeout(() => { freshTimer = 0; if (!currentUser || habitsFresh) return; habitsFresh = true; checkAndApplyStreakShield(); maybeWelcomeBack(); maybeOfferRecap(); }, 3500);
 
     // First authoritative snapshot only: brand-new account => adopt the landing demo
     if (!landingDemoChecked && !snap.metadata.fromCache) {
@@ -2261,7 +2288,8 @@ function renderWeekStrip() {
   el.innerHTML = cells.join('');
 
   // A perfect week (or month) is recognised on the strip itself: the dots are joined and a line says so.
-  const stretch = perfectStretch(allHabits, todayStr());
+  if (!stretchMemo || stretchMemo.habits !== allHabits || stretchMemo.today !== todayStr()) stretchMemo = { habits: allHabits, today: todayStr(), value: perfectStretch(allHabits, todayStr()) };
+  const stretch = stretchMemo.value;
   const label = stretch.month ? 'Perfect month' : stretch.week ? 'Perfect week' : '';
   el.classList.toggle('is-perfect', !!label);
   el.setAttribute('aria-label', label ? `Last 7 days. ${label}` : 'Last 7 days');
@@ -2280,8 +2308,11 @@ function announcePerfect(stretch) {
   const key = `habitly_perfect_${currentUser.uid}`;
   let seen = null;
   try { const v = JSON.parse(localStorage.getItem(key) || 'null'); if (v && typeof v === 'object' && !Array.isArray(v)) seen = v; } catch (_) {}
-  const next = { week: stretch.week ? stretch.start : (seen && seen.week) || '', month: stretch.month ? stretch.start : (seen && seen.month) || '' };
-  const say = !seen ? '' : stretch.month && seen.month !== stretch.start ? 'Perfect month. Thirty days, nothing missed.' : stretch.week && seen.week !== stretch.start ? 'Perfect week. Seven days, nothing missed.' : '';
+  // A stretch is known by its first day, which stays put as the stretch grows. One too long to walk back (capped)
+  // was a perfect month long ago: there is nothing new to say about it, and what was noted before is kept.
+  const start = stretch.capped ? '' : stretch.start;
+  const next = { week: stretch.week && start ? start : (seen && seen.week) || '', month: stretch.month && start ? start : (seen && seen.month) || '' };
+  const say = !seen || !start ? '' : stretch.month && seen.month !== start ? 'Perfect month. Thirty days, nothing missed.' : stretch.week && seen.week !== start ? 'Perfect week. Seven days, nothing missed.' : '';
   if (!seen || next.week !== seen.week || next.month !== seen.month) { try { localStorage.setItem(key, JSON.stringify(next)); } catch (_) {} }
   if (!say) return;
   const uid = currentUser.uid;
@@ -2803,7 +2834,7 @@ function saveMood(id, day, n) {
   if (!h || !Number.isInteger(n) || n < 1 || n > 5) return;
   if (!(h.completedDates || []).includes(day) && !pendingComplete.has(id)) return;   // taken back in the meantime
   backgroundWrite(updateDoc(doc(db, 'habits', id), { [`moods.${day}`]: n }), 'save how it felt', true);
-  track('mood_noted', { mood: n });
+  track('mood_noted');                                // that a note was made, never what it said
 }
 
 // ── Milestone moments: 7, 30, 100 and 365 days in a row on one habit ──

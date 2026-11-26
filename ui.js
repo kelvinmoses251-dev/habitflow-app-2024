@@ -370,7 +370,9 @@ export function toast(msg, type = 'info', ms = 3500, action = null, extra = null
 
   // Never a pile: the oldest makes room at once.
   const open = [...container.querySelectorAll('.toast:not(.out)')];
-  open.slice(0, Math.max(0, open.length - (MAX_TOASTS - 1))).forEach(old => old.remove());
+  // One that carries a button (Undo, with the mood faces) is never pushed out by later news: it leaves on its own time.
+  const spare = open.filter(old => !old.querySelector('.toast-action'));
+  spare.slice(0, Math.max(0, open.length - (MAX_TOASTS - 1))).forEach(old => old.remove());
   container.appendChild(t);
   run();
 }

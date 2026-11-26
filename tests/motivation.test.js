@@ -348,3 +348,75 @@ test('perfectStretch: an empty account and junk', async () => {
     assert.equal(r.week, false); assert.equal(r.month, false);
   }
 });
+
+// ── Review of batch 4 ──────────────────────────────────────
+const made = n => new Date(num(ago(n)) * 86400000 + 12 * 3600000).toISOString();     // created n days ago, at midday
+
+test('review: years of history are summed quickly (this runs on every tap)', async () => {
+  const { achievements, perfectStretch, perfectDays } = await load();
+  const habits = Array.from({ length: 10 }, (_, i) => H('Habit ' + i, range(0, 1094), { createdAt: '2020-01-01T10:00:00Z' }));   // ten habits, three perfect years
+  let t = process.hrtime.bigint();
+  const out = achievements(habits, { today: TODAY, xp: 5000 });
+  const a = Number(process.hrtime.bigint() - t) / 1e6;
+  t = process.hrtime.bigint();
+  const s = perfectStretch(habits, TODAY);
+  const b = Number(process.hrtime.bigint() - t) / 1e6;
+  assert.equal(get(out, 'perfect-30').earned, true);
+  assert.equal(perfectDays(habits), 1095);
+  assert.equal(s.month, true);
+  assert.ok(a < 400, `achievements took ${a.toFixed(0)}ms`);
+  assert.ok(b < 150, `perfectStretch took ${b.toFixed(0)}ms`);
+});
+
+test('review: a new account is not told of a perfect week after five days, nor of a month after twenty', async () => {
+  const { perfectStretch } = await load();
+  const five = perfectStretch([H('Read', range(0, 4), { createdAt: made(4) })], TODAY);
+  assert.equal(five.week, false); assert.equal(five.days, 5);
+  const seven = perfectStretch([H('Read', range(0, 6), { createdAt: made(6) })], TODAY);
+  assert.equal(seven.week, true); assert.equal(seven.days, 7);
+  const twenty = perfectStretch([H('Read', range(0, 19), { createdAt: made(19) })], TODAY);
+  assert.equal(twenty.month, false); assert.equal(twenty.week, true);
+});
+
+test('review: a stretch keeps one start day as it grows and when today is un-ticked, so it is announced once', async () => {
+  const { perfectStretch } = await load();
+  const at = (n, extraToday) => perfectStretch([H('Read', extraToday ? range(0, n) : range(1, n), { createdAt: made(n) })], TODAY);
+  assert.equal(at(8, true).start, ago(8));
+  assert.equal(at(8, false).start, ago(8));                    // today un-ticked: the same stretch
+  const later = key(num(TODAY) + 1);                           // the next day, same habit, one more day done
+  const next = perfectStretch([H('Read', [], { createdAt: made(8), completedDates: [...range(0, 8).map(ago), later] })], later);
+  assert.equal(next.start, ago(8));
+  const long = perfectStretch([H('Read', range(0, 500))], TODAY);
+  assert.equal(long.month, true); assert.equal(long.capped, true);   // too long to walk: the caller keeps what it knew
+});
+
+test('review: changing a habit between weekly and daily does not re-judge the days before the change', async () => {
+  const { perfectDays, perfectStretch, xpHistory } = await load();
+  const a = H('Read', range(0, 25));
+  const weekly = H('Call home', [2, 9, 16, 23], { frequency: 'weekly' });
+  const before = { p: perfectDays([a, weekly]), s: perfectStretch([a, weekly], TODAY).week, x: xpHistory([a, weekly], TODAY).slice(0, 3).map(d => d.bonus) };
+  // The same habit, switched to daily today (the app records what it was until now)
+  const nowDaily = { ...weekly, frequency: 'daily', schedule: { type: 'daily' }, scheduleHistory: [{ from: '2000-01-01', schedule: { type: 'times', times: 1 } }, { from: TODAY, schedule: { type: 'daily' } }] };
+  assert.equal(perfectDays([a, nowDaily]), before.p - 1);      // only today is judged by the new rule (and today it is not done)
+  assert.equal(perfectStretch([a, nowDaily], TODAY).week, before.s);
+  assert.deepEqual(xpHistory([a, nowDaily], TODAY).slice(1, 3).map(d => d.bonus), before.x.slice(1, 3));
+  // And the reverse: a never-done daily habit switched to weekly today does not hand out clean days it never had
+  const lazy = H('Run', []);
+  const nowWeekly = { ...lazy, frequency: 'weekly', schedule: { type: 'times', times: 1 }, scheduleHistory: [{ from: '2000-01-01', schedule: { type: 'daily' } }, { from: TODAY, schedule: { type: 'times', times: 1 } }] };
+  assert.equal(perfectDays([a, lazy]), 0);
+  assert.equal(perfectDays([a, nowWeekly]), 1);                // today only
+});
+
+test('review: days away only counts days when something was owed', async () => {
+  const { daysMissed, daysAway } = await load();
+  const weekly = H('Call home', [4, 11, 18], { frequency: 'weekly' });
+  assert.equal(daysAway([weekly], TODAY), 4);
+  assert.equal(daysMissed([weekly], TODAY), 0);                // nothing was owed: they never left
+  const mondays = H('Gym', [2, 9], { schedule: { type: 'days', days: [1] } });
+  assert.equal(daysMissed([mondays], TODAY), 0);
+  assert.equal(daysMissed([H('Read', [4, 5, 6])], TODAY), 3);  // three whole days missed, today not counted
+  assert.equal(daysMissed([H('Read', [1])], TODAY), 0);
+  assert.equal(daysMissed([H('Read')], TODAY), 0);             // never started
+  assert.equal(daysMissed([H('Read', [9], { pauses: [{ from: ago(8) }] })], TODAY), 0);   // paused the whole time
+  assert.equal(daysMissed([], TODAY), 0);
+});

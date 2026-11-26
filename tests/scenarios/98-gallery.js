@@ -163,4 +163,7 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b4mile }], ['-dark', { seed: b4mile, colorScheme: 'dark' }], ['-desktop', { seed: b4mile, mobile: false }]]) {
     run('b4-milestone' + tag, opts, async () => { await ready(); await settle(); await ev(`document.querySelector('.habit-item[data-id="a"] .habit-check').click()`); await waitFor(`!document.getElementById('milestone-modal').classList.contains('hidden')`); await settle(1400); });
   }
+  for (const [tag, opts] of [['', { seed: b4seed }], ['-dark', { seed: b4seed, colorScheme: 'dark' }], ['-desktop', { seed: b4seed, mobile: false }]]) {
+    run('b4-achievements' + tag, opts, async () => { await ready(); await settle(); await ev(`location.hash = '#profile'`); await settle(500); await ev(`document.getElementById('open-achievements').click()`); await settle(); });
+  }
 };

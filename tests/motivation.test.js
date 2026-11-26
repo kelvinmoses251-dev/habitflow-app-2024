@@ -113,3 +113,78 @@ test('milestoneCrossed: a jump over several gives the highest; standing still or
   assert.equal(milestoneCrossed(30, 7), null);
   for (const bad of [[undefined, 7], [6, NaN], ['6', '7'], [null, null]]) assert.equal(milestoneCrossed(...bad), null, JSON.stringify(bad));
 });
+
+// ── Achievements ───────────────────────────────────────────
+const earned = out => out.filter(a => a.earned).map(a => a.id).sort();
+const get = (out, id) => out.find(a => a.id === id);
+const range = (from, to) => { const out = []; for (let n = from; n <= to; n++) out.push(n); return out; };
+
+test('achievements: about eighteen, each with a name, a way to earn it and an icon the app has', async () => {
+  const { ACHIEVEMENTS } = await load();
+  const sprite = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(ACHIEVEMENTS.length >= 16 && ACHIEVEMENTS.length <= 20, String(ACHIEVEMENTS.length));
+  assert.equal(new Set(ACHIEVEMENTS.map(a => a.id)).size, ACHIEVEMENTS.length);
+  assert.equal(new Set(ACHIEVEMENTS.map(a => a.name)).size, ACHIEVEMENTS.length);
+  for (const a of ACHIEVEMENTS) {
+    assert.ok(a.name && a.name.length <= 20 && a.how && a.how.length <= 48 && a.goal >= 1, JSON.stringify(a));
+    assert.ok(sprite.includes(`<symbol id="i-${a.icon}"`), a.id + ' icon ' + a.icon);
+  }
+});
+
+test('achievements: an empty account has earned nothing', async () => {
+  const { achievements, ACHIEVEMENTS } = await load();
+  for (const habits of [[], null, undefined]) {
+    const out = achievements(habits, { today: TODAY, xp: 0 });
+    assert.equal(out.length, ACHIEVEMENTS.length);
+    assert.deepEqual(earned(out), []);
+    assert.ok(out.every(a => a.have === 0 || a.id.startsWith('level-')), JSON.stringify(out.filter(a => a.have)));
+  }
+  assert.equal(get(achievements([], { today: TODAY }), 'level-5').have, 1);          // everyone starts at level 1
+});
+
+test('achievements: check-ins count each completed day once, across all habits', async () => {
+  const { achievements } = await load();
+  const dup = H('Run', [], { completedDates: [ago(0), ago(0)] });
+  const out = achievements([H('Read', range(20, 28)), dup], { today: TODAY });
+  assert.equal(get(out, 'checkins-10').have, 10);
+  assert.ok(get(out, 'checkins-1').earned && get(out, 'checkins-10').earned);
+  assert.equal(get(out, 'checkins-50').earned, false);
+  assert.equal(get(out, 'checkins-50').have, 10);
+});
+
+test('achievements: the streak family uses the longest run ever, not only the current one', async () => {
+  const { achievements } = await load();
+  const out = achievements([H('Read', range(40, 46)), H('Call home', range(0, 9).map(n => n * 7), { frequency: 'weekly' })], { today: TODAY });
+  assert.ok(get(out, 'streak-3').earned && get(out, 'streak-7').earned);
+  assert.equal(get(out, 'streak-30').earned, false);
+  assert.equal(get(out, 'streak-30').have, 7);                                       // ten weeks in a row is not ten days
+});
+
+test('achievements: perfect days need every owed daily habit done; rest days and weekly habits are not owed', async () => {
+  const { achievements, perfectDays } = await load();
+  const habits = [H('Read', [1, 2, 3]), H('Run', [1, 2]), H('Gym', [1], { schedule: { type: 'days', days: [2] } }), H('Call home', [], { frequency: 'weekly' })];
+  // 1 = Tuesday: all three daily habits owed and done. 2 = Monday: Gym rests, both others done. 3: Run missing.
+  assert.equal(perfectDays(habits), 2);
+  const out = achievements(habits, { today: TODAY });
+  assert.ok(get(out, 'perfect-1').earned);
+  assert.equal(get(out, 'perfect-7').have, 2);
+});
+
+test('achievements: habits kept counts what is in play, and level comes from XP', async () => {
+  const { achievements } = await load();
+  const habits = [H('A'), H('B'), H('C', [], { archivedAt: 1, archivedOn: ago(3) }), H('D', [], { endDate: ago(2) }), H('E', [], { pauses: [{ from: ago(1) }] })];
+  const out = achievements(habits, { today: TODAY, xp: 700 });
+  assert.ok(get(out, 'kept-3').earned);                                               // A, B and the paused E
+  assert.equal(get(out, 'kept-5').have, 3);
+  assert.ok(get(out, 'level-5').earned);
+  assert.equal(get(out, 'level-10').have, 5);
+});
+
+test('achievements: progress never passes the goal, and junk never throws', async () => {
+  const { achievements } = await load();
+  const out = achievements([H('Read', range(0, 60))], { today: TODAY, xp: 99999 });
+  assert.ok(out.every(a => a.have <= a.goal && a.have >= 0 && Number.isInteger(a.have)));
+  assert.equal(get(out, 'checkins-50').have, 50);
+  assert.doesNotThrow(() => achievements([{ id: 'x' }, null, 7, { completedDates: 'no', moods: 3 }], { today: TODAY, xp: NaN, frozen: 'no' }));
+  assert.doesNotThrow(() => achievements([H('Read', [0])]));
+});

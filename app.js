@@ -18,7 +18,7 @@ import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
-import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES } from "./motivation.js?v=1";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -365,7 +365,7 @@ function resetUserState() {
   pendingComplete.forEach(clearTimeout); pendingComplete.clear();
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
-  ['milestone-modal', 'level-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  ['milestone-modal', 'level-modal', 'achievements-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
@@ -443,7 +443,42 @@ function updateXPUI() {
   set('s-total-xp', `${info.totalXP.toLocaleString()} XP`);
   document.getElementById('open-level')?.setAttribute('aria-label', `Level ${info.level}, ${info.title}. Open your level page`);
   if (levelPageOpen()) renderLevelPage();
+  updateAchievements();
 }
+
+// ── Achievements: worked out from the record, announced once ──
+// This device remembers which ones it has already announced (habitly_achievements_<uid>). The first time it looks,
+// it notes what is already earned without a word: nobody wants eight toasts for things they did last year.
+const achievementsOpen = () => { const m = document.getElementById('achievements-modal'); return !!m && !m.classList.contains('hidden'); };
+const myAchievements = () => achievements(allHabits, { today: todayStr(), xp: currentUserXP, frozen: userFrozenDates || [] });
+function updateAchievements() {
+  if (!currentUser || !habitsLoaded || !userDocLoaded) return;
+  const items = myAchievements(), earned = items.filter(a => a.earned);
+  const row = document.getElementById('s-achievements');
+  if (row) row.textContent = `${earned.length} of ${items.length}`;
+  if (achievementsOpen()) moments.renderAchievements(document.getElementById('achievements-body'), items);
+  const key = `habitly_achievements_${currentUser.uid}`;
+  let known = null;
+  try { const v = JSON.parse(localStorage.getItem(key) || 'null'); if (Array.isArray(v)) known = v.filter(x => typeof x === 'string'); } catch (_) {}
+  const fresh = known ? earned.filter(a => !known.includes(a.id)) : [];
+  if (known && !fresh.length) return;
+  try { localStorage.setItem(key, JSON.stringify([...new Set([...(known || []), ...earned.map(a => a.id)])])); } catch (_) {}
+  if (!fresh.length) return;
+  // Said a moment later, so it follows the "Completed" toast (and its Undo) instead of jumping ahead of it
+  const uid = currentUser.uid;
+  setTimeout(() => {
+    if (!currentUser || currentUser.uid !== uid) return;
+    toast(fresh.length === 1 ? `Achievement earned: ${fresh[0].name}` : `${fresh.length} achievements earned`, 'success', 6000, { label: 'View', onClick: openAchievements });
+  }, 1500);
+  track('achievement_earned', { count: fresh.length });
+}
+function openAchievements() {
+  moments.renderAchievements(document.getElementById('achievements-body'), myAchievements());
+  document.getElementById('achievements-modal').classList.remove('hidden');
+  track('achievements_opened');
+}
+document.getElementById('open-achievements')?.addEventListener('click', openAchievements);
+document.getElementById('achievements-close')?.addEventListener('click', () => document.getElementById('achievements-modal').classList.add('hidden'));
 
 // ── The level page: what the level means, what is next, where the XP came from ──
 const levelPageOpen = () => { const m = document.getElementById('level-modal'); return !!m && !m.classList.contains('hidden'); };
@@ -952,7 +987,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
-  ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'],
+  ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'], ['details-modal', 'details-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
@@ -1513,6 +1548,7 @@ function subscribeToHabits() {
     if (!document.getElementById('archive-modal')?.classList.contains('hidden')) renderArchive();   // keep an open archive current
     if (!document.getElementById('library-modal')?.classList.contains('hidden')) renderLibrary();   // and "Added" in an open library
     if (levelPageOpen()) renderLevelPage();
+    updateAchievements();
     if (userDocLoaded) updateStreak();   // before that, shield data is still defaults
     syncUserStats();
 

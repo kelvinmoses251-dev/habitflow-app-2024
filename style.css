@@ -732,6 +732,23 @@ html.dialog-open { overflow: hidden; }
   .milestone-modal:not(.hidden) .milestone-num { animation: rise .5s cubic-bezier(.22,1,.36,1) .2s both; }
 }
 
+/* Achievements: a grid of medallions. Earned: filled. Locked: a dashed outline and how far along. */
+.dialog-wide { max-width: 560px; }
+.ach-grid { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--sp-3); }
+.ach { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: var(--sp-3) var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-lg); text-align: center; }
+.ach-medal { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: var(--sp-1); border-radius: 50%; border: 1.5px solid var(--primary); background: var(--primary-soft); color: var(--primary-ink); }
+.ach-medal .icon { width: 24px; height: 24px; }
+.ach-name { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+.ach-how { font-size: var(--fs-xs); color: var(--muted); line-height: 1.35; }
+.ach-state { margin-top: auto; padding-top: var(--sp-1); font-size: var(--fs-xs); font-weight: 600; color: var(--primary-ink); font-variant-numeric: tabular-nums; }
+.ach.is-locked { border-style: dashed; }
+.ach.is-locked .ach-medal { border-style: dashed; border-color: var(--border-strong); background: none; color: var(--muted); }
+.ach.is-locked .ach-name { color: var(--text-2); }
+.ach.is-locked .ach-state { color: var(--muted); }
+.ach-bar { width: 100%; max-width: 88px; height: 4px; border-radius: var(--r-full); background: var(--surface-2); overflow: hidden; }
+.ach-bar > span { display: block; height: 100%; border-radius: var(--r-full); background: var(--border-strong); }
+@media (max-width: 360px) { .ach-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); } }
+
 /* The level page */
 .level-body { display: flex; flex-direction: column; gap: var(--sp-3); }
 .level-meaning { color: var(--text-2); }

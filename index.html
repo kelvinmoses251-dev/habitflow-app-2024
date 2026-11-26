@@ -616,6 +616,10 @@
               <button id="open-level-profile" class="btn-link" type="button"><span id="s-level-rank">Level 1 · Starter</span><span class="sr-only">. Open your level page</span></button>
             </div>
             <div class="setting-row">
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-star"/></svg><span class="setting-label">Achievements</span></div>
+              <button id="open-achievements" class="btn-link" type="button"><span id="s-achievements">0 of 18</span><span class="sr-only"> earned. Open your achievements</span></button>
+            </div>
+            <div class="setting-row">
               <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-trend-up"/></svg><span class="setting-label">Total XP</span></div>
               <span id="s-total-xp" class="setting-val">0 XP</span>
             </div>
@@ -954,6 +958,18 @@
     <div class="dialog-actions">
       <button id="milestone-share" class="btn-secondary" type="button">Share</button>
       <button id="milestone-close" data-dismiss class="btn-primary" type="button" autofocus>Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- Achievements: earned ones filled, locked ones as outlines (drawn by moments.js) -->
+<div id="achievements-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="achievements-title">
+  <div class="dialog dialog-scroll dialog-wide">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <h2 class="dialog-title" id="achievements-title">Achievements</h2>
+    <div id="achievements-body"></div>
+    <div class="dialog-actions">
+      <button id="achievements-close" data-dismiss class="btn-secondary" type="button">Close</button>
     </div>
   </div>
 </div>

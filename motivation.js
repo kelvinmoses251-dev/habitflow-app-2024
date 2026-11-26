@@ -82,3 +82,51 @@ export function milestoneCrossed(before, after) {
   for (const m of MILESTONES) if (before < m && after >= m) hit = m;
   return hit;
 }
+
+// ── Achievements ───────────────────────────────────────────
+// Each is measured from the record itself, so the gallery is the same on every device and cannot be "lost".
+// A perfect day: at least one daily habit was owed and every one of them was done.
+export function perfectDays(habits) {
+  const all = list(habits), days = new Set();
+  all.forEach(h => { if (rules.baseFreq(h) === 'daily') doneDays(h).forEach(d => days.add(d)); });
+  let n = 0;
+  days.forEach(day => { const owed = owedOn(all, day); if (owed.length && owed.every(h => doneDays(h).includes(day))) n++; });
+  return n;
+}
+const measures = {
+  checkins: ({ habits }) => habits.reduce((sum, h) => sum + new Set(doneDays(h)).size, 0),
+  streak: ({ habits, today, frozen }) => habits.filter(h => rules.baseFreq(h) === 'daily').reduce((best, h) => Math.max(best, rules.habitLongestStreak(h, today, frozen)), 0),
+  perfect: ({ habits }) => perfectDays(habits),
+  kept: ({ habits, today }) => habits.filter(h => !h.archivedAt && !rules.hasEndedOn(h, today)).length,
+  level: ({ xp }) => levelInfo(xp).level,
+};
+const A = (id, name, icon, measure, goal, how) => ({ id, name, icon, measure, goal, how });
+export const ACHIEVEMENTS = [
+  A('checkins-1', 'First step', 'check', 'checkins', 1, 'Complete a habit'),
+  A('checkins-10', 'Getting going', 'check', 'checkins', 10, 'Complete habits 10 times'),
+  A('checkins-50', 'Fifty up', 'check-circle', 'checkins', 50, 'Complete habits 50 times'),
+  A('checkins-100', 'Century', 'check-circle', 'checkins', 100, 'Complete habits 100 times'),
+  A('checkins-500', 'Five hundred', 'activity', 'checkins', 500, 'Complete habits 500 times'),
+  A('checkins-1000', 'One thousand', 'activity', 'checkins', 1000, 'Complete habits 1,000 times'),
+  A('streak-3', 'Three in a row', 'flame', 'streak', 3, 'Keep one habit going 3 days in a row'),
+  A('streak-7', 'One week', 'flame', 'streak', 7, 'Keep one habit going 7 days in a row'),
+  A('streak-30', 'One month', 'calendar', 'streak', 30, 'Keep one habit going 30 days in a row'),
+  A('streak-100', 'Hundred days', 'trend-up', 'streak', 100, 'Keep one habit going 100 days in a row'),
+  A('streak-365', 'One year', 'award', 'streak', 365, 'Keep one habit going 365 days in a row'),
+  A('perfect-1', 'Clean sweep', 'star', 'perfect', 1, 'Finish every daily habit in one day'),
+  A('perfect-7', 'Seven clean days', 'star', 'perfect', 7, 'Finish every daily habit on 7 days'),
+  A('perfect-30', 'Thirty clean days', 'sun', 'perfect', 30, 'Finish every daily habit on 30 days'),
+  A('kept-3', 'Three on the go', 'list', 'kept', 3, 'Have 3 habits at once'),
+  A('kept-5', 'Full plate', 'target', 'kept', 5, 'Have 5 habits at once'),
+  A('level-5', 'Halfway up', 'bar-chart', 'level', 5, 'Reach level 5'),
+  A('level-10', 'Top of the ladder', 'award', 'level', 10, 'Reach level 10'),
+];
+// Every achievement with where the person stands: { id, name, icon, how, goal, have (never above goal), earned }
+export function achievements(habits, { today, xp = 0, frozen = [] } = {}) {
+  const ctx = { habits: list(habits), today, xp, frozen: Array.isArray(frozen) ? frozen : [] }, got = {};
+  return ACHIEVEMENTS.map(a => {
+    if (!(a.measure in got)) { let v = 0; try { v = Number(measures[a.measure](ctx)) || 0; } catch (_) { v = 0; } got[a.measure] = Math.max(0, Math.floor(v)); }
+    const have = Math.min(a.goal, got[a.measure]);
+    return { id: a.id, name: a.name, icon: a.icon, how: a.how, goal: a.goal, have, earned: have >= a.goal };
+  });
+}

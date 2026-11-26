@@ -136,4 +136,51 @@ module.exports = (scenario, c) => {
     await ev(`document.getElementById('milestone-close').click()`); await sleep(300);
     noExceptions();
   });
+  // ── 36: achievements ─────────────────────────────────────
+  const toasts = re => ev(`[...document.querySelectorAll('.toast')].filter(t => ${re}.test(t.textContent)).length`);
+
+  scenario('achievements: Profile counts them and the gallery tells earned from locked', async () => {
+    await boot({ seed: seed({ a: H('Read', { completedDates: run(1, 7) }), b: H('Run', { order: 2, completedDates: [day(1)] }) }) }); await rows(); await sleep(500);
+    check('what was already earned is noted quietly: no toasts on opening the app', (await toasts('/chievement/')) === 0);
+    await ev(`location.hash = '#profile'`); await sleep(400);
+    check('Profile says how many are earned', (await text('#s-achievements')).trim() === '4 of 18', await text('#s-achievements'));
+    check('the row is a button', await ev(`document.getElementById('open-achievements').tagName === 'BUTTON'`));
+    await ev(`document.getElementById('open-achievements').focus(); document.getElementById('open-achievements').click()`); await sleep(400);
+    check('it opens the gallery', await open('achievements-modal'));
+    check('named as a dialog', await ev(`(() => { const m = document.getElementById('achievements-modal'); return m.getAttribute('role') === 'dialog' && !!document.getElementById(m.getAttribute('aria-labelledby')); })()`));
+    check('the gallery repeats the count', (await text('#ach-count')).trim() === '4 of 18 earned', await text('#ach-count'));
+    const ids = await ev(`[...document.querySelectorAll('#achievements-modal .ach.is-earned')].map(a => a.dataset.id).sort().join(',')`);
+    check('the right four are earned', ids === 'checkins-1,perfect-1,streak-3,streak-7', ids);
+    check('all eighteen are shown, locked ones included', (await ev(`document.querySelectorAll('#achievements-modal .ach').length`)) === 18 && (await ev(`document.querySelectorAll('#achievements-modal .ach.is-locked').length`)) === 14);
+    const look = JSON.parse(await ev(`(() => { const m = s => getComputedStyle(document.querySelector('#achievements-modal .ach[data-id="' + s + '"] .ach-medal'));
+      return JSON.stringify({ earnedBorder: m('streak-7').borderTopStyle, earnedBg: m('streak-7').backgroundColor, lockedBorder: m('streak-30').borderTopStyle, lockedBg: m('streak-30').backgroundColor }); })()`));
+    check('an earned one is filled, a locked one is a dashed outline', look.earnedBorder === 'solid' && look.lockedBorder === 'dashed' && look.earnedBg !== look.lockedBg && /rgba\(0, 0, 0, 0\)|transparent/.test(look.lockedBg), JSON.stringify(look));
+    check('a locked one says how far along it is', /8 of 10/.test(await text('#achievements-modal .ach[data-id="checkins-10"] .ach-state')) && /7 of 30/.test(await text('#achievements-modal .ach[data-id="streak-30"] .ach-state')), await text('#achievements-modal .ach[data-id="checkins-10"] .ach-state'));
+    check('and says "Locked" to a screen reader, "Earned" on the others', /Locked/.test(await text('#achievements-modal .ach[data-id="streak-30"] .ach-state .sr-only')) && (await text('#achievements-modal .ach[data-id="streak-7"] .ach-state')).trim() === 'Earned');
+    check('each says how to earn it', (await text('#achievements-modal .ach[data-id="streak-30"] .ach-how')).trim() === 'Keep one habit going 30 days in a row');
+    await size(320, 568); await sleep(200);
+    check('320px: two columns, nothing spills sideways', await ev(`(() => { const d = document.querySelector('#achievements-modal .dialog'); const tops = [...document.querySelectorAll('#achievements-modal .ach')].slice(0, 3).map(a => Math.round(a.getBoundingClientRect().top));
+      return document.documentElement.scrollWidth <= innerWidth && d.scrollWidth <= d.clientWidth + 1 && tops[0] === tops[1] && tops[2] > tops[1]; })()`));
+    await key('Escape'); await sleep(300);
+    check('Escape closes it', !(await open('achievements-modal')));
+    noExceptions();
+  });
+
+  scenario('achievements: earning one is announced once, and not again after a take-back', async () => {
+    await boot({ seed: seed({ a: H('Read', { completedDates: run(1, 2) }), b: H('Run', { order: 2 }) }) }); await rows(); await sleep(500);
+    check('quiet to begin with', (await toasts('/chievement/')) === 0);
+    await tick('a');
+    check('the third day in a row is announced', await waitFor(`[...document.querySelectorAll('.toast')].some(t => /Achievement earned: Three in a row/.test(t.textContent))`, 4500));
+    check('it comes after the Completed toast, so Undo stays the first action', await ev(`(() => { const t = [...document.querySelectorAll('.toast')]; const c = t.findIndex(x => /Completed/.test(x.textContent)), a = t.findIndex(x => /Achievement earned/.test(x.textContent)); return c === -1 || c < a; })()`));
+    check('once', (await toasts('/Achievement earned/')) === 1);
+    await ev(`[...document.querySelectorAll('.toast')].find(t => /Achievement earned/.test(t.textContent)).querySelector('.toast-action').click()`); await sleep(400);
+    check('View opens the gallery with it earned', (await open('achievements-modal')) && await ev(`document.querySelector('#achievements-modal .ach[data-id="streak-3"]').classList.contains('is-earned')`));
+    await ev(`document.getElementById('achievements-close').click()`); await sleep(300);
+    await sleep(700);
+    await tick('a'); await sleep(600);
+    check('taken back: the gallery would show it locked again', await ev(`__mockDB.habits.a.completedDates.length === 2`));
+    await tick('a'); await sleep(2600);
+    check('earning it again is not announced a second time', (await toasts('/Achievement earned/')) === 0, String(await toasts('/Achievement earned/')));
+    noExceptions();
+  });
 };

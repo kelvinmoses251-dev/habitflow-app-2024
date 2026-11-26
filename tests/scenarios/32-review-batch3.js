@@ -49,7 +49,7 @@ module.exports = (scenario, c) => {
     await ev(`document.getElementById('details-archive').click()`); await sleep(500);
     check('archiving records the day it was put away', (await ev(`__mockDB.habits.g.archivedOn`)) === day(0) && await ev(`typeof __mockDB.habits.g.archivedAt === 'number'`));
     check('the leaderboard total counts only habits in play', await waitFor(`__mockDB.users['u-test'].totalStreak === 4`, 3000), await ev(`__mockDB.users['u-test'].totalStreak`));
-    await ev(`document.querySelector('#toast-container .toast-action').click()`); await sleep(500);
+    await ev(`[...document.querySelectorAll('#toast-container .toast-action')].find(b => b.textContent.trim() === 'Undo').click()`); await sleep(500);
     check('Undo right away leaves no trace', await ev(`!('archivedAt' in __mockDB.habits.g) && !('archivedOn' in __mockDB.habits.g) && !(__mockDB.habits.g.pauses || []).length`));
     noExceptions();
   });

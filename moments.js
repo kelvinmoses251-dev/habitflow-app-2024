@@ -138,3 +138,17 @@ export function shareCanvas(canvas, { filename, title, text }) {
     } catch (_) { save(); }
   });
 }
+
+// ── The achievements gallery ───────────────────────────────
+// items: motivation.achievements(...). Earned ones are filled; locked ones are outlines with how far along they are.
+export function renderAchievements(body, items) {
+  const earned = items.filter(a => a.earned).length;
+  body.innerHTML = `<p class="dialog-text" id="ach-count">${earned} of ${items.length} earned</p>
+    <ul class="ach-grid">${items.map(a => `<li class="ach ${a.earned ? 'is-earned' : 'is-locked'}" data-id="${esc(a.id)}">
+      <span class="ach-medal" aria-hidden="true">${icon(a.icon)}</span>
+      <strong class="ach-name">${esc(a.name)}</strong>
+      <span class="ach-how">${esc(a.how)}</span>
+      ${a.earned ? '<span class="ach-state">Earned</span>'
+        : `<span class="ach-state"><span class="sr-only">Locked. </span>${num(a.have)} of ${num(a.goal)}</span><span class="ach-bar" aria-hidden="true"><span style="width:${Math.round((a.have / a.goal) * 100)}%"></span></span>`}
+    </li>`).join('')}</ul>`;
+}

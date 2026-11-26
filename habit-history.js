@@ -164,3 +164,26 @@ export function weekdayRates(habit, today) {
   if (score(top) > 0) top.best = true;
   return out;
 }
+
+// ── The last year, day by day ──────────────────────────────
+// 53 columns of seven days (Monday to Sunday), ending with this week. `months` says where each month's label goes.
+export function yearCells(habit, today, frozen = []) {
+  const h = asHabit(habit), frozenSet = new Set(days(frozen));
+  const first = rules.shiftDay(mondayOf(today), -7 * 52), weeks = [], months = [];
+  let done = 0, due = 0, lastMonth = '';
+  for (let w = 0; w < 53; w++) {
+    const col = [];
+    for (let i = 0; i < 7; i++) {
+      const day = rules.shiftDay(first, w * 7 + i), state = dayState(h, day, today, frozenSet);
+      if (state === 'done') done++;
+      if (state === 'done' || state === 'missed' || state === 'shield' || state === 'open') due++;
+      col.push({ day, state, today: day === today });
+    }
+    const month = col[0].day.slice(0, 7);
+    if (month !== lastMonth) { months.push({ col: w, label: MONTHS[Number(month.slice(5)) - 1].slice(0, 3) }); lastMonth = month; }
+    weeks.push(col);
+  }
+  // A month with fewer than three columns before the next label has no room for its own: its label is left out
+  const roomy = months.filter((m, i) => i === months.length - 1 || months[i + 1].col - m.col >= 3);
+  return { weeks, months: roomy, done, due };
+}

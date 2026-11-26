@@ -64,3 +64,20 @@ export function renderWeekdayChart(el, days) {
     </div>
     <p class="chart-cap" id="weekday-cap">${cap}</p>`;
 }
+
+// ── The last year ──────────────────────────────────────────
+// year: habitHistory.yearCells(...). The grid scrolls sideways inside its own box on a narrow screen; the page never
+// does. The sentence under it is the text equivalent.
+export function renderYear(el, year, keepScroll = false) {
+  const was = keepScroll && el.querySelector('.year-scroll') ? el.querySelector('.year-scroll').scrollLeft : null;
+  el.innerHTML = `
+    <div class="year-scroll" id="year-scroll" tabindex="0" role="group" aria-label="The last year, day by day. ${year.due ? `${year.done} of ${year.due} days done.` : ''}">
+      <div class="year-inner">
+        <div class="year-months" aria-hidden="true">${year.months.map(m => `<span style="grid-column:${m.col + 1}">${m.label}</span>`).join('')}</div>
+        <div class="year-grid" aria-hidden="true">${year.weeks.map(col => `<span class="year-col">${col.map(c => `<i class="yc is-${c.state}${c.today ? ' is-today' : ''}" data-day="${c.day}"></i>`).join('')}</span>`).join('')}</div>
+      </div>
+    </div>
+    <p class="chart-cap" id="year-sum">${year.due ? `${year.done} of ${plural(year.due, 'day')} in the last year.` : year.done ? `${plural(year.done, 'day')} done in the last year.` : 'Nothing was due in the last year.'}</p>`;
+  const box = el.querySelector('.year-scroll');
+  box.scrollLeft = was === null ? box.scrollWidth : was;      // start at today (the right-hand end); a redraw stays where the person scrolled to
+}

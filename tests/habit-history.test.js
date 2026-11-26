@@ -187,3 +187,39 @@ test('weekdayRates: days never owed have no rate, a weekly habit counts completi
   assert.equal(weekdayRates(H('Read'), TODAY).filter(x => x.best).length, 0);
   assert.doesNotThrow(() => weekdayRates(null, TODAY));
 });
+
+// ── The last year ──────────────────────────────────────────
+test('yearCells: 53 weeks of seven days, Monday first, ending with this week', async () => {
+  const { yearCells } = await load();
+  const y = yearCells(H('Read', range(0, 9)), TODAY);
+  assert.equal(y.weeks.length, 53);
+  assert.ok(y.weeks.every(col => col.length === 7));
+  assert.equal(y.weeks[52][0].day, '2026-11-23');             // this week's Monday
+  assert.equal(y.weeks[52][2].day, TODAY); assert.equal(y.weeks[52][2].today, true);
+  assert.equal(y.weeks[52][3].state, 'future');
+  assert.equal(y.weeks[0][0].day, '2025-11-24');
+  assert.equal(y.weeks.flat().filter(c => c.today).length, 1);
+});
+
+test('yearCells: counts what was done against what was owed, and says where each month starts', async () => {
+  const { yearCells } = await load();
+  const y = yearCells(H('Read', range(0, 9), { createdAt: '2026-11-06T12:00:00Z' }), TODAY, []);
+  assert.equal(y.done, 10);
+  assert.equal(y.due, 20);                                    // 6 to 25 November
+  assert.equal(y.weeks[49][0].state, 'before');               // Monday 2 November: before it began
+  assert.equal(y.months[y.months.length - 1].label, 'Nov');
+  assert.equal(y.months[0].label, 'Dec'); assert.equal(y.months[0].col, 1);   // one column of last November is too narrow for a label
+  assert.ok(y.months.every((m, i) => i === 0 || m.col - y.months[i - 1].col >= 3));
+  assert.ok(y.months.length >= 12 && y.months.length <= 14);
+  assert.ok(y.months.every((m, i) => i === 0 || m.col > y.months[i - 1].col));
+});
+
+test('yearCells: shield days, rest days and junk', async () => {
+  const { yearCells } = await load();
+  const y = yearCells(H('Gym', [0, 2], { schedule: { type: 'days', days: [1, 2, 3, 4, 5] } }), TODAY, [ago(1)]);
+  const at = day => y.weeks.flat().find(c => c.day === day);
+  assert.equal(at(ago(1)).state, 'shield');
+  assert.equal(at(ago(3)).state, 'rest');
+  assert.equal(at(ago(5)).state, 'missed');
+  for (const bad of [null, {}, { completedDates: 'x' }]) { const r = yearCells(bad, TODAY, 'no'); assert.equal(r.weeks.length, 53); assert.equal(r.done, 0); }
+});

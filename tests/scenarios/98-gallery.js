@@ -216,4 +216,9 @@ module.exports = (scenario, c) => {
     run('b5-fill-in' + tag, opts, async () => { await openHabit('a'); });
     run('b5-fill-in-home' + tag, opts, async () => { await ready(); await settle(); await ev(`document.getElementById('day-prev').click()`); await settle(500); });
   }
+  const pattern = Array.from({ length: 330 }, (_, i) => i).filter(i => i % 7 !== 5 && i % 11 !== 3 && !(i > 120 && i < 150)).map(i => key(-i - 1));
+  const b5year = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: { 'u-test': { xp: 2100, streakShields: 0, frozenDates: [], shieldUsedAt: Date.now() } }, habits: { c: mk('Workout for 30 minutes', 'fitness', 1, pattern, { createdAt: new Date(Date.now() - 340 * 864e5).toISOString() }) } } };
+  for (const [tag, opts] of [['', { seed: b5year }], ['-dark', { seed: b5year, colorScheme: 'dark' }], ['-desktop', { seed: b5year, mobile: false }]]) {
+    run('b5-charts-year' + tag, opts, async () => { await openHabit('c'); await section('hp-charts'); await settle(400); });
+  }
 };

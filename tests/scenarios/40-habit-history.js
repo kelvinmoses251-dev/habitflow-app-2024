@@ -80,4 +80,29 @@ module.exports = (scenario, c) => {
     check('a habit never done has no best day yet, and says so', (await visible('#weekday-none')) && /0%/.test(await text('#weeks-cap')));
     noExceptions();
   });
+  // ── 45: a year heatmap for the habit ─────────────────────
+  scenario('year: the last year, a dot a day, scrolling in its own box', async () => {
+    await boot({ seed: seed({ a: H('Read', { completedDates: run(0, 9), createdAt: new Date(Date.now() - 19 * 864e5).toISOString(), completedTimestamps: { [day(0)]: Date.now() - 4000000 } }) }) }); await rows(); await sleep(300);
+    await open('a');
+    const y = JSON.parse(await ev(`JSON.stringify((() => { const box = document.getElementById('year-scroll'); const cells = [...box.querySelectorAll('.yc')];
+      return { cols: box.querySelectorAll('.year-col').length, cells: cells.length, done: cells.filter(c => c.classList.contains('is-done')).length, today: cells.filter(c => c.classList.contains('is-today')).map(c => c.dataset.day),
+        label: box.getAttribute('aria-label'), focusable: box.tabIndex === 0, months: box.querySelectorAll('.year-months span').length }; })())`));
+    check('53 weeks of seven days', y.cols === 53 && y.cells === 371, JSON.stringify(y));
+    check('ten days done, and today marked', y.done === 10 && y.today.length === 1 && y.today[0] === day(0), JSON.stringify(y));
+    check('months are labelled along the top', y.months >= 12 && y.months <= 14);
+    check('a sentence says the year in numbers', (await text('#year-sum')).trim() === '10 of 20 days in the last year.', await text('#year-sum'));
+    check('the box has a name that carries the numbers, and can be reached by keyboard to scroll', /last year/.test(y.label) && /10 of 20/.test(y.label) && y.focusable, y.label);
+    const s = JSON.parse(await ev(`JSON.stringify((() => { const box = document.getElementById('year-scroll'); const t = box.querySelector('.yc.is-today').getBoundingClientRect(), b = box.getBoundingClientRect();
+      return { scrolls: box.scrollWidth > box.clientWidth, atEnd: Math.abs(box.scrollLeft + box.clientWidth - box.scrollWidth) <= 2, todayIn: t.left >= b.left && t.right <= b.right + 1, page: document.documentElement.scrollWidth <= innerWidth }; })())`));
+    check('on a phone it scrolls sideways inside its box, and the page does not', s.scrolls && s.page, JSON.stringify(s));
+    check('it starts at today', s.atEnd && s.todayIn, JSON.stringify(s));
+    await ev(`document.getElementById('year-scroll').scrollLeft = 40`); await sleep(100);
+    await ev(`__mockRemote('habits', 'a', { completedDates: ${JSON.stringify(run(0, 10))} })`); await sleep(500);
+    check('a change in the data redraws it without throwing the person back to the end', (await ev(`document.getElementById('year-scroll').scrollLeft`)) === 40 && /11 of 20/.test(await text('#year-sum')), await text('#year-sum'));
+    await boot({ mobile: false, colorScheme: 'dark', seed: seed({ a: H('Read', { completedDates: run(0, 9) }) }) }); await rows(); await sleep(300);
+    await open('a');
+    check('desktop: the whole year fits without scrolling', await ev(`(() => { const box = document.getElementById('year-scroll'); return box.scrollWidth <= box.clientWidth + 1; })()`));
+    check('dark: a done day stands out from a missed one', await ev(`(() => { const d = getComputedStyle(document.querySelector('.yc.is-done')).backgroundColor, m = getComputedStyle(document.querySelector('.yc.is-missed')).backgroundColor; return d !== m; })()`));
+    noExceptions();
+  });
 };

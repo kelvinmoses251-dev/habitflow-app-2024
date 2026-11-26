@@ -999,6 +999,20 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .bars-axis { display: flex; justify-content: space-between; font-size: var(--fs-2xs); color: var(--muted); }
 .chart-cap { font-size: var(--fs-sm); color: var(--text-2); }
 
+/* The habit page: the last year, a dot a day. It scrolls sideways in its own box on a narrow screen. */
+.year-scroll { overflow-x: auto; padding-bottom: var(--sp-2); }
+.year-inner { display: inline-grid; gap: 4px; }
+.year-months, .year-grid { display: grid; grid-template-columns: repeat(53, 9px); column-gap: 2px; }
+.year-months { height: 14px; font-size: var(--fs-2xs); color: var(--muted); }
+.year-months span { white-space: nowrap; }
+.year-col { display: grid; grid-template-rows: repeat(7, 9px); row-gap: 2px; }
+.yc { display: block; width: 9px; height: 9px; border: 1px solid transparent; border-radius: var(--r-full); background: var(--surface-2); }
+.yc.is-done { background: var(--primary); }
+.yc.is-shield { background: var(--primary-line); }
+.yc.is-rest, .yc.is-paused, .yc.is-before { background: none; border-color: var(--border); }
+.yc.is-future { background: none; }
+.yc.is-today { border-color: var(--primary-ink); }
+
 /* Filling in yesterday */
 .hp-fill { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--warning-soft); border: 1px solid var(--warning-line); border-radius: var(--r-lg); }
 .hp-fill.hidden { display: none; }

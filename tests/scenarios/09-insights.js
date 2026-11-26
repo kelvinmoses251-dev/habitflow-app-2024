@@ -23,7 +23,9 @@ module.exports = (scenario, c) => {
     const list = (await items()).join(' | ');
     check('momentum read is present', /(Up|Down) \d+%|Steady|Up/.test(list), list);
     check('names a strongest weekday', /are your strongest day/.test(list), list);
-    check('longest streak surfaced (4 consecutive days)', /Longest streak: 4 days/.test(list), list);
+    // The four most recent days are a run of 4. On a Friday the Monday before them (one of the eight Mondays) makes it 5.
+    const longest = dow(key(-4)) === 1 ? 5 : 4;
+    check(`longest streak surfaced (${longest} consecutive days)`, new RegExp(`Longest streak: ${longest} days`).test(list), list);
     noExceptions();
   });
 

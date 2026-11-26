@@ -20,7 +20,7 @@ import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, at
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
-import { habitSummary, monthGrid, weeklyRates, weekdayRates } from "./habit-history.js?v=1";
+import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -4103,10 +4103,13 @@ function renderHabitPage(habit) {
   document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
   document.getElementById('hp-fill').classList.toggle('hidden', !rules.canFillIn(habit, dayKeyOffset(-1), today));
   habitPage.renderCalendar(document.getElementById('hp-calendar'), monthGrid(habit, calendarMonth, today, userFrozenDates || []));
+  habitPage.renderYear(document.getElementById('hp-year'), yearCells(habit, today, userFrozenDates || []), yearShownFor === habit.id);
+  yearShownFor = habit.id;
   habitPage.renderWeeksChart(document.getElementById('hp-weeks'), weeklyRates(habit, today));
   habitPage.renderWeekdayChart(document.getElementById('hp-weekdays'), weekdayRates(habit, today));
   renderJournal(habit);
 }
+let yearShownFor = null;                       // the habit whose year is on screen (a redraw keeps its sideways scroll)
 // ── Filling in yesterday ──────────────────────────────────
 // A day that was due and missed can be completed until the end of the day after (habit-rules canFillIn). It earns
 // the normal 25 XP once, never the daily bonus, is marked as filled in late, and can be taken back for an hour

@@ -50,7 +50,7 @@
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js" />
   <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js" />
   <link rel="modulepreload" href="ui.js?v=8" />
-  <link rel="modulepreload" href="habit-rules.js?v=6" />
+  <link rel="modulepreload" href="habit-rules.js?v=7" />
   <link rel="modulepreload" href="home.js?v=7" />
   <link rel="modulepreload" href="coach.js?v=1" />
   <link rel="modulepreload" href="motivation.js?v=1" />
@@ -418,7 +418,7 @@
             <!-- Phones: New habit sits below the list, so this is the quick way to it -->
             <button type="button" id="today-add" class="btn-icon today-add" aria-label="New habit"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
           </div>
-          <p id="past-note" class="past-note hidden"><span>You are looking at a past day. It cannot be changed.</span><button type="button" id="back-to-today" class="btn-link">Back to today</button></p>
+          <p id="past-note" class="past-note hidden"><span id="past-note-text">You are looking at a past day. It cannot be changed.</span><button type="button" id="back-to-today" class="btn-link">Back to today</button></p>
           <!-- Shown once there are more than eight habits -->
           <div id="home-filter" class="home-filter hidden">
             <input type="search" id="habit-search" aria-label="Search habits" placeholder="Search" autocomplete="off" />
@@ -564,6 +564,11 @@
           <div><dt>Total days</dt><dd id="details-total-days">0</dd></div>
           <div><dt>Last 30 days</dt><dd id="hp-rate">0%</dd></div>
         </dl>
+
+        <div class="hp-fill hidden" id="hp-fill">
+          <div class="hp-fill-text"><strong>Missed yesterday?</strong><span>You have until midnight tonight to fill it in.</span></div>
+          <button id="hp-fill-btn" class="btn-primary" type="button">Fill in yesterday</button>
+        </div>
 
         <div class="card hp-card">
           <div class="hp-actions">

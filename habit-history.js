@@ -6,7 +6,7 @@
 //
 // Days are local calendar days as "YYYY-MM-DD" keys, as in habit-rules.js, which decides what was due and done.
 // History is never re-judged: each past day is judged by the schedule that was in force on that day.
-import * as rules from './habit-rules.js?v=6';
+import * as rules from './habit-rules.js?v=7';
 
 const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const pad2 = n => String(n).padStart(2, '0');

@@ -211,4 +211,9 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b5hist }], ['-dark', { seed: b5hist, colorScheme: 'dark' }], ['-desktop', { seed: b5hist, mobile: false }]]) {
     run('b5-calendar' + tag, opts, async () => { await openHabit('c'); await section('hp-month'); await settle(400); });
   }
+  const b5fill = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: { 'u-test': { xp: 380, streakShields: 0, frozenDates: [], shieldUsedAt: Date.now() } }, habits: { a: mk('Read 10 pages', 'reading', 1, streak(9).slice(1)), b: mk('Workout for 30 minutes', 'fitness', 2, [key(-1), key(-2)]) } } };
+  for (const [tag, opts] of [['', { seed: b5fill }], ['-dark', { seed: b5fill, colorScheme: 'dark' }]]) {
+    run('b5-fill-in' + tag, opts, async () => { await openHabit('a'); });
+    run('b5-fill-in-home' + tag, opts, async () => { await ready(); await settle(); await ev(`document.getElementById('day-prev').click()`); await settle(500); });
+  }
 };

@@ -15,7 +15,7 @@ import {
   getMessaging, getToken, onMessage
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
 import { firebaseConfig } from "./firebase-config.js";
-import * as rules from "./habit-rules.js?v=6";
+import * as rules from "./habit-rules.js?v=7";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
@@ -1559,6 +1559,7 @@ async function toggleHabit(id, currentlyDone, dateToRemove) {
       updatePayload[`completedTimestamps.${d}`] = deleteField();
     }
     if (h && h.moods && typeof h.moods === 'object' && d in h.moods) updatePayload[`moods.${d}`] = deleteField();   // how it felt goes with it
+    if (h && h.backfilled && typeof h.backfilled === 'object' && d in h.backfilled) updatePayload[`backfilled.${d}`] = deleteField();
     backgroundWrite(updateDoc(habitRef, updatePayload), 'update your habit');
   } else {
     // Checking the habit. A counting habit completed by any route (the last +, focus view, a swipe) has its count filled.
@@ -2173,6 +2174,11 @@ function renderDayHeader() {
   if (prev) prev.disabled = (past || today) <= shiftDay(today, -DAY_BROWSER_LIMIT);
   if (next) next.disabled = !past;
   document.getElementById('past-note')?.classList.toggle('hidden', !past);
+  // Yesterday is the one past day that can still be changed: what was missed can be filled in until midnight
+  const noteText = document.getElementById('past-note-text');
+  if (noteText) noteText.textContent = past && past === shiftDay(today, -1)
+    ? 'You are looking at a past day. Anything missed yesterday can still be filled in until midnight.'
+    : 'You are looking at a past day. It cannot be changed.';
   document.getElementById('page-home')?.classList.toggle('is-past', !!past);
 }
 // What the Today card shows for a past day: the daily habits that existed then, ticked or not, and nothing to press.
@@ -2180,17 +2186,20 @@ function renderPastDay(day) {
   const list = document.getElementById('habits');
   const items = habitsOnDay([...allHabits].sort((a, b) => (a.order || 0) - (b.order || 0)), day).filter(x => x.done || rules.isDueOn(x.habit, day));
   ['week-card', 'month-card', 'no-daily'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  const today = todayStr();
   list.innerHTML = items.length ? items.map(({ habit: h, done }) => {
     const cat = CATS[h.category] || CATS.health;
     const look = habitLook(h);
+    const fill = !done && rules.canFillIn(h, day, today);
     return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${look.color}">
       <div class="habit-label">
         <input type="checkbox" class="habit-check" disabled ${done ? 'checked' : ''} aria-label="${escHtml(h.name)}: ${done ? 'done' : 'not done'} that day" />
         <div class="habit-meta">
           <span class="habit-name ${done ? 'done' : ''}">${escHtml(h.name)}</span>
-          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span></div>
+          <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>${h.backfilled && h.backfilled[day] === true && done ? '<span class="freq-badge late-badge">Filled in late</span>' : ''}</div>
         </div>
       </div>
+      ${fill ? `<div class="habit-actions"><button type="button" class="btn-link fill-btn" data-action="fill-in" data-id="${h.id}" aria-label="Fill in ${escHtml(h.name)} for yesterday">Fill in</button></div>` : ''}
     </li>`;
   }).join('') : '<li class="empty-note">You had no daily habits on this day.</li>';
 }
@@ -4092,9 +4101,35 @@ function renderHabitPage(habit) {
   const pausedFrom = rules.pausedSince(habit, today);
   document.getElementById('details-pause').innerHTML = iconSvg(pausedFrom ? 'play' : 'pause') + `<span>${pausedFrom ? 'Resume' : 'Pause'}</span>`;
   document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
+  document.getElementById('hp-fill').classList.toggle('hidden', !rules.canFillIn(habit, dayKeyOffset(-1), today));
   habitPage.renderCalendar(document.getElementById('hp-calendar'), monthGrid(habit, calendarMonth, today, userFrozenDates || []));
   renderJournal(habit);
 }
+// ── Filling in yesterday ──────────────────────────────────
+// A day that was due and missed can be completed until the end of the day after (habit-rules canFillIn). It earns
+// the normal 25 XP once, never the daily bonus, is marked as filled in late, and can be taken back for an hour
+// like any completion. Nothing older than yesterday can be changed.
+const fillingIn = new Set();                   // habits being filled in right now, so a double tap cannot pay twice
+function fillIn(id) {
+  const h = allHabits.find(x => x.id === id), today = todayStr(), day = dayKeyOffset(-1);
+  if (!h || fillingIn.has(id)) return;
+  if (!rules.canFillIn(h, day, today)) { toast('That day can no longer be filled in.', 'info'); return; }
+  fillingIn.add(id); setTimeout(() => fillingIn.delete(id), 1500);
+  const goal = rules.targetOf(h);
+  backgroundWrite(updateDoc(doc(db, 'habits', id), {
+    completedDates: arrayUnion(day), [`completedTimestamps.${day}`]: Date.now(), [`backfilled.${day}`]: true,
+    ...(goal ? { [`progress.${day}`]: Math.max(goal.amount, rules.progressOn(h, day)) } : {}),
+  }), 'fill in yesterday');
+  addXP(XP_PER_HABIT);
+  toast('Yesterday filled in. +25 XP', 'success', 6000, { label: 'Undo', onClick: () => { track('fill_in_undo'); uncompleteHabit(id, day); } });
+  track('habit_filled_in');
+}
+document.getElementById('hp-fill-btn')?.addEventListener('click', () => { if (currentDetailsHabitId) fillIn(currentDetailsHabitId); });
+document.getElementById('page-home').addEventListener('click', e => {
+  const b = e.target instanceof Element ? e.target.closest('[data-action="fill-in"]') : null;
+  if (b) fillIn(b.dataset.id);
+});
+
 // The month the calendar shows (null: this month). It goes back to this month whenever another habit is opened.
 let calendarMonth = null;
 document.getElementById('hp-calendar')?.addEventListener('click', e => {

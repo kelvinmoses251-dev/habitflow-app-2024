@@ -388,3 +388,61 @@ test('review: a step too small to count is not a step', async () => {
   assert.equal(r.targetOf({ target: { amount: 5, unit: 'km', step: 0.0001 } }).step, 1);
   assert.equal(r.targetOf({ target: { amount: 5, unit: 'km', step: 0.001 } }).step, 0.001);
 });
+
+// ── Filling in yesterday (roadmap 46) ──────────────────────
+{
+  const T = '2026-11-25';                                       // a Wednesday
+  const back = n => key(num(T) - n);
+  const habit = (days = [], o = {}) => ({ frequency: 'daily', completedDates: days.map(back), createdAt: '2025-01-05T10:00:00Z', ...o });
+
+  test('canFillIn: yesterday, when it was due and missed', async () => {
+    const { canFillIn } = await load();
+    assert.equal(canFillIn(habit([2, 3]), back(1), T), true);
+    assert.equal(canFillIn(habit([0, 2]), back(1), T), true);                 // done today, missed yesterday
+    assert.equal(canFillIn(habit([], { target: { amount: 8, unit: 'glasses', step: 1 }, progress: { [back(1)]: 5 } }), back(1), T), true);   // part-way is still missed
+  });
+
+  test('canFillIn: only yesterday. Not today, not two days ago, not tomorrow', async () => {
+    const { canFillIn } = await load();
+    const h = habit([5]);
+    assert.equal(canFillIn(h, T, T), false);
+    assert.equal(canFillIn(h, back(2), T), false);
+    assert.equal(canFillIn(h, back(30), T), false);
+    assert.equal(canFillIn(h, key(num(T) + 1), T), false);
+    assert.equal(canFillIn(h, back(1), key(num(T) + 1)), false);              // the day after tomorrow, yesterday is locked again
+  });
+
+  test('canFillIn: not a day that was done, a rest day, a paused day, or a day outside its dates', async () => {
+    const { canFillIn } = await load();
+    assert.equal(canFillIn(habit([1]), back(1), T), false);
+    assert.equal(canFillIn(habit([], { schedule: { type: 'days', days: [1, 3, 5] } }), back(1), T), false);       // Tuesday is a rest day
+    assert.equal(canFillIn(habit([], { schedule: { type: 'days', days: [2] } }), back(1), T), true);              // Tuesdays only
+    assert.equal(canFillIn(habit([], { pauses: [{ from: back(3) }] }), back(1), T), false);
+    assert.equal(canFillIn(habit([], { pauses: [{ from: back(9), to: back(2) }] }), back(1), T), true);           // resumed before yesterday
+    assert.equal(canFillIn(habit([], { startDate: T }), back(1), T), false);
+    assert.equal(canFillIn(habit([], { endDate: back(2) }), back(1), T), false);
+  });
+
+  test('canFillIn: not before the habit existed, not for archived or deleted habits, not for weekly or monthly ones', async () => {
+    const { canFillIn } = await load();
+    assert.equal(canFillIn(habit([], { createdAt: new Date(num(T) * 86400000 + 12 * 3600000).toISOString() }), back(1), T), false);   // made today
+    assert.equal(canFillIn(habit([], { createdAt: new Date(num(back(1)) * 86400000 + 12 * 3600000).toISOString() }), back(1), T), true);
+    assert.equal(canFillIn(habit([], { archivedAt: 5, archivedOn: T }), back(1), T), false);
+    assert.equal(canFillIn(habit([], { deletedAt: 5 }), back(1), T), false);
+    assert.equal(canFillIn(habit([], { frequency: 'weekly' }), back(1), T), false);
+    assert.equal(canFillIn(habit([], { frequency: 'monthly' }), back(1), T), false);
+    assert.equal(canFillIn(habit([], { frequency: 'weekly', schedule: { type: 'times', times: 3 } }), back(1), T), false);
+  });
+
+  test('canFillIn: the schedule in force yesterday decides, and junk is never fillable', async () => {
+    const { canFillIn } = await load();
+    // weekly until today, daily from today: yesterday it was a weekly habit
+    const switched = habit([], { schedule: { type: 'daily' }, scheduleHistory: [{ from: '2000-01-01', schedule: { type: 'times', times: 1 } }, { from: T, schedule: { type: 'daily' } }] });
+    assert.equal(canFillIn(switched, back(1), T), false);
+    for (const bad of [null, undefined, 7]) assert.equal(canFillIn(bad, back(1), T), false);
+    assert.equal(canFillIn(habit(), 'banana', T), false);
+    assert.equal(canFillIn(habit(), back(1), 'banana'), false);
+    assert.equal(canFillIn(habit(), undefined, T), false);
+    assert.equal(canFillIn({ completedDates: 'no' }, back(1), T), true);      // a bare habit with nothing done was simply missed
+  });
+}

@@ -984,6 +984,16 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .lg.is-missed { border-color: var(--border-strong); }
 .lg.is-rest { background: var(--surface-2); }
 
+/* Filling in yesterday */
+.hp-fill { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--warning-soft); border: 1px solid var(--warning-line); border-radius: var(--r-lg); }
+.hp-fill.hidden { display: none; }
+.hp-fill-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+.hp-fill-text strong { color: var(--text); }
+.hp-fill-text span { font-size: var(--fs-sm); color: var(--text-2); }
+.hp-fill .btn-primary { min-height: 44px; }
+.fill-btn { min-height: 44px; padding: 0 var(--sp-3); }
+.late-badge { color: var(--warning); }
+
 /* The habit page */
 .hp-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
 .hp-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-left: calc(var(--sp-3) * -1); padding: 0 var(--sp-3); color: var(--text-2); }

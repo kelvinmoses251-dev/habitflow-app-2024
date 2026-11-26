@@ -172,6 +172,21 @@ export function isDueOn(habit, day) {
 
 export const isDoneOn = (habit, day) => doneSet(habit).has(day);
 
+// A missed day can still be filled in until the end of the following day (owner decision, 26 November 2026).
+// Only yesterday, only for a day-by-day habit that was due and active that day, already existed, and is not done
+// for it. Weekly and monthly habits have their whole period to be done in, so there is nothing to fill in.
+// Nothing older can ever be changed: `today` is the device's own day, and the day after tomorrow this says no.
+export function canFillIn(habit, day, today) {
+  if (!habit || typeof habit !== 'object' || habit.deletedAt || habit.archivedAt || !isDayKey(day) || !isDayKey(today)) return false;
+  if (day !== shiftDay(today, -1)) return false;
+  const type = scheduleOn(habit, day).type;
+  if (type !== 'daily' && type !== 'days') return false;
+  if (!isDueOn(habit, day) || isDoneOn(habit, day)) return false;
+  const made = habit.createdAt ? new Date(habit.createdAt) : null;          // a habit owes nothing before it existed
+  if (made && !isNaN(made) && `${made.getFullYear()}-${pad2(made.getMonth() + 1)}-${pad2(made.getDate())}` > day) return false;
+  return true;
+}
+
 const countInWeek = (habit, idx) => ((habit && habit.completedDates) || []).filter(d => weekIndex(d) === idx).length;
 
 // How far along the current week or month a weekly/monthly habit is: { done, target }.

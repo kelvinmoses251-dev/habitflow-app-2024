@@ -5,7 +5,7 @@
 // or Firebase. The screens that show it are drawn by moments.js. Unit tests: node --test tests/motivation.test.js
 //
 // Days are local calendar days as "YYYY-MM-DD" keys, as in habit-rules.js (which decides what was due and done).
-import * as rules from './habit-rules.js?v=6';
+import * as rules from './habit-rules.js?v=7';
 
 const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const list = habits => (Array.isArray(habits) ? habits.filter(h => h && typeof h === 'object') : []);

@@ -53,6 +53,9 @@
   <link rel="modulepreload" href="habit-rules.js?v=6" />
   <link rel="modulepreload" href="home.js?v=7" />
   <link rel="modulepreload" href="coach.js?v=1" />
+  <link rel="modulepreload" href="motivation.js?v=1" />
+  <link rel="modulepreload" href="moments.js?v=1" />
+  <link rel="modulepreload" href="sounds.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
@@ -573,6 +576,15 @@
             <div class="setting-row">
               <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-volume"/></svg><span class="setting-label">Sound effects</span></div>
               <label class="toggle"><input type="checkbox" id="sound-toggle" aria-label="Sound effects"><span class="toggle-track"></span></label>
+            </div>
+
+            <div class="setting-row setting-row-wrap" id="sound-theme-row" hidden>
+              <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-music"/></svg><span class="setting-label" id="sound-theme-label">Sound theme</span></div>
+              <div class="theme-chips" role="radiogroup" aria-labelledby="sound-theme-label">
+                <label class="day-chip"><input type="radio" name="sound-theme" value="soft" checked><span>Soft</span></label>
+                <label class="day-chip"><input type="radio" name="sound-theme" value="wood"><span>Wood</span></label>
+                <label class="day-chip"><input type="radio" name="sound-theme" value="glass"><span>Glass</span></label>
+              </div>
             </div>
 
             <div class="setting-row">

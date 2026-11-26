@@ -1091,6 +1091,9 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .settings-list { display: flex; flex-direction: column; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 12px 0; border-bottom: 1px solid var(--border); min-height: 48px; }
 .setting-row:last-child { border-bottom: 0; }
+.setting-row[hidden] { display: none; }
+.setting-row-wrap { flex-wrap: wrap; }
+.theme-chips { flex: 1 1 210px; max-width: 320px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
 .setting-left { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .setting-icon { color: var(--muted); width: 18px; height: 18px; }
 .setting-icon.danger, .setting-label.danger { color: var(--danger); }

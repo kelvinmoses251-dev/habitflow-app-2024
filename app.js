@@ -20,6 +20,7 @@ import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, at
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=7";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
+import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
 // ── Firebase Init ────────────────────────────────────────
@@ -130,88 +131,14 @@ function getAudioContext() {
   return audioCtx;
 }
 
-// Bouncy, satisfying checkbox check sound
-function playPop() {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(520, now);
-    osc.frequency.exponentialRampToValueAtTime(920, now + 0.09);
-
-    gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.13);
-  } catch (e) {
-    console.warn('playPop error:', e);
-  }
-}
-
-// Soft untick sound
-function playUncheck() {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(580, now);
-    osc.frequency.exponentialRampToValueAtTime(300, now + 0.08);
-
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(now);
-    osc.stop(now + 0.1);
-  } catch (e) {
-    console.warn('playUncheck error:', e);
-  }
-}
-
-// Full Celebration Chime (Joyful Major Arpeggio C5 -> E5 -> G5 -> C6 -> E6)
-function playChime() {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
-    const startNow = ctx.currentTime;
-
-    notes.forEach((freq, i) => {
-      const noteTime = startNow + i * 0.09;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, noteTime);
-
-      gain.gain.setValueAtTime(0.001, noteTime);
-      gain.gain.linearRampToValueAtTime(0.3, noteTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.65);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(noteTime);
-      osc.stop(noteTime + 0.7);
-    });
-  } catch (e) {
-    console.warn('playChime error:', e);
-  }
-}
+// The sounds themselves live in sounds.js, in three themes (Soft, Wood, Glass). These names are what the rest of
+// the app calls; each plays the chosen theme's version, or nothing at all when sound is off.
+const chosenSoundTheme = () => { try { return soundTheme(localStorage.getItem('habitly_sound_theme')); } catch (_) { return 'soft'; } };
+const sounds = createSounds(getAudioContext, chosenSoundTheme);
+const playPop = () => sounds.tick();
+const playUncheck = () => sounds.untick();
+const playChime = () => sounds.chime();
+const playLevelUpSound = () => sounds.levelUp();
 
 // Offline-first: keep a persistent local copy of the user's data (IndexedDB, shared across tabs). Reads work with
 // no connection and writes are applied locally at once, then synced. Falls back to the in-memory cache if
@@ -495,37 +422,6 @@ function openLevelPage() {
 }
 ['open-level', 'open-level-profile'].forEach(id => document.getElementById(id)?.addEventListener('click', openLevelPage));
 document.getElementById('level-close')?.addEventListener('click', () => document.getElementById('level-modal').classList.add('hidden'));
-
-function playLevelUpSound() {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const notes = [
-      { f: 523.25, t: 0.00 }, // C5
-      { f: 659.25, t: 0.10 }, // E5
-      { f: 783.99, t: 0.20 }, // G5
-      { f: 1046.50, t: 0.32 }, // C6
-      { f: 1318.51, t: 0.46 }, // E6
-      { f: 1567.98, t: 0.62 }  // G6
-    ];
-    notes.forEach(({ f, t }) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(f, now + t);
-      gain.gain.setValueAtTime(0, now + t);
-      gain.gain.linearRampToValueAtTime(0.22, now + t + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.8);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + t);
-      osc.stop(now + t + 0.85);
-    });
-  } catch(e) {
-    console.warn("Level up sound error", e);
-  }
-}
 
 function spawnFloatingXP(targetEl, amount = 25) {
   if (!targetEl) return;
@@ -3703,10 +3599,25 @@ if (darkModeToggle) {
 const soundToggle = document.getElementById('sound-toggle');
 if (soundToggle) {
   soundToggle.checked = soundOn();
+  const themeRow = document.getElementById('sound-theme-row');
+  const themeRadios = [...document.querySelectorAll('input[name="sound-theme"]')];
+  const syncThemeRow = () => {
+    if (themeRow) themeRow.hidden = !soundToggle.checked;
+    themeRadios.forEach(r => { r.checked = r.value === chosenSoundTheme(); });
+  };
+  syncThemeRow();
   soundToggle.addEventListener('change', e => {
     localStorage.setItem('habitly_sound', e.target.checked ? 'on' : 'off');
+    syncThemeRow();
     if (e.target.checked) playPop();
   });
+  // Choosing a theme plays its tick once, so it can be heard before it is kept
+  themeRadios.forEach(r => r.addEventListener('change', () => {
+    if (!r.checked || !SOUND_THEMES.includes(r.value)) return;
+    try { localStorage.setItem('habitly_sound_theme', r.value); } catch (_) {}
+    sounds.preview(r.value);
+    track('sound_theme', { theme: r.value });
+  }));
 }
 const confirmToggle = document.getElementById('confirm-toggle');
 if (confirmToggle) {

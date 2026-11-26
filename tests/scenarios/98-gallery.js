@@ -194,4 +194,8 @@ module.exports = (scenario, c) => {
     run('b4-perfect-week' + tag, opts, async () => { await ready(); await settle(900); });
   }
   run('b4-perfect-week', { seed: b4perfect }, async () => { await ready(); await settle(); await ev(`document.getElementById('summary-toggle').click()`); await settle(600); });
+  const b4sound = { ...b4seed, habitly_sound: 'on', habitly_sound_theme: 'wood' };
+  for (const [tag, opts] of [['', { seed: b4sound }], ['-dark', { seed: b4sound, colorScheme: 'dark' }]]) {
+    run('b4-settings' + tag, opts, async () => { await ready(); await ev(`location.hash = '#profile'`); await settle(600); await ev(`document.getElementById('sound-theme-row').scrollIntoView({ block: 'center' })`); await settle(400); });
+  }
 };

@@ -55,3 +55,70 @@ export function habitSummary(habit, today, frozen = []) {
   }
   return { streak, longest, total: done.size, due30, done30, rate30 };
 }
+
+// ── One day of a habit's history ───────────────────────────
+// 'done'    completed that day
+// 'shield'  missed, but covered by a streak shield
+// 'open'    today, owed and not done yet
+// 'missed'  owed and not done
+// 'paused'  the habit was paused
+// 'rest'    nothing was owed (a rest day, a weekly or monthly habit, after its end date)
+// 'before'  the habit did not exist yet
+// 'future'  a day that has not come
+export function dayState(habit, day, today, frozenSet) {
+  if (day > today) return 'future';
+  if (doneSet(habit).has(day)) return 'done';
+  if (createdDay(habit) > day) return 'before';
+  if (rules.isPausedOn(habit, day)) return 'paused';
+  if (!owedOn(habit, day)) return 'rest';
+  if (frozenSet && frozenSet.has(day)) return 'shield';
+  return day === today ? 'open' : 'missed';
+}
+const isLate = (h, day) => !!(h.backfilled && typeof h.backfilled === 'object' && h.backfilled[day] === true) && doneSet(h).has(day);
+// Done days and shield days next to each other make a run, drawn as one band.
+const inRun = state => state === 'done' || state === 'shield';
+function runPart(habit, day, state, today, frozenSet) {
+  if (!inRun(state)) return null;
+  const before = inRun(dayState(habit, rules.shiftDay(day, -1), today, frozenSet));
+  const after = inRun(dayState(habit, rules.shiftDay(day, 1), today, frozenSet));
+  return before && after ? 'mid' : after ? 'start' : before ? 'end' : 'single';
+}
+const cellOf = (h, day, today, frozenSet) => {
+  const state = dayState(h, day, today, frozenSet);
+  return { day, state, late: isLate(h, day), run: runPart(h, day, state, today, frozenSet), today: day === today };
+};
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const isMonth = v => typeof v === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+const stepMonth = (month, by) => { const [y, m] = month.split('-').map(Number); const n = y * 12 + (m - 1) + by; return `${Math.floor(n / 12)}-${pad2((n % 12) + 1)}`; };
+// The first month the habit has anything to show: the month it was created, or of its first completion if earlier.
+export function firstMonth(habit, today) {
+  const h = asHabit(habit);
+  const firsts = [createdDay(h), [...doneSet(h)].sort()[0] || ''].filter(isDay).sort();
+  return (firsts[0] || today).slice(0, 7);
+}
+
+// ── The month calendar ─────────────────────────────────────
+// Weeks run Monday to Sunday. Days of the neighbouring months fill the first and last week (inMonth: false).
+// prev / next are the months the arrows lead to, or null where there is nothing to show (before the habit began,
+// or after this month).
+export function monthGrid(habit, month, today, frozen = []) {
+  const h = asHabit(habit), frozenSet = new Set(days(frozen));
+  const thisMonth = today.slice(0, 7), first = firstMonth(h, today);
+  let m = isMonth(month) ? month : thisMonth;
+  if (m > thisMonth) m = thisMonth;
+  if (m < first) m = first;
+  const start = `${m}-01`, lead = (rules.weekdayOf(start) + 6) % 7;          // Monday first
+  const weeks = [];
+  for (let day = rules.shiftDay(start, -lead); day.slice(0, 7) <= m; ) {
+    const week = [];
+    for (let i = 0; i < 7; i++, day = rules.shiftDay(day, 1)) week.push({ ...cellOf(h, day, today, frozenSet), inMonth: day.slice(0, 7) === m });
+    weeks.push(week);
+  }
+  const [y, mo] = m.split('-').map(Number);
+  const inMonth = weeks.flat().filter(c => c.inMonth);
+  return {
+    month: m, label: `${MONTHS[mo - 1]} ${y}`, weeks,
+    prev: m > first ? stepMonth(m, -1) : null, next: m < thisMonth ? stepMonth(m, 1) : null,
+    done: inMonth.filter(c => c.state === 'done').length, owed: inMonth.filter(c => ['done', 'missed', 'shield', 'open'].includes(c.state)).length,
+  };
+}

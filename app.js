@@ -20,7 +20,8 @@ import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, at
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
-import { habitSummary } from "./habit-history.js?v=1";
+import { habitSummary, monthGrid } from "./habit-history.js?v=1";
+import * as habitPage from "./habit-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -4091,8 +4092,21 @@ function renderHabitPage(habit) {
   const pausedFrom = rules.pausedSince(habit, today);
   document.getElementById('details-pause').innerHTML = iconSvg(pausedFrom ? 'play' : 'pause') + `<span>${pausedFrom ? 'Resume' : 'Pause'}</span>`;
   document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
+  habitPage.renderCalendar(document.getElementById('hp-calendar'), monthGrid(habit, calendarMonth, today, userFrozenDates || []));
   renderJournal(habit);
 }
+// The month the calendar shows (null: this month). It goes back to this month whenever another habit is opened.
+let calendarMonth = null;
+document.getElementById('hp-calendar')?.addEventListener('click', e => {
+  const nav = e.target.closest('.cal-nav');
+  const habit = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (!nav || nav.disabled || !nav.dataset.cal || !habit) return;
+  calendarMonth = nav.dataset.cal;
+  const which = nav.getAttribute('aria-label');
+  habitPage.renderCalendar(document.getElementById('hp-calendar'), monthGrid(habit, calendarMonth, todayStr(), userFrozenDates || []));
+  const again = document.querySelector(`#hp-calendar .cal-nav[aria-label="${which}"]`);     // the calendar was redrawn: keep the focus where it was
+  (again && !again.disabled ? again : document.querySelector('#hp-calendar .cal-nav:not([disabled])'))?.focus();
+});
 // Every habit has an address, #habit/<id>, so Back, Forward, reload and bookmarks all work. The router calls
 // habitPageRouted whenever the address changes; the page is then shown from the address, never from memory.
 const BASE_TITLE = document.title;
@@ -4132,7 +4146,7 @@ function showHabitRoute(arrived) {
   }
   missing.hidden = true; body.hidden = false;
   const fresh = arrived || currentDetailsHabitId !== habit.id;
-  if (currentDetailsHabitId !== habit.id) document.getElementById('details-journal-input').value = '';
+  if (currentDetailsHabitId !== habit.id) { document.getElementById('details-journal-input').value = ''; calendarMonth = null; }
   currentDetailsHabitId = habit.id;
   renderHabitPage(habit);
   document.title = `${habit.name} \u00b7 Habitly`;

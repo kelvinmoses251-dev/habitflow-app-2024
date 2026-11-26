@@ -205,4 +205,10 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b5seed }], ['-dark', { seed: b5seed, colorScheme: 'dark' }], ['-desktop', { seed: b5seed, mobile: false }]]) {
     run('b5-habit-page' + tag, opts, async () => { await openHabit('c'); });
   }
+  const b5hist = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: { 'u-test': { xp: 380, streakShields: 0, frozenDates: [key(-9)], shieldUsedAt: Date.now() } }, habits: { ...b5seed.mock_fb_db.habits,
+    c: { ...b5seed.mock_fb_db.habits.c, completedDates: [...streak(8), key(-10), key(-11), key(-12), key(-15), key(-16), key(-20), key(-21), key(-22), key(-23), key(-27)] } } } };
+  const section = id => ev(`document.getElementById('${id}').scrollIntoView({ block: 'start' }); window.scrollBy(0, -70)`);
+  for (const [tag, opts] of [['', { seed: b5hist }], ['-dark', { seed: b5hist, colorScheme: 'dark' }], ['-desktop', { seed: b5hist, mobile: false }]]) {
+    run('b5-calendar' + tag, opts, async () => { await openHabit('c'); await section('hp-month'); await settle(400); });
+  }
 };

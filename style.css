@@ -953,6 +953,37 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .row-move { display: none; }
 /* Any touch screen (tablets too, where the row actions are always visible) reorders with Move up / Move down */
 @media (pointer: coarse) { .habit-item .row-move { display: grid; } }
+/* The habit page: the month calendar. Done days next to each other are joined by one band behind them. */
+.hp-calendar { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.cal-label { font-size: var(--fs-base); font-weight: 600; }
+.cal-nav { min-width: 44px; min-height: 44px; }
+.cal-nav:disabled { opacity: .3; cursor: default; }
+.cal { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.cal th { padding: var(--sp-1) 0; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); text-align: center; }
+.cal th abbr { text-decoration: none; }
+.cal td { position: relative; height: 40px; padding: 0; text-align: center; }
+.cal td.run-start::before, .cal td.run-mid::before, .cal td.run-end::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 32px; margin-top: -16px; background: var(--primary-soft); }
+.cal td.run-start::before { left: 50%; }
+.cal td.run-end::before { right: 50%; }
+.cal-num { position: relative; display: inline-grid; place-items: center; width: 32px; height: 32px; border: 2px solid transparent; border-radius: 50%; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--text-2); }
+.is-done .cal-num { background: var(--primary); color: var(--on-primary); font-weight: 600; }
+.is-shield .cal-num { background: var(--surface); border: 1.5px dashed var(--primary); color: var(--primary-ink); }
+.is-missed .cal-num { color: var(--text); }
+.is-missed .cal-num::after { content: ''; position: absolute; bottom: 2px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--border-strong); }
+.is-rest .cal-num, .is-paused .cal-num, .is-before .cal-num, .is-future .cal-num { color: var(--muted); opacity: .55; }
+.cal-day.is-today:not(.is-done) .cal-num { border-color: var(--primary-ink); color: var(--text); opacity: 1; }
+.cal-day.is-today.is-done .cal-num { border-color: var(--surface); outline: 2px solid var(--primary); }
+.is-late .cal-num::before { content: ''; position: absolute; top: -1px; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--warning); border: 1.5px solid var(--surface); }
+.cal-sum { font-size: var(--fs-sm); color: var(--text-2); }
+.cal-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); font-size: var(--fs-xs); color: var(--muted); }
+.cal-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.lg { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid transparent; }
+.lg.is-done { background: var(--primary); }
+.lg.is-shield { border: 1.5px dashed var(--primary); }
+.lg.is-missed { border-color: var(--border-strong); }
+.lg.is-rest { background: var(--surface-2); }
+
 /* The habit page */
 .hp-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
 .hp-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-left: calc(var(--sp-3) * -1); padding: 0 var(--sp-3); color: var(--text-2); }

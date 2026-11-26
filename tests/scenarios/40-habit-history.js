@@ -1,0 +1,55 @@
+// A habit's history on its page (roadmap batch 5): the month calendar, the charts, the year.
+module.exports = (scenario, c) => {
+  const { boot, ev, send, sleep, waitFor, signedIn, check, visible, noExceptions } = c;
+  const TZ = 'Africa/Lagos';
+  const day = n => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(Date.now() - n * 864e5);
+  const run = (from, to) => { const out = []; for (let n = from; n <= to; n++) out.push(day(n)); return out; };
+  const H = (name, o = {}) => ({ userId: 'u-test', name, category: 'health', frequency: 'daily', completedDates: [], createdAt: '2025-01-05T10:00:00Z', order: 1, ...o });
+  const seed = (habits, user = {}, extra = {}) => signedIn({ habitly_confirm: null, ...extra, mock_fb_db: { habits, users: { 'u-test': { xp: 300, streakShields: 0, frozenDates: [], shieldUsedAt: Date.now(), ...user } } } });
+  const rows = () => waitFor(`!!document.querySelector('#page-home .habit-item')`);
+  const size = (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 });
+  const text = sel => ev(`(document.querySelector(${JSON.stringify(sel)}) || {}).textContent || ''`);
+  const open = async id => { await ev(`location.hash = '#habit/${id}'`); await sleep(600); };
+  const monthName = n => new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: TZ }).format(new Date(new Date(day(0).slice(0, 7) + '-15T12:00:00Z').setUTCMonth(new Date(day(0) + 'T12:00:00Z').getUTCMonth() - n)));
+  const cls = d => ev(`(document.querySelector('#hp-calendar td[data-day="${d}"]') || { className: 'absent' }).className`);
+  const sameMonth = d => d.slice(0, 7) === day(0).slice(0, 7);
+
+  // ── 42: a month calendar with streak runs ────────────────
+  scenario('calendar: the month at a glance, with runs of days joined up', async () => {
+    await boot({ seed: seed({
+      a: H('Read', { completedDates: [...run(0, 3), day(6)], completedTimestamps: { [day(0)]: Date.now() - 4000000 } }),
+      n: H('New', { order: 2, createdAt: new Date(Date.now() - 2 * 864e5).toISOString() }),
+    }) }); await rows(); await sleep(300);
+    await open('a');
+    check('the habit page has a calendar, as a real table with weekday headings', await ev(`(() => { const t = document.querySelector('#hp-calendar table.cal'); return !!t && t.querySelectorAll('thead th[scope="col"]').length === 7 && !!document.getElementById(t.getAttribute('aria-labelledby')); })()`));
+    check('it opens on this month', (await text('#cal-label')).trim() === monthName(0), await text('#cal-label'));
+    check('weeks start on Monday', /Monday/.test(await text('#hp-calendar thead th')));
+    const today = await cls(day(0));
+    check('today is marked, and done', /is-today/.test(today) && /is-done/.test(today), today);
+    check('its label says so in words', /^[A-Z][a-z]+day [0-9]{1,2} [A-Z][a-z]+: done \(today\)$/.test(await ev(`document.querySelector('#hp-calendar td.is-today').getAttribute('aria-label')`)), await ev(`document.querySelector('#hp-calendar td.is-today').getAttribute('aria-label')`));
+    check('today ends a run of days', /run-end/.test(today), today);
+    if (sameMonth(day(1))) check('the day before is the middle of the run', /run-mid/.test(await cls(day(1))), await cls(day(1)));
+    if (sameMonth(day(3))) check('and the run starts three days back', /run-start/.test(await cls(day(3))), await cls(day(3)));
+    if (sameMonth(day(4))) check('a day that was due and not done reads as missed', /is-missed/.test(await cls(day(4))) && /missed/.test(await ev(`document.querySelector('#hp-calendar td[data-day="${day(4)}"]').getAttribute('aria-label')`)));
+    if (sameMonth(day(6))) check('a single done day stands alone', /run-single/.test(await cls(day(6))), await cls(day(6)));
+    check('a run is drawn as one band behind its days', await ev(`(() => { const td = document.querySelector('#hp-calendar td.run-end'); const b = getComputedStyle(td, '::before'); return b.content !== 'none' && b.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(b.height) > 20; })()`));
+    check('every day of the month has a label in words', await ev(`[...document.querySelectorAll('#hp-calendar td.cal-day')].every(td => /^[A-Z][a-z]+day [0-9]/.test(td.getAttribute('aria-label')))`));
+    check('a line sums the month up', /^[0-9]+ of [0-9]+ days done this month$/.test((await text('#cal-sum')).trim()), await text('#cal-sum'));
+    check('Next is off in the current month, Previous is on', await ev(`document.querySelector('.cal-nav[aria-label="Next month"]').disabled && !document.querySelector('.cal-nav[aria-label="Previous month"]').disabled`));
+    await ev(`document.querySelector('.cal-nav[aria-label="Previous month"]').focus(); document.querySelector('.cal-nav[aria-label="Previous month"]').click()`); await sleep(250);
+    check('Previous shows last month', (await text('#cal-label')).trim() === monthName(1), await text('#cal-label'));
+    check('the focus stays on the arrow just used', await ev(`document.activeElement === document.querySelector('.cal-nav[aria-label="Previous month"]')`));
+    check('no day is marked today there', (await ev(`document.querySelectorAll('#hp-calendar td.is-today').length`)) === 0);
+    await ev(`document.querySelector('.cal-nav[aria-label="Next month"]').click()`); await sleep(250);
+    check('Next comes back to this month', (await text('#cal-label')).trim() === monthName(0) && (await ev(`document.querySelectorAll('#hp-calendar td.is-today').length`)) === 1);
+    await ev(`__mockRemote('habits', 'a', { completedDates: ${JSON.stringify(run(0, 6))} })`); await sleep(500);
+    if (sameMonth(day(4))) check('the calendar keeps up when the data changes', /is-done/.test(await cls(day(4))));
+    await size(320, 568); await sleep(200);
+    check('320px: the calendar fits with no sideways scroll, arrows are thumb-sized', await ev(`document.documentElement.scrollWidth <= innerWidth && document.querySelector('#hp-calendar table').getBoundingClientRect().right <= innerWidth && [...document.querySelectorAll('.cal-nav')].every(b => b.getBoundingClientRect().height >= 44 && b.getBoundingClientRect().width >= 44)`));
+    await open('n');
+    check('a habit made two days ago cannot go back before it began', sameMonth(day(2)) ? await ev(`document.querySelector('.cal-nav[aria-label="Previous month"]').disabled`) : true);
+    check('days before it began are quiet, not "missed"', sameMonth(day(5)) ? /is-before/.test(await cls(day(5))) : true, await cls(day(5)));
+    check('opening another habit starts on this month again', (await text('#cal-label')).trim() === monthName(0));
+    noExceptions();
+  });
+};

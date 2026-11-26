@@ -534,9 +534,19 @@
     <!-- Profile -->
     <!-- A habit's own page (roadmap batch 5). Filled in by app.js with habit-history.js and habit-page.js -->
     <section id="page-habit" class="page">
-      <div class="page-content habit-page">
+      <div class="page-content habit-page" id="habit-missing" hidden>
+        <div class="card hp-missing">
+          <h1 class="page-title" id="habit-missing-title" tabindex="-1">This habit is not here</h1>
+          <p>It may have been deleted or archived, or the link belongs to a different account.</p>
+          <a class="btn-primary" href="#home">Go to Home</a>
+        </div>
+      </div>
+      <div class="page-content habit-page" id="habit-body">
         <header class="hp-head">
-          <button id="details-close" class="btn-ghost hp-back" type="button"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>Back</button>
+          <div class="hp-head-row">
+            <button id="details-close" class="btn-ghost hp-back" type="button"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>Back</button>
+            <button id="hp-link" class="btn-ghost hp-link" type="button"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>Copy link</button>
+          </div>
           <div class="hp-title">
             <span class="cat-ico hp-ico" id="hp-ico" aria-hidden="true"></span>
             <div class="hp-title-text">

@@ -70,4 +70,50 @@ module.exports = (scenario, c) => {
     check('if the habit is deleted while its page is open, the page leaves for Home', await ev(`document.getElementById('page-home').classList.contains('active')`));
     noExceptions();
   });
+  // ── 50: a link for every habit ───────────────────────────
+  const clipSpy = `window.__clip = []; try { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.__clip.push(t); return Promise.resolve(); } } }); } catch (_) {}`;
+  const loaded = () => waitFor(`!!window.__mockDB && !document.getElementById('loading-screen') && !document.getElementById('app').classList.contains('hidden')`);
+
+  scenario('habit link: each habit has an address, and Back, Forward and reload work', async () => {
+    await boot({ seed: seed(three()), initScript: clipSpy }); await rows(); await sleep(300);
+    const title = await ev(`document.title`);
+    await openFromRow('a');
+    check('the address names the habit', (await ev(`location.hash`)) === '#habit/a', await ev(`location.hash`));
+    check('the tab title is the habit', (await ev(`document.title`)) === 'Read 10 pages · Habitly', await ev(`document.title`));
+    await ev(`history.back()`); await sleep(450);
+    check('the browser\'s Back goes to Home', (await ev(`location.hash`)) !== '#habit/a' && await ev(`document.getElementById('page-home').classList.contains('active')`));
+    check('and the title goes back too', (await ev(`document.title`)) === title, await ev(`document.title`));
+    await ev(`history.forward()`); await sleep(450);
+    check('Forward returns to the habit', (await onPage()) && (await text('#details-habit-name')).trim() === 'Read 10 pages');
+    await ev(`location.reload()`); await sleep(500); await loaded(); await sleep(900);
+    check('a reload stays on the habit', (await onPage()) && (await text('#details-habit-name')).trim() === 'Read 10 pages' && (await text('#details-current-streak')).trim() === '12', await text('#details-habit-name'));
+    check('and the page body is shown, not the "not here" message', (await visible('#habit-body')) && !(await visible('#habit-missing')));
+    await ev(`document.getElementById('details-close').click()`); await sleep(450);
+    check('Back on a page reached by its address goes Home', await ev(`document.getElementById('page-home').classList.contains('active')`));
+    await openFromRow('b');
+    await ev(`document.getElementById('hp-link').click()`); await sleep(300);
+    const copied = await ev(`window.__clip`);
+    check('Copy link copies the habit\'s full address', copied.length === 1 && /^https?:\/\/[^#]+#habit\/b$/.test(copied[0]), JSON.stringify(copied));
+    check('and says so', await ev(`[...document.querySelectorAll('.toast')].some(t => /Link copied/.test(t.textContent))`));
+    check('the link button is thumb-sized and named', await ev(`(() => { const b = document.getElementById('hp-link'); return b.tagName === 'BUTTON' && b.getBoundingClientRect().height >= 44 && /link/i.test(b.textContent + (b.getAttribute('aria-label') || '')); })()`));
+    noExceptions();
+  });
+
+  scenario('habit link: an address for a habit that is not there says so plainly', async () => {
+    await boot({ seed: seed({ ...three(), z: H('Old', { order: 9, archivedAt: Date.now() - 864e5, archivedOn: day(1) }) }), hash: '#habit/nope' }); await loaded(); await sleep(900);
+    check('an unknown habit shows a plain message, not a blank page', (await onPage()) && (await visible('#habit-missing')) && !(await visible('#habit-body')) && /not here/i.test(await text('#habit-missing')));
+    check('with a way Home', await ev(`(() => { const a = document.querySelector('#habit-missing a, #habit-missing button'); return !!a && /home/i.test(a.textContent) && a.getBoundingClientRect().height >= 44; })()`));
+    check('the title stays the app\'s', !/nope/.test(await ev(`document.title`)));
+    await ev(`document.querySelector('#habit-missing a, #habit-missing button').click()`); await sleep(450);
+    check('it leads Home', await ev(`document.getElementById('page-home').classList.contains('active')`));
+    await ev(`location.hash = '#habit/z'`); await sleep(500);
+    check('an archived habit\'s address says the same', (await visible('#habit-missing')) && !(await visible('#habit-body')));
+    await ev(`location.hash = '#habit/' + encodeURIComponent('<img src=x onerror=window.__x=1>')`); await sleep(500);
+    check('a hostile address does nothing but show the message', (await visible('#habit-missing')) && (await ev(`window.__x`)) === undefined && !(await ev(`!!document.querySelector('#page-habit img')`)));
+    await ev(`location.hash = '#habit/a'`); await sleep(500);
+    check('a good address typed in opens the habit', (await visible('#habit-body')) && (await text('#details-habit-name')).trim() === 'Read 10 pages');
+    await ev(`location.hash = '#habit/b'`); await sleep(500);
+    check('and going straight to another habit shows that one', (await text('#details-habit-name')).trim() === 'Run <b>far</b>' && (await text('#details-total-days')).trim() === '2');
+    noExceptions();
+  });
 };

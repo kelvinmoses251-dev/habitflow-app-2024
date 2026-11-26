@@ -957,6 +957,14 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .hp-head { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
 .hp-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-left: calc(var(--sp-3) * -1); padding: 0 var(--sp-3); color: var(--text-2); }
 .hp-back .icon { width: 18px; height: 18px; }
+.hp-head-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.hp-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-right: calc(var(--sp-3) * -1); padding: 0 var(--sp-3); color: var(--text-2); }
+.hp-link .icon { width: 16px; height: 16px; }
+.habit-page[hidden] { display: none; }
+.hp-missing { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); }
+.hp-missing p { color: var(--text-2); }
+.hp-missing .btn-primary { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+.hp-missing .page-title { outline: none; }
 .hp-title { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; width: 100%; }
 .hp-ico { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-lg); }
 .hp-ico .icon { width: 22px; height: 22px; }

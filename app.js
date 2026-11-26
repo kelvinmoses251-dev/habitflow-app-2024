@@ -1039,8 +1039,9 @@ function initRouter() {
   const links  = document.querySelectorAll('.nav-link');
   const bnItems = document.querySelectorAll('.bn-item');
 
-  function navigate(page) {
-    page = page || 'home';
+  function navigate(route) {
+    const [name, ...rest] = String(route || 'home').split('/');
+    const page = name || 'home', arg = rest.join('/');   // "habit/<id>": the page, and which habit
     pages.forEach(p => {
       const active = p.id === `page-${page}`;
       p.classList.toggle('active', active);
@@ -1048,7 +1049,7 @@ function initRouter() {
     const tab = page === 'habit' ? 'home' : page;       // a habit's page belongs to Home
     links.forEach(l    => { const on = l.dataset.page === tab; l.classList.toggle('active', on); on ? l.setAttribute('aria-current', 'page') : l.removeAttribute('aria-current'); });
     bnItems.forEach(b  => { const on = b.dataset.page === tab; b.classList.toggle('active', on); on ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'); });
-    habitPageRouted(page === 'habit');
+    habitPageRouted(page === 'habit', arg);
     if (page === 'stats')   renderStats();
     if (page === 'profile') renderProfile();
   }
@@ -4092,27 +4093,61 @@ function renderHabitPage(habit) {
   document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
   renderJournal(habit);
 }
-let habitPageCameFrom = '';                    // where Back goes: the page the person was on
+// Every habit has an address, #habit/<id>, so Back, Forward, reload and bookmarks all work. The router calls
+// habitPageRouted whenever the address changes; the page is then shown from the address, never from memory.
+const BASE_TITLE = document.title;
+let habitPageCameFrom = '';                    // set when the page was opened from inside the app: Back can go back
+let habitRouteId = null;                       // the habit the address names (it may not have loaded yet)
+let habitLeaving = false;                      // Back was pressed: do not redraw (or declare it missing) on the way out
 function openHabitPage(id) {
-  const habit = allHabits.find(x => x.id === id);
-  if (!habit) return;
+  if (!allHabits.some(x => x.id === id)) return;
   habitPageCameFrom = location.hash || '#home';
-  currentDetailsHabitId = id;
-  document.getElementById('details-journal-input').value = '';
-  renderHabitPage(habit);
-  location.hash = '#habit';
+  location.hash = '#habit/' + encodeURIComponent(id);
   track('habit_page_opened');
 }
-// Called by the router whenever the page shown changes
-function habitPageRouted(showing) {
-  if (!showing) { if (!habitPageActive()) currentDetailsHabitId = null; return; }
-  const habit = allHabits.find(x => x.id === currentDetailsHabitId);
-  if (!habit) { location.replace('#home'); return; }       // nothing to show (a reload, or a stale address)
-  window.scrollTo(0, 0);
-  document.getElementById('details-habit-name').focus({ preventScroll: true });
+function habitPageRouted(showing, arg = '') {
+  habitLeaving = false;
+  if (!showing) { currentDetailsHabitId = null; habitRouteId = null; document.title = BASE_TITLE; return; }
+  try { habitRouteId = decodeURIComponent(arg) || null; } catch (_) { habitRouteId = null; }
+  showHabitRoute(true);
 }
+// Show whatever the address names. arrived: the address has just changed (so move to the top and take the focus).
+function showHabitRoute(arrived) {
+  if (habitLeaving && !arrived) return;
+  const body = document.getElementById('habit-body'), missing = document.getElementById('habit-missing');
+  if (!habitsLoaded) { body.hidden = true; missing.hidden = true; return; }      // shown as soon as the habits arrive
+  const habit = habitRouteId ? allHabits.find(x => x.id === habitRouteId && !x.archivedAt) : null;
+  if (!habit) {
+    if (currentDetailsHabitId && !arrived) {             // it was on screen and has gone (deleted, or archived elsewhere)
+      if (!allHabits.some(x => x.id === currentDetailsHabitId)) toast('That habit has been removed.', 'info');
+      currentDetailsHabitId = null; habitPageCameFrom = '';
+      location.hash = '#home';
+      return;
+    }
+    currentDetailsHabitId = null;
+    body.hidden = true; missing.hidden = false;
+    document.title = BASE_TITLE;
+    if (arrived) { window.scrollTo(0, 0); document.getElementById('habit-missing-title').focus({ preventScroll: true }); }
+    return;
+  }
+  missing.hidden = true; body.hidden = false;
+  const fresh = arrived || currentDetailsHabitId !== habit.id;
+  if (currentDetailsHabitId !== habit.id) document.getElementById('details-journal-input').value = '';
+  currentDetailsHabitId = habit.id;
+  renderHabitPage(habit);
+  document.title = `${habit.name} \u00b7 Habitly`;
+  if (fresh) { window.scrollTo(0, 0); document.getElementById('details-habit-name').focus({ preventScroll: true }); }
+}
+document.getElementById('hp-link')?.addEventListener('click', async () => {
+  if (!currentDetailsHabitId) return;
+  const url = location.origin + location.pathname + '#habit/' + encodeURIComponent(currentDetailsHabitId);
+  try { await navigator.clipboard.writeText(url); toast('Link copied', 'success'); }
+  catch (_) { toast('Copy this address from the address bar to share the habit.', 'info', 6000); }
+  track('habit_link_copied');
+});
 function leaveHabitPage() {
   const id = currentDetailsHabitId, cameFromApp = !!habitPageCameFrom;
+  habitLeaving = true;
   const back = habitPageCameFrom || '#home';
   habitPageCameFrom = '';
   if (cameFromApp && history.length > 1) history.back(); else location.hash = back;
@@ -4191,12 +4226,7 @@ document.getElementById('details-journal-list').addEventListener('click', async 
 const originalRenderHabits = renderHabits;
 renderHabits = function() {
   originalRenderHabits();
-  if (!currentDetailsHabitId || !habitPageActive()) return;
-  const h = allHabits.find(x => x.id === currentDetailsHabitId);
-  if (h && !h.archivedAt) { renderHabitPage(h); return; }
-  if (!h) toast('That habit has been removed.', 'info');
-  habitPageCameFrom = '';
-  location.hash = '#home';
+  if (habitPageActive()) showHabitRoute(false);
 };
 
 // ── Timer Logic ───────────────────────────────────────────

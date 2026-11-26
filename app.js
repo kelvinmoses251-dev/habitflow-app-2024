@@ -696,6 +696,7 @@ function refreshShieldOffer(mayRaise = false) {
 // Opened from the ring on Home and from the all-done card. In the evening the app may offer it once, through the
 // moment card (and only if no other card has been raised today).
 const RECAP_FROM_HOUR = 20;
+const recapOfferOn = () => prefOn('habitly_recap');         // Profile: "Evening recap". The recap itself is always a tap away.
 const recapOpen = () => { const m = document.getElementById('recap-modal'); return !!m && !m.classList.contains('hidden'); };
 function renderRecapSheet() {
   const today = todayStr();
@@ -717,7 +718,7 @@ function openRecap() {
 }
 function maybeOfferRecap() {
   if (!currentUser || !habitsLoaded || !userDocLoaded || moments.momentShowing() || recapOpen()) return;
-  if (new Date().getHours() < RECAP_FROM_HOUR) return;
+  if (!recapOfferOn() || new Date().getHours() < RECAP_FROM_HOUR) return;
   const today = todayStr(), r = dayRecap(allHabits, today, { frozen: userFrozenDates || [] });
   if (!r.total || !moments.momentAllowed(currentUser.uid, today)) return;
   moments.markMoment(currentUser.uid, today);
@@ -3691,6 +3692,11 @@ if (analyticsToggle) {
     localStorage.setItem('habitly_analytics', e.target.checked ? 'on' : 'off');
     toast(e.target.checked ? 'Anonymous usage data is on.' : 'Anonymous usage data is off.', 'info');
   });
+}
+const recapToggle = document.getElementById('recap-toggle');
+if (recapToggle) {
+  recapToggle.checked = recapOfferOn();
+  recapToggle.addEventListener('change', e => { try { localStorage.setItem('habitly_recap', e.target.checked ? 'on' : 'off'); } catch (_) {} if (!e.target.checked) moments.hideMoment('recap'); });
 }
 const moodToggle = document.getElementById('mood-toggle');
 if (moodToggle) {

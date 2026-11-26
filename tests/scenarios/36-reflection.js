@@ -7,7 +7,7 @@ module.exports = (scenario, c) => {
   const day = n => dayIn(n);
   const run = (from, to) => { const out = []; for (let n = from; n <= to; n++) out.push(day(n)); return out; };
   const H = (name, o = {}) => ({ userId: 'u-test', name, category: 'health', frequency: 'daily', completedDates: [], createdAt: '2025-01-05T10:00:00Z', order: 1, ...o });
-  const seed = (habits, user = {}, extra = {}) => signedIn({ habitly_confirm: null, ...extra, mock_fb_db: { habits, users: { 'u-test': { xp: 300, streakShields: 1, frozenDates: [], ...user } } } });
+  const seed = (habits, user = {}, extra = {}) => signedIn({ habitly_confirm: null, habitly_recap: null, ...extra, mock_fb_db: { habits, users: { 'u-test': { xp: 300, streakShields: 1, frozenDates: [], ...user } } } });
   const rows = () => waitFor(`!!document.querySelector('#page-home .habit-item')`);
   const size = (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 700 });
   const text = sel => ev(`(document.querySelector(${JSON.stringify(sel)}) || {}).textContent || ''`);
@@ -152,6 +152,24 @@ module.exports = (scenario, c) => {
     await ev(`document.getElementById('recap-close').click()`);
     check('and comes once the recap is closed', await waitFor(`!document.getElementById('level-up-modal').classList.contains('hidden')`, 2500));
     await ev(`document.getElementById('level-up-claim-btn').click()`); await sleep(300);
+    noExceptions();
+  });
+  scenario('recap: the evening offer has a switch in Profile', async () => {
+    const evening = pickZone(20, 23);
+    if (!evening) return check('an evening timezone exists right now', false);
+    const two = tz => ({ a: H('Read', { completedDates: [dayIn(1, tz)] }), b: H('Run', { order: 2, completedDates: [dayIn(1, tz)] }) });
+    await boot({ tz: evening, seed: seed(two(evening), {}, { habitly_recap: 'off' }) }); await rows(); await sleep(900);
+    check('switched off: no card in the evening', (await moment()) === '');
+    check('the ring still opens the recap by hand', await ev(`(() => { document.getElementById('today-ring').click(); return !document.getElementById('recap-modal').classList.contains('hidden'); })()`));
+    await ev(`document.getElementById('recap-close').click()`); await sleep(300);
+    await ev(`location.hash = '#profile'`); await sleep(400);
+    check('Profile has the switch, showing it is off', await ev(`(() => { const t = document.getElementById('recap-toggle'); return !!t && t.type === 'checkbox' && !t.checked && !!t.getAttribute('aria-label'); })()`));
+    await ev(`document.getElementById('recap-toggle').click()`); await sleep(200);
+    check('switching it on is remembered', (await ev(`localStorage.getItem('habitly_recap')`)) === 'on');
+    await boot({ tz: evening, seed: seed(two(evening)) }); await rows(); await sleep(900);
+    check('it is on unless switched off', (await moment()) === 'recap' && await ev(`(() => { location.hash = '#profile'; return true; })()`));
+    await sleep(400);
+    check('and Profile shows it on', await ev(`document.getElementById('recap-toggle').checked`));
     noExceptions();
   });
 };

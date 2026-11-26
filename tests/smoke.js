@@ -133,7 +133,9 @@ function check(name, cond, detail) {
   const user = (over = {}) => JSON.stringify({ uid: 'u-test', displayName: 'Test User', email: 'test@example.com', photoURL: null, metadata: { creationTime: '2026-01-05T10:00:00Z' }, ...over });
   // Most older scenarios walk through the "Mark as complete?" dialog, so the shared seed switches it on.
   // The real default (one tap, with Undo) is covered in 24-home.js, which passes habitly_confirm: null.
-  const signedIn = (extra = {}) => ({ mock_fb_user: user(), 'habitly_seen_u-test': '1', habitly_returning: '1', habitly_confirm: 'on', ...extra });
+  // The evening recap offer depends on the clock, so the shared seed switches it off (Profile, "Evening recap"):
+  // the suite must behave the same at 9am and 9pm. 36-reflection.js passes habitly_recap: null to test the offer.
+  const signedIn = (extra = {}) => ({ mock_fb_user: user(), 'habitly_seen_u-test': '1', habitly_returning: '1', habitly_confirm: 'on', habitly_recap: 'off', ...extra });
   const text = sel => ev(`(document.querySelector(${JSON.stringify(sel)})||{}).textContent`);
   const visible = sel => ev(`(()=>{const e=document.querySelector(${JSON.stringify(sel)}); return !!e && !e.classList.contains('hidden') && getComputedStyle(e).display!=='none' && e.getClientRects().length>0})()`);
   const noExceptions = () => check('no uncaught exceptions', !logs.some(l => l.t === 'exception'), logs.filter(l => l.t === 'exception').map(l => l.m).join(' | ').slice(0, 300));

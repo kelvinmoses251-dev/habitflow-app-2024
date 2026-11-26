@@ -18,6 +18,8 @@ import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=6";
+import { LEVELS, levelInfo, xpHistory } from "./motivation.js?v=1";
+import * as moments from "./moments.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
 // ── Firebase Init ────────────────────────────────────────
@@ -419,44 +421,10 @@ function getUserBadge(maxStreak) {
 }
 
 // ── Levels ──────────────────────────────────────────────────
-const LEVEL_TITLES = [
-  { level: 1,  minXP: 0,    title: 'Starter' },
-  { level: 2,  minXP: 100,  title: 'Builder' },
-  { level: 3,  minXP: 250,  title: 'Steady' },
-  { level: 4,  minXP: 450,  title: 'Consistent' },
-  { level: 5,  minXP: 700,  title: 'Dedicated' },
-  { level: 6,  minXP: 1000, title: 'Committed' },
-  { level: 7,  minXP: 1400, title: 'Disciplined' },
-  { level: 8,  minXP: 1900, title: 'Expert' },
-  { level: 9,  minXP: 2500, title: 'Master' },
-  { level: 10, minXP: 3200, title: 'Grandmaster' }
-];
-
+// The ladder itself (ten levels, what each means) lives in motivation.js, with the rest of what is worked out
+// from a person's record.
 let currentUserXP = 0;
-
-function getLevelInfo(totalXP) {
-  const xp = Math.max(0, totalXP || 0);
-  let cur = LEVEL_TITLES[0];
-  let next = LEVEL_TITLES[1];
-  for (let i = 0; i < LEVEL_TITLES.length; i++) {
-    if (xp >= LEVEL_TITLES[i].minXP) {
-      cur = LEVEL_TITLES[i];
-      next = LEVEL_TITLES[i + 1] || { level: cur.level + 1, minXP: cur.minXP + 800, title: 'Grandmaster' };
-    } else break;
-  }
-  const xpInCurrentLevel = xp - cur.minXP;
-  const xpRequiredForNext = next.minXP - cur.minXP;
-  return {
-    level: cur.level,
-    title: cur.title,
-    totalXP: xp,
-    xpInCurrentLevel,
-    xpRequiredForNext,
-    levelTargetXP: next.minXP,
-    progressPct: Math.min(100, Math.max(0, Math.round((xpInCurrentLevel / xpRequiredForNext) * 100))),
-    nextTitle: next.title
-  };
-}
+const getLevelInfo = levelInfo;
 
 function updateXPUI() {
   const info = getLevelInfo(currentUserXP);
@@ -471,7 +439,24 @@ function updateXPUI() {
   // Profile rows
   set('s-level-rank', `Level ${info.level} · ${info.title}`);
   set('s-total-xp', `${info.totalXP.toLocaleString()} XP`);
+  document.getElementById('open-level')?.setAttribute('aria-label', `Level ${info.level}, ${info.title}. Open your level page`);
+  if (levelPageOpen()) renderLevelPage();
 }
+
+// ── The level page: what the level means, what is next, where the XP came from ──
+const levelPageOpen = () => { const m = document.getElementById('level-modal'); return !!m && !m.classList.contains('hidden'); };
+function renderLevelPage() {
+  const info = getLevelInfo(currentUserXP);
+  document.getElementById('level-title').textContent = `Level ${info.level} · ${info.title}`;
+  moments.renderLevel(document.getElementById('level-body'), { info, levels: LEVELS, history: xpHistory(allHabits, todayStr()), today: todayStr() });
+}
+function openLevelPage() {
+  renderLevelPage();
+  document.getElementById('level-modal').classList.remove('hidden');
+  track('level_page_opened');
+}
+['open-level', 'open-level-profile'].forEach(id => document.getElementById(id)?.addEventListener('click', openLevelPage));
+document.getElementById('level-close')?.addEventListener('click', () => document.getElementById('level-modal').classList.add('hidden'));
 
 function playLevelUpSound() {
   try {
@@ -962,7 +947,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
-  ['share-card-modal', 'share-card-close'], ['level-up-modal', 'level-up-claim-btn'],
+  ['share-card-modal', 'share-card-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'], ['details-modal', 'details-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
@@ -1522,6 +1507,7 @@ function subscribeToHabits() {
     renderHabits();
     if (!document.getElementById('archive-modal')?.classList.contains('hidden')) renderArchive();   // keep an open archive current
     if (!document.getElementById('library-modal')?.classList.contains('hidden')) renderLibrary();   // and "Added" in an open library
+    if (levelPageOpen()) renderLevelPage();
     if (userDocLoaded) updateStreak();   // before that, shield data is still defaults
     syncUserStats();
 

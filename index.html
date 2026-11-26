@@ -356,11 +356,11 @@
               <span class="tile-value" id="greeting-streak">0</span>
               <span class="tile-sub">days</span>
             </button>
-            <div class="stat-tile">
+            <button type="button" id="open-level" class="stat-tile stat-tile-btn" aria-label="Level 1, Starter. Open your level page">
               <span class="tile-label"><svg class="icon" aria-hidden="true"><use href="#i-award"/></svg>Level</span>
               <span class="tile-value" id="user-level-badge">1</span>
               <span class="tile-sub" id="user-level-title">Starter</span>
-            </div>
+            </button>
             <div class="stat-tile" id="greeting-shield-badge" title="A streak shield covers one missed day">
               <span class="tile-label"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Shield</span>
               <span class="tile-value" id="greeting-shield-count">1</span>
@@ -613,7 +613,7 @@
             </div>
             <div class="setting-row">
               <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-award"/></svg><span class="setting-label">Level</span></div>
-              <span id="s-level-rank" class="setting-val">Level 1 · Starter</span>
+              <button id="open-level-profile" class="btn-link" type="button"><span id="s-level-rank">Level 1 · Starter</span><span class="sr-only">. Open your level page</span></button>
             </div>
             <div class="setting-row">
               <div class="setting-left"><svg class="icon setting-icon" aria-hidden="true"><use href="#i-trend-up"/></svg><span class="setting-label">Total XP</span></div>
@@ -938,6 +938,19 @@
 </div>
 
 <!-- Level up -->
+<!-- The level page: what the level means, the ladder, where the XP came from (drawn by moments.js) -->
+<div id="level-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="level-title">
+  <div class="dialog dialog-scroll">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <p class="dialog-eyebrow">Your level</p>
+    <h2 class="dialog-title" id="level-title">Level 1 · Starter</h2>
+    <div id="level-body" class="level-body"></div>
+    <div class="dialog-actions">
+      <button id="level-close" data-dismiss class="btn-secondary" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="level-up-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Level up">
   <div class="dialog dialog-narrow">
     <span class="sheet-handle" aria-hidden="true"></span>

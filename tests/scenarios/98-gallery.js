@@ -153,4 +153,10 @@ module.exports = (scenario, c) => {
   run('b3-archive', { seed: b3seed }, async () => { await ready(); await ev(`location.hash='#profile'`); await settle(); await ev(`document.getElementById('open-archive-btn').click()`); await settle(); });
   run('b3-empty', { seed: signedIn() }, async () => { await ready(); await waitFor(`!document.getElementById('empty-state').classList.contains('hidden')`); await ev(`document.getElementById('empty-state').scrollIntoView({block:'start'})`); await settle(); });
 
+  // ── Batch 4: the completion moment and motivation ─────────
+  const b4seed = { ...signedIn(), habitly_confirm: null, mock_fb_db: db };
+  for (const [tag, opts] of [['', { seed: b4seed }], ['-dark', { seed: b4seed, colorScheme: 'dark' }], ['-desktop', { seed: b4seed, mobile: false }]]) {
+    run('b4-level' + tag, opts, async () => { await ready(); await settle(); await ev(`document.getElementById('open-level').click()`); await settle(); });
+  }
+
 };

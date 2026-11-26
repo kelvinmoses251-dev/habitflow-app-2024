@@ -166,3 +166,23 @@ export function moodInsights(habits) {
   if (hard && hard.avg <= 2 && !(out.length && hard === best)) out.push({ kind: 'hard', name: hard.name, avg: Math.round(hard.avg * 10) / 10, count: hard.count });
   return out;
 }
+
+// ── The day's recap ────────────────────────────────────────
+// What happened today, for the end-of-day sheet: what got done, what is still open, the XP it earned, the streak,
+// how it felt, and how many daily habits are due tomorrow.
+export function dayRecap(habits, today, { frozen = [] } = {}) {
+  const all = list(habits), frozenDays = Array.isArray(frozen) ? frozen : [];
+  const done = all.filter(h => !h.archivedAt && doneDays(h).includes(today));
+  const open = all.filter(h => rules.isOpenOn(h, today));
+  const owed = owedOn(all, today);
+  const bonus = owed.length > 0 && owed.every(h => doneDays(h).includes(today));
+  const notes = done.map(h => moodOf(h, today)).filter(v => v !== null);
+  const tomorrow = rules.shiftDay(today, 1);
+  return {
+    day: today, done, open, total: done.length + open.length, bonus,
+    xp: done.length * XP_PER_HABIT + (bonus ? XP_DAILY_BONUS : 0),
+    streak: all.filter(h => rules.baseFreq(h) === 'daily' && !h.archivedAt && !rules.hasEndedOn(h, today)).reduce((best, h) => Math.max(best, rules.habitStreak(h, today, frozenDays)), 0),
+    moodAvg: notes.length ? Math.round((notes.reduce((a, b) => a + b, 0) / notes.length) * 10) / 10 : null,
+    tomorrowDue: all.filter(h => rules.baseFreq(h) === 'daily' && rules.isDueOn(h, tomorrow)).length,
+  };
+}

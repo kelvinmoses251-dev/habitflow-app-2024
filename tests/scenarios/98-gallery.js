@@ -179,4 +179,10 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b4seed }], ['-dark', { seed: b4seed, colorScheme: 'dark' }], ['-desktop', { seed: b4seed, mobile: false }]]) {
     run('b4-mood' + tag, opts, async () => { await ready(); await settle(); await ev(`document.querySelector('.habit-item[data-id="d"] .habit-check').click()`); await waitFor(`!!document.querySelector('.toast .toast-moods')`); await settle(300); await ev(`document.querySelector('.toast .mood-btn[data-mood="4"]').click()`); await settle(400); });
   }
+  const b4day = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: db.users, habits: { ...db.habits,
+    a: { ...db.habits.a, moods: { [today]: 4 } }, b: { ...db.habits.b, moods: { [today]: 5 } },
+    g: mk('Drink water', 'health', 7, streak(2), { target: { amount: 8, unit: 'glasses', step: 1 }, progress: { [today]: 5 } }) } } };
+  for (const [tag, opts] of [['', { seed: b4day }], ['-dark', { seed: b4day, colorScheme: 'dark' }], ['-desktop', { seed: b4day, mobile: false }]]) {
+    run('b4-recap' + tag, opts, async () => { await ready(); await settle(); await ev(`document.getElementById('today-ring').click()`); await settle(); });
+  }
 };

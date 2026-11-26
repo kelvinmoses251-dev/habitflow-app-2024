@@ -16,7 +16,7 @@ module.exports = (scenario, c) => {
     check('summary line says 1 left', (await text('#summary-line')) === '1 left today', await text('#summary-line'));
     const off = +(await ev(`document.getElementById('ring-fg').style.strokeDashoffset`));
     check('arc covers two thirds', Math.abs(off - RING / 3) < 1, off);
-    check('screen readers get the sentence', (await ev(`document.getElementById('today-ring').getAttribute('aria-label')`)) === '2 of 3 habits done today');
+    check('screen readers get the sentence', (await ev(`document.getElementById('today-ring').getAttribute('aria-label')`)) === "2 of 3 habits done today. Open today's recap");   // the ring is a button since batch 4
     check('not marked complete yet', (await ev(`document.getElementById('today-ring').classList.contains('complete')`)) === false);
   });
 
@@ -29,7 +29,7 @@ module.exports = (scenario, c) => {
     await boot({ seed: signedIn() });
     await waitFor(`!document.getElementById('empty-state').classList.contains('hidden')`);
     check('empty: "No habits yet"', (await text('#summary-line')) === 'No habits yet');
-    check('empty: ring label', (await ev(`document.getElementById('today-ring').getAttribute('aria-label')`)) === 'No habits yet');
+    check('empty: ring label', (await ev(`document.getElementById('today-ring').getAttribute('aria-label')`)) === "No habits yet. Open today's recap");
   });
 
   scenario('week strip: seven days, today marked, filled = all done, tinted = some done', async () => {

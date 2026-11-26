@@ -85,6 +85,16 @@ export function queueDialog(modal, prepare) {
   });
 }
 export function resetCelebrations() { waiting.length = 0; }
+// A celebration card was left for another dialog (its Share, or the recap). Whatever is queued next waits until
+// that dialog has closed too, instead of opening on top of it.
+export function holdFor(modal) {
+  if (!showing || !modal) return;
+  waiting.unshift(done => {
+    if (modal.classList.contains('hidden')) return done();
+    const watch = new MutationObserver(() => { if (modal.classList.contains('hidden')) { watch.disconnect(); done(); } });
+    watch.observe(modal, { attributes: true, attributeFilter: ['class'] });
+  });
+}
 
 // ── The milestone card ─────────────────────────────────────
 let milestone = null;
@@ -224,4 +234,25 @@ export function moodRow(labels, onPick) {
     onPick(Number(b.dataset.mood));
   });
   return row;
+}
+
+// ── The day's recap ────────────────────────────────────────
+// recap: motivation.dayRecap(...). moodOf(habit) -> 1..5 or null; moods: the five labels; countOf(habit) -> "3 / 8 glasses" or ''.
+export function renderRecap(body, { recap, moodOf, moods, countOf }) {
+  const n = recap.done.length, total = recap.total;
+  const head = total === 0 ? 'Nothing was due today' : `${n} of ${total} done`;
+  const line = total === 0 ? 'A free day. Enjoy it.' : recap.open.length === 0 ? 'Everything for today is done.' : `${recap.open.length} still open. There is time.`;
+  const doneRows = recap.done.map(h => { const m = moodOf(h); return `<li><span class="rc-tick" aria-hidden="true">${icon('check')}</span><span class="rc-name">${esc(h.name)}</span>${m ? `<span class="rc-mood" title="${esc(moods[m - 1])}">${icon('mood-' + m)}<span class="sr-only">Felt ${esc(moods[m - 1].toLowerCase())}</span></span>` : ''}</li>`; }).join('');
+  const openRows = recap.open.map(h => { const count = countOf(h); return `<li><span class="rc-tick is-open" aria-hidden="true"></span><span class="rc-name">${esc(h.name)}${count ? `<span class="rc-count">${esc(count)}</span>` : ''}</span><button type="button" class="btn-link rc-do" data-recap-complete="${esc(h.id)}" aria-label="Complete ${esc(h.name)}">Complete</button></li>`; }).join('');
+  body.innerHTML = `
+    <div class="recap-head"><strong id="recap-count">${head}</strong><span>${line}</span></div>
+    <dl class="recap-stats">
+      <div><dt>XP today</dt><dd id="recap-xp">+${num(recap.xp)}</dd></div>
+      <div><dt>Streak</dt><dd id="recap-streak">${num(recap.streak)} ${recap.streak === 1 ? 'day' : 'days'}</dd></div>
+      <div><dt>Tomorrow</dt><dd id="recap-tomorrow">${num(recap.tomorrowDue)} ${recap.tomorrowDue === 1 ? 'habit' : 'habits'}</dd></div>
+    </dl>
+    ${recap.bonus ? '<p class="recap-bonus">Full day: every daily habit done, +100 XP.</p>' : ''}
+    ${recap.moodAvg !== null ? `<p class="sheet-note" id="recap-mood">How it felt today: ${esc(moods[Math.round(recap.moodAvg) - 1].toLowerCase())} on average.</p>` : ''}
+    ${doneRows ? `<h3 class="level-h">Done</h3><ul class="recap-list" id="recap-done">${doneRows}</ul>` : ''}
+    ${openRows ? `<h3 class="level-h">Still open</h3><ul class="recap-list" id="recap-open">${openRows}</ul>` : ''}`;
 }

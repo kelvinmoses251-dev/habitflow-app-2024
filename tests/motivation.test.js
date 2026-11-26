@@ -247,3 +247,55 @@ test('moodInsights: one habit is never both the best and the hard one', async ()
   const great = H('Great', [1, 2, 3], { moods: { [ago(1)]: 5, [ago(2)]: 5, [ago(3)]: 5 } });
   assert.deepEqual(moodInsights([great]), [{ kind: 'best', name: 'Great', avg: 5, count: 3 }]);
 });
+
+// ── The day's recap ────────────────────────────────────────
+test('dayRecap: what was done, what is still open, the XP, the streak and tomorrow', async () => {
+  const { dayRecap } = await load();
+  const habits = [
+    H('Read', [0, 1, 2], { moods: { [ago(0)]: 4 } }),
+    H('Run'),
+    H('Water', [], { target: { amount: 8, unit: 'glasses', step: 1 }, progress: { [ago(0)]: 3 } }),   // part-way is still open
+    H('Swim', [], { pauses: [{ from: ago(3) }] }),
+    H('Call home', [], { frequency: 'weekly' }),
+    H('Gym', [], { schedule: { type: 'days', days: [4] } }),                                         // Thursdays: rests today, due tomorrow
+  ];
+  const r = dayRecap(habits, TODAY);
+  assert.deepEqual(r.done.map(h => h.name), ['Read']);
+  assert.deepEqual(r.open.map(h => h.name), ['Run', 'Water', 'Call home']);
+  assert.equal(r.total, 4);
+  assert.equal(r.xp, 25);
+  assert.equal(r.bonus, false);
+  assert.equal(r.streak, 3);
+  assert.equal(r.moodAvg, 4);
+  assert.equal(r.tomorrowDue, 4);                            // Read, Run, Water and Gym; not the paused or weekly one
+  assert.equal(r.day, TODAY);
+});
+
+test('dayRecap: a full day carries the bonus; weekly habits done today earn but are not part of it', async () => {
+  const { dayRecap } = await load();
+  const r = dayRecap([H('Read', [0]), H('Run', [0]), H('Call home', [0], { frequency: 'weekly' })], TODAY);
+  assert.equal(r.done.length, 3);
+  assert.equal(r.open.length, 0);
+  assert.equal(r.bonus, true);
+  assert.equal(r.xp, 175);
+  assert.equal(r.moodAvg, null);
+});
+
+test('dayRecap: a shield day counts in the streak, and archived habits are left out', async () => {
+  const { dayRecap } = await load();
+  const r = dayRecap([H('Read', [0, 2, 3]), H('Old', [0], { archivedAt: 5, archivedOn: ago(0) })], TODAY, { frozen: [ago(1)] });
+  assert.equal(r.streak, 4);
+  assert.deepEqual(r.done.map(h => h.name), ['Read']);
+});
+
+test('dayRecap: nothing due, an empty account and junk', async () => {
+  const { dayRecap } = await load();
+  for (const habits of [[], null, [H('Swim', [], { pauses: [{ from: ago(3) }] })], [{ id: 'x' , completedDates: 'no' }, 7]]) {
+    const r = dayRecap(habits, TODAY, { frozen: 'no' });
+    assert.equal(r.done.length, 0);
+    assert.equal(r.xp, 0);
+    assert.equal(r.bonus, false);
+    assert.equal(r.moodAvg, null);
+  }
+  assert.equal(dayRecap([], TODAY).total, 0);
+});

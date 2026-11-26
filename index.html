@@ -195,6 +195,7 @@
     <svg class="done-ring" viewBox="0 0 80 80" aria-hidden="true"><circle class="done-ring-bg" cx="40" cy="40" r="34"/><circle class="done-ring-fg" cx="40" cy="40" r="34"/><polyline class="done-check" points="26 41 36 51 55 30"/></svg>
     <h2 class="dialog-title">All habits done for today</h2>
     <p class="dialog-text" id="all-done-text">You completed every daily habit.</p>
+    <button id="all-done-recap" class="btn-link all-done-link" type="button">See today's recap</button>
     <div class="dialog-actions">
       <button id="all-done-share" class="btn-secondary" type="button">Share progress</button>
       <button id="all-done-close" data-dismiss class="btn-primary" type="button">Close</button>
@@ -342,10 +343,10 @@
           </button>
           <div id="summary-more" class="summary-more"><div class="summary-inner">
           <div class="summary-top">
-            <div class="ring" id="today-ring" role="img" aria-label="No habits yet">
+            <button type="button" class="ring" id="today-ring" aria-label="No habits yet. Open today's recap">
               <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="ring-bg" cx="50" cy="50" r="44"/><circle class="ring-fg" id="ring-fg" cx="50" cy="50" r="44"/></svg>
-              <div class="ring-center"><span class="ring-num" id="ring-num">0</span><span class="ring-of" id="ring-of">of 0</span></div>
-            </div>
+              <span class="ring-center"><span class="ring-num" id="ring-num">0</span><span class="ring-of" id="ring-of">of 0</span></span>
+            </button>
             <div class="summary-text">
               <p class="greeting-time" id="greeting-time">Good morning</p>
               <h1 class="greeting-name" id="greeting-name">Loading</h1>
@@ -980,6 +981,19 @@
     <div class="dialog-actions">
       <button id="milestone-share" class="btn-secondary" type="button">Share</button>
       <button id="milestone-close" data-dismiss class="btn-primary" type="button" autofocus>Continue</button>
+    </div>
+  </div>
+</div>
+
+<!-- The day's recap (drawn by moments.js): opened from the ring, the all-done card, or the evening offer -->
+<div id="recap-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="recap-title">
+  <div class="dialog dialog-scroll">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <p class="dialog-eyebrow">Your day</p>
+    <h2 class="dialog-title" id="recap-title">Today</h2>
+    <div id="recap-body" class="level-body"></div>
+    <div class="dialog-actions">
+      <button id="recap-close" data-dismiss class="btn-secondary" type="button" autofocus>Close</button>
     </div>
   </div>
 </div>

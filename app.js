@@ -18,7 +18,7 @@ import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=6";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=7";
-import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay, MOODS, moodInsights } from "./motivation.js?v=1";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -366,7 +366,7 @@ function resetUserState() {
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
   moments.hideMoment();
-  ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal', 'recap-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
@@ -692,6 +692,49 @@ function refreshShieldOffer(mayRaise = false) {
     track('shield_offer_shown');
   }
 }
+// ── The day's recap: what got done, what is open, the XP, the streak, tomorrow ──
+// Opened from the ring on Home and from the all-done card. In the evening the app may offer it once, through the
+// moment card (and only if no other card has been raised today).
+const RECAP_FROM_HOUR = 20;
+const recapOpen = () => { const m = document.getElementById('recap-modal'); return !!m && !m.classList.contains('hidden'); };
+function renderRecapSheet() {
+  const today = todayStr();
+  const now = new Date(), part = o => now.toLocaleDateString('en', o);
+  document.getElementById('recap-title').textContent = `${part({ weekday: 'long' })} ${now.getDate()} ${part({ month: 'long' })}`;   // "Thursday 26 November", as the rest of the app writes dates
+  moments.renderRecap(document.getElementById('recap-body'), {
+    recap: dayRecap(allHabits, today, { frozen: userFrozenDates || [] }), moods: MOODS,
+    moodOf: h => moodOf(h, today),
+    countOf: h => { const goal = rules.targetOf(h); return goal ? countLabel(rules.progressOn(h, today), goal) : ''; },
+  });
+}
+function openRecap() {
+  moments.hideMoment('recap');
+  renderRecapSheet();
+  moments.holdFor(document.getElementById('recap-modal'));     // anything queued behind the all-done card waits for the recap to close
+  document.getElementById('recap-modal').classList.remove('hidden');
+  document.getElementById('all-done-overlay')?.classList.add('hidden');
+  track('recap_opened');
+}
+function maybeOfferRecap() {
+  if (!currentUser || !habitsLoaded || !userDocLoaded || moments.momentShowing() || recapOpen()) return;
+  if (new Date().getHours() < RECAP_FROM_HOUR) return;
+  const today = todayStr(), r = dayRecap(allHabits, today, { frozen: userFrozenDates || [] });
+  if (!r.total || !moments.momentAllowed(currentUser.uid, today)) return;
+  moments.markMoment(currentUser.uid, today);
+  moments.showMoment({ id: 'recap', title: 'Your day in review',
+    text: r.open.length ? `${r.done.length} of ${r.total} done today, ${r.open.length} still open.` : `All ${r.total} done today. See how it went.`,
+    actions: [{ label: 'See recap', onClick: openRecap }] });
+  track('recap_offered');
+}
+document.getElementById('today-ring')?.addEventListener('click', openRecap);
+document.getElementById('all-done-recap')?.addEventListener('click', openRecap);
+document.getElementById('recap-close')?.addEventListener('click', () => document.getElementById('recap-modal').classList.add('hidden'));
+document.getElementById('recap-body')?.addEventListener('click', e => {
+  const b = e.target.closest('[data-recap-complete]');
+  if (b) completeHabit(b.dataset.recapComplete, todayStr(), null);
+});
+setInterval(maybeOfferRecap, 60000);                  // the evening arrives while the app is open
+
 // ── Welcome back: after three or more days with nothing ticked ──
 // Said once per absence (this device remembers the last completion day it spoke for). The card offers to ease back
 // in: keep the habits that matter now and pause the rest, which loses nothing and is undone with Resume.
@@ -880,8 +923,9 @@ function closeShareCardModal() {
 document.getElementById('open-share-trigger')?.addEventListener('click', openShareCardModal);
 document.getElementById('all-done-share')?.addEventListener('click', () => {
   const overlay = document.getElementById('all-done-overlay');
-  if (overlay) overlay.classList.add('hidden');
+  moments.holdFor(document.getElementById('share-card-modal'));   // a queued card waits for the share sheet to close
   openShareCardModal();
+  if (overlay) overlay.classList.add('hidden');
 });
 document.getElementById('share-card-close')?.addEventListener('click', closeShareCardModal);
 
@@ -1092,7 +1136,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
-  ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'], ['comeback-modal', 'comeback-cancel'],
+  ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'], ['comeback-modal', 'comeback-cancel'], ['recap-modal', 'recap-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'], ['details-modal', 'details-close'],
   ['habit-sheet', 'habit-cancel'], ['timer-modal', 'timer-close'], ['all-done-overlay', 'all-done-close'],
@@ -1665,6 +1709,8 @@ function subscribeToHabits() {
     checkAndApplyStreakShield();
     updateStreakShieldUI();
     maybeWelcomeBack();
+    maybeOfferRecap();
+    if (recapOpen()) renderRecapSheet();
 
     if (location.hash === '#stats') renderStats();
     if (location.hash === '#profile') renderProfile();
@@ -2279,7 +2325,7 @@ function updateProgress(done, total) {
   if (fg) fg.style.strokeDashoffset = String(RING_LEN * (1 - frac));
   if (ring) {
     ring.classList.toggle('complete', total > 0 && done === total);
-    ring.setAttribute('aria-label', total ? `${done} of ${total} habits done today` : 'No habits yet');
+    ring.setAttribute('aria-label', (total ? `${done} of ${total} habits done today` : 'No habits yet') + ". Open today's recap");
   }
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('ring-num', done);

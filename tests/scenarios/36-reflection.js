@@ -73,4 +73,85 @@ module.exports = (scenario, c) => {
     check('the privacy policy says how a completion felt may be stored', /how a completion felt/.test(privacy) && /optional/.test(privacy));
     noExceptions();
   });
+  // ── 34: an end-of-day recap ──────────────────────────────
+  const ZONES = ['Pacific/Kiritimati', 'Pacific/Auckland', 'Australia/Sydney', 'Asia/Tokyo', 'Asia/Singapore', 'Asia/Kolkata', 'Asia/Dubai', 'Europe/Moscow',
+    'Europe/Berlin', 'Europe/London', 'Africa/Lagos', 'America/Sao_Paulo', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Pacific/Honolulu', 'Pacific/Pago_Pago'];
+  const hourIn = tz => +new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: tz }).format(new Date());
+  const pickZone = (lo, hi) => ZONES.find(z => hourIn(z) >= lo && hourIn(z) <= hi);
+  const daytime = pickZone(8, 18);                             // a zone where it is plainly not evening, so no card is raised
+  const moment = () => ev(`(() => { const m = document.getElementById('moment'); return m && !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none' ? m.dataset.moment : ''; })()`);
+  const momentBtn = label => `[...document.querySelectorAll('#moment button')].find(b => b.textContent.trim() === ${JSON.stringify(label)})`;
+  const reload = async () => { await ev(`location.reload()`); await sleep(500); await waitFor(`!!window.__mockDB && !!document.querySelector('#page-home .habit-item')`); await sleep(900); };
+
+  scenario('recap: the ring opens the day in review, and habits can be finished from it', async () => {
+    const d = n => dayIn(n, daytime);
+    await boot({ tz: daytime, mobile: false, seed: seed({
+      a: H('Read', { completedDates: [d(0), d(1), d(2)], completedTimestamps: { [d(0)]: Date.now() - 5000 }, moods: { [d(0)]: 4 } }),
+      b: H('Run <b>far</b>', { order: 2 }),
+      w: H('Water', { order: 3, target: { amount: 8, unit: 'glasses', step: 1 }, progress: { [d(0)]: 3 } }),
+      p: H('Swim', { order: 4, pauses: [{ from: d(3) }] }),
+      k: H('Call home', { order: 5, frequency: 'weekly' }),
+    }) }); await rows(); await sleep(500);
+    check('the ring on Home is a button that says it opens the recap', await ev(`(() => { const r = document.getElementById('today-ring'); return r.tagName === 'BUTTON' && /habits done today/.test(r.getAttribute('aria-label')) && /recap/i.test(r.getAttribute('aria-label')); })()`), await ev(`document.getElementById('today-ring').getAttribute('aria-label')`));
+    await ev(`document.getElementById('today-ring').focus(); document.getElementById('today-ring').click()`); await sleep(450);
+    check('it opens the recap', await open('recap-modal'));
+    check('a named dialog headed by the date', await ev(`(() => { const m = document.getElementById('recap-modal'); return m.getAttribute('role') === 'dialog' && /^[A-Z][a-z]+day [0-9]{1,2} [A-Z][a-z]+$/.test(document.getElementById(m.getAttribute('aria-labelledby')).textContent.trim()); })()`), await text('#recap-title'));
+    check('Close has the focus, so a stray Enter completes nothing', await ev(`document.activeElement === document.getElementById('recap-close')`));
+    check('it counts what was done against what was there to do', (await text('#recap-count')).trim() === '1 of 4 done', await text('#recap-count'));
+    check('XP earned today', (await text('#recap-xp')).trim() === '+25', await text('#recap-xp'));
+    check('the streak', (await text('#recap-streak')).trim() === '3 days', await text('#recap-streak'));
+    check('and what tomorrow holds (paused and weekly habits are not counted)', (await text('#recap-tomorrow')).trim() === '3 habits', await text('#recap-tomorrow'));
+    const done = await ev(`[...document.querySelectorAll('#recap-done li')].map(li => li.innerText.replace(/\\s+/g, ' ').trim())`);
+    check('the done list has Read, with how it felt', done.length === 1 && /^Read/.test(done[0]) && /Felt good/.test(done[0]) && await ev(`!!document.querySelector('#recap-done use[href="#i-mood-4"]')`), JSON.stringify(done));
+    check('how the day felt is summed up', /good/.test(await text('#recap-mood')), await text('#recap-mood'));
+    const still = await ev(`[...document.querySelectorAll('#recap-open li')].map(li => li.querySelector('.rc-name').innerText.replace(/\\s+/g, ' ').trim())`);
+    check('still open: Run, Water with its count, and the weekly habit; not the paused one', still.length === 3 && still[0] === 'Run <b>far</b>' && /Water 3 \/ 8 glasses/.test(still[1]) && still[2] === 'Call home', JSON.stringify(still));
+    check('a name with HTML in it is shown as text', !(await ev(`!!document.querySelector('#recap-modal b')`)));
+    await ev(`document.querySelector('#recap-open [data-recap-complete="b"]').click()`); await sleep(900);
+    check('Complete finishes a habit from the recap', await ev(`__mockDB.habits.b.completedDates.includes(${JSON.stringify(d(0))})`));
+    check('and the recap keeps up', (await text('#recap-count')).trim() === '2 of 4 done' && (await text('#recap-xp')).trim() === '+50', (await text('#recap-count')) + ' ' + (await text('#recap-xp')));
+    await size(320, 568); await sleep(200);
+    check('320px: nothing spills sideways, the stats stay on one row', await ev(`(() => { const dlg = document.querySelector('#recap-modal .dialog'); const tops = [...document.querySelectorAll('#recap-modal .recap-stats > div')].map(x => Math.round(x.getBoundingClientRect().top));
+      return document.documentElement.scrollWidth <= innerWidth && dlg.scrollWidth <= dlg.clientWidth + 1 && new Set(tops).size === 1; })()`));
+    await key('Escape'); await sleep(300);
+    check('Escape closes it', !(await open('recap-modal')));
+    noExceptions();
+  });
+
+  scenario('recap: offered once in the evening, through the card, and never in the morning', async () => {
+    const evening = pickZone(20, 23), morning = pickZone(6, 11);
+    if (!evening || !morning) return check('an evening and a morning timezone exist right now', false);
+    const two = tz => ({ a: H('Read', { completedDates: [dayIn(0, tz), dayIn(1, tz)], completedTimestamps: { [dayIn(0, tz)]: Date.now() - 4000000 } }), b: H('Run', { order: 2, completedDates: [dayIn(1, tz)] }) });
+    await boot({ tz: evening, seed: seed(two(evening)) }); await rows(); await sleep(900);
+    check('evening: the card offers the recap', (await moment()) === 'recap', await moment());
+    check('it says how the day stands', /1 of 2 done today/.test(await text('#moment-text')), await text('#moment-text'));
+    check('the list is still usable behind it', await ev(`(() => { const cb = document.querySelector('.habit-item[data-id="b"] .habit-check'); const r = cb.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === cb; })()`));
+    await ev(`${momentBtn('See recap')}.click()`); await sleep(450);
+    check('See recap opens it and puts the card away', (await open('recap-modal')) && (await moment()) === '');
+    await ev(`document.getElementById('recap-close').click()`); await sleep(300);
+    await reload();
+    check('it is offered once a day: not again after a reload', (await moment()) === '');
+    await boot({ tz: morning, seed: seed(two(morning)) }); await rows(); await sleep(900);
+    check('morning: no card', (await moment()) === '');
+    await boot({ tz: evening, seed: seed({ a: H('Swim', { pauses: [{ from: dayIn(5, evening) }] }) }) }); await sleep(1500);
+    check('evening with nothing due today: no card', (await moment()) === '');
+    noExceptions();
+  });
+
+  scenario('recap: the all-done card leads to it', async () => {
+    await boot({ tz: daytime, seed: seed({ a: H('Read') }, { xp: 75 }) }); await rows(); await sleep(300);   // this tap also reaches level 2
+    await tick('a');
+    check('the all-done card shows', await waitFor(`!document.getElementById('all-done-overlay').classList.contains('hidden')`, 3000));
+    check('with a link to the recap', await ev(`(() => { const b = document.getElementById('all-done-recap'); return !!b && b.tagName === 'BUTTON' && b.getBoundingClientRect().height >= 44; })()`));
+    await ev(`document.getElementById('all-done-recap').click()`); await sleep(500);
+    check('which opens in its place', (await open('recap-modal')) && !(await open('all-done-overlay')));
+    check('a full day shows the bonus', (await text('#recap-count')).trim() === '1 of 1 done' && (await text('#recap-xp')).trim() === '+125' && /Full day/.test(await text('#recap-modal .recap-bonus')), await text('#recap-xp'));
+    check('nothing is left open', (await ev(`document.querySelectorAll('#recap-open li').length`)) === 0);
+    await sleep(1200);
+    check('the level-up card waits behind the recap instead of opening on top of it', !(await open('level-up-modal')));
+    await ev(`document.getElementById('recap-close').click()`);
+    check('and comes once the recap is closed', await waitFor(`!document.getElementById('level-up-modal').classList.contains('hidden')`, 2500));
+    await ev(`document.getElementById('level-up-claim-btn').click()`); await sleep(300);
+    noExceptions();
+  });
 };

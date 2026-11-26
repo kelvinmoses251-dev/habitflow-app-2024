@@ -709,6 +709,7 @@ html.dialog-open { overflow: hidden; }
 .stat-tile-action:hover .tile-value { color: var(--primary-ink); }
 .stat-tile-btn { cursor: pointer; }
 .stat-tile-btn:hover .tile-value { color: var(--primary-ink); }
+.stat-tile.has-offer .tile-sub { color: var(--text); font-weight: 600; }
 
 /* Milestone moment: a full-screen card. The ring draws once, the number rises once. */
 .modal.milestone-modal { padding: 0; background: var(--bg); }
@@ -1085,6 +1086,25 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 /* ── Notifications ──────────────────────────────────── */
 .notif-ask { position: fixed; left: 12px; right: 12px; margin: 0 auto; max-width: 520px; z-index: 60; bottom: calc(var(--bottomnav-h) + 12px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; background: var(--surface-3); border: 1px solid var(--border-strong); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4); box-shadow: var(--elev-2); }
 .notif-ask.hidden { display: none !important; }
+
+/* The moment card: the one card the app may raise by itself. Desktop: a corner. Phones: above the tab bar, with
+   the toasts and the end of the page lifted clear of it. It rises once. */
+.moment { position: fixed; z-index: 900; right: var(--sp-5); bottom: var(--sp-5); width: min(380px, calc(100vw - 2 * var(--sp-4))); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--sp-2) var(--sp-2); padding: var(--sp-4); background: var(--surface-3); border: 1px solid var(--border-strong); border-radius: var(--r-xl); box-shadow: var(--elev-3); animation: momentRise .24s cubic-bezier(.2,.8,.2,1) both; }
+.moment.hidden { display: none !important; }
+.moment-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.moment-body strong { font-size: var(--fs-base); font-weight: 600; color: var(--text); }
+.moment-body p { font-size: var(--fs-sm); line-height: 1.45; color: var(--text-2); overflow-wrap: anywhere; }
+.moment-x { margin: -8px -8px 0 0; min-width: 44px; min-height: 44px; }
+.moment-actions { grid-column: 1 / -1; display: flex; gap: var(--sp-2); margin-top: var(--sp-1); }
+.moment-actions:empty { display: none; }
+.moment-actions > button { flex: 1; min-height: 44px; }
+@keyframes momentRise { from { opacity: 0; transform: translateY(10px); } }
+@media (max-width: 640px) {
+  .moment { left: var(--sp-3); right: var(--sp-3); width: auto; bottom: calc(var(--bottomnav-h) + var(--sp-3) + env(safe-area-inset-bottom, 0px)); }
+  html.has-moment .toast-container { bottom: calc(var(--bottomnav-h) + var(--moment-h, 0px) + var(--sp-5) + env(safe-area-inset-bottom, 0px)); }
+  html.has-moment.dialog-open .toast-container { bottom: auto; }
+  html.has-moment .page-container { padding-bottom: calc(var(--bottomnav-h) + var(--moment-h, 0px) + var(--sp-5)); }
+}
 .notif-ask-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
 .notif-ask-text strong { font-size: var(--fs-base); }
 .notif-ask-text span { font-size: var(--fs-sm); color: var(--text-2); }

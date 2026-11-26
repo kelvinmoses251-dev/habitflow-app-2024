@@ -152,3 +152,50 @@ export function renderAchievements(body, items) {
         : `<span class="ach-state"><span class="sr-only">Locked. </span>${num(a.have)} of ${num(a.goal)}</span><span class="ach-bar" aria-hidden="true"><span style="width:${Math.round((a.have / a.goal) * 100)}%"></span></span>`}
     </li>`).join('')}</ul>`;
 }
+
+// ── The moment card ────────────────────────────────────────
+// One small card at the foot of the screen for things the app raises on its own: the shield question, a welcome
+// back, the evening recap. It is not a dialog: the page behind stays live, and it never takes the focus.
+// At most one is raised unasked per day per account (momentAllowed / markMoment); the same card opened by the
+// person (from a tile or a button) is not counted.
+let moment = null;                                            // { id, onDismiss }
+const momentEl = () => document.getElementById('moment');
+export const momentShowing = () => (moment ? moment.id : null);
+export function showMoment({ id, title, text, actions = [], onDismiss = null }) {
+  const el = momentEl();
+  if (!el) return;
+  moment = { id, onDismiss };
+  el.dataset.moment = id;
+  el.setAttribute('aria-label', title);
+  document.getElementById('moment-title').textContent = title;
+  document.getElementById('moment-text').textContent = text;
+  const box = document.getElementById('moment-actions');
+  box.textContent = '';
+  actions.forEach((a, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = i === 0 ? 'btn-primary' : 'btn-secondary'; b.textContent = a.label;
+    b.addEventListener('click', () => a.onClick());
+    box.appendChild(b);
+  });
+  if (!el.dataset.bound) { el.dataset.bound = '1'; document.getElementById('moment-dismiss').addEventListener('click', dismissMoment); }
+  el.classList.remove('hidden');
+  document.documentElement.classList.add('has-moment');
+  document.documentElement.style.setProperty('--moment-h', el.offsetHeight + 'px');
+}
+// Hide the card (only if it is the one named, when a name is given).
+export function hideMoment(id = null) {
+  if (!moment || (id && moment.id !== id)) return;
+  moment = null;
+  momentEl()?.classList.add('hidden');
+  document.documentElement.classList.remove('has-moment');
+  document.documentElement.style.removeProperty('--moment-h');
+}
+// The person closed it without answering.
+export function dismissMoment() {
+  const was = moment;
+  hideMoment();
+  if (was && was.onDismiss) was.onDismiss();
+}
+const momentKey = uid => `habitly_moment_${uid}`;
+export function momentAllowed(uid, today) { try { return localStorage.getItem(momentKey(uid)) !== today; } catch (_) { return true; } }
+export function markMoment(uid, today) { try { localStorage.setItem(momentKey(uid), today); } catch (_) {} }

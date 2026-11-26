@@ -84,6 +84,8 @@ function runQuery(q) {
 }
 const snapFor = ref => (ref.kind === 'doc' ? mkDocSnap(ref.name, ref.id) : runQuery(ref.kind === 'col' ? { name: ref.name, cons: [] } : ref));
 
+// Tests: a write that arrives from somewhere else (another device). window.__mockRemote('users', 'u-test', { ... })
+W.__mockRemote = (name, id, data) => { Object.assign((col(name)[id] ||= {}), data); notify(name); };
 // Like real Firestore, only listeners on the collection that changed are re-fired.
 function notify(name) {
   persist();

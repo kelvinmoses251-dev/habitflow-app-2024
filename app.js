@@ -365,6 +365,7 @@ function resetUserState() {
   pendingComplete.forEach(clearTimeout); pendingComplete.clear();
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
+  moments.hideMoment();
   ['milestone-modal', 'level-modal', 'achievements-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
@@ -615,22 +616,30 @@ async function checkAndApplyStreakShield() {
       updateStreakShieldUI();
     }
   }
-  if (userStreakShields <= 0) return;
+  refreshShieldOffer(true);
+}
 
-  // 2) Protect yesterday only if there was a streak to protect. A shield guards an existing streak;
-  //    it must not conjure one for a brand-new user or "rescue" a streak that already ended.
-  const yesterdayStr = dayKeyOffset(-1);
-  const isDailyHabit = h => habitFreq(h) === 'daily';
-  if (userFrozenDates.includes(yesterdayStr) || allHabits.some(h => (h.completedDates || []).includes(yesterdayStr))) return;   // nothing was missed
-  const owed = allHabits.filter(h => isDailyHabit(h) && rules.isDueOn(h, yesterdayStr));
-  if (!owed.length) return;                     // nothing was due yesterday (a rest day, everything paused): no shield needed
+// 2) The shield is a choice. When a day was missed and a shield could save a streak, the app asks; it never spends
+//    one on its own. A shield guards an existing streak: it is not offered to a brand-new account, for a streak
+//    that already ended, or for a day when nothing was due.
+const shieldNoKey = () => `habitly_shield_no_${currentUser.uid}`;
+function shieldOffer() {
+  if (!currentUser || !userDocLoaded || !allHabits.length || userStreakShields <= 0) return null;
+  const yesterdayStr = dayKeyOffset(-1), today = todayStr();
+  if (userFrozenDates.includes(yesterdayStr) || allHabits.some(h => (h.completedDates || []).includes(yesterdayStr))) return null;   // nothing was missed
+  const owed = allHabits.filter(h => habitFreq(h) === 'daily' && rules.isDueOn(h, yesterdayStr));
+  if (!owed.length) return null;                // nothing was due yesterday (a rest day, everything paused): no shield needed
   // Covering yesterday must join today to a streak that was running (worth at least the day itself plus one more)
-  const today = todayStr();
-  const rescues = h => rules.habitStreak(h, today, [...userFrozenDates, yesterdayStr]) - rules.habitStreak(h, today, userFrozenDates) >= 2;
-  if (!owed.some(rescues)) return;              // no streak running into yesterday
-
-  userStreakShields--;
-  userFrozenDates = [...userFrozenDates, yesterdayStr];
+  const saved = owed.map(h => ({ h, kept: rules.habitStreak(h, today, [...userFrozenDates, yesterdayStr]), now: rules.habitStreak(h, today, userFrozenDates) }))
+    .filter(x => x.kept - x.now >= 2).sort((a, b) => b.kept - a.kept);
+  if (!saved.length) return null;               // no streak running into yesterday
+  try { if (localStorage.getItem(shieldNoKey()) === yesterdayStr) return null; } catch (_) {}   // they said no
+  return { day: yesterdayStr, streak: saved[0].kept, habitName: saved[0].h.name };
+}
+function useShield(day) {
+  if (userStreakShields <= 0 || userFrozenDates.includes(day)) return;
+  userStreakShields = Math.max(0, userStreakShields - 1);
+  userFrozenDates = [...userFrozenDates, day];
   userShieldUsedAt = Date.now();
   // Show the protected streak straight away (not only after the next habit write), and don't
   // treat "streak restored by a shield" as a level-up.
@@ -643,8 +652,53 @@ async function checkAndApplyStreakShield() {
     frozenDates: userFrozenDates,
     shieldUsedAt: userShieldUsedAt
   }, { merge: true }), 'save your streak shield', true);
-  toast('Streak shield used. Yesterday was covered.', 'info', 5000);
+  toast('Streak shield used. Yesterday is covered.', 'success', 5000);
+  track('shield_used');
 }
+function showShieldQuestion(offer) {
+  moments.showMoment({ id: 'shield', title: 'You missed yesterday',
+    text: `Use your shield to keep your ${offer.streak}-day streak on ${offer.habitName}?`,
+    actions: [{ label: 'Use shield', onClick: () => answerShield(true) }, { label: 'Let it go', onClick: () => answerShield(false) }] });
+}
+function answerShield(use) {
+  const offer = shieldOffer();                  // judged again at the moment of the tap: midnight may have passed
+  moments.hideMoment('shield');
+  if (!offer) toast('That day can no longer be covered.', 'info');
+  else if (use) useShield(offer.day);
+  else {
+    try { localStorage.setItem(shieldNoKey(), offer.day); } catch (_) {}
+    toast('Shield kept. Your streak starts again today.', 'info', 4500);
+    track('shield_declined');
+  }
+  refreshShieldOffer();
+}
+// Keep the Shield tile and the card in step with what is true now. mayRaise: the app may put the question up
+// itself (once a day at most, shared with the other unprompted cards). Otherwise it waits behind the Shield tile.
+function refreshShieldOffer(mayRaise = false) {
+  if (!currentUser) return;
+  const offer = shieldOffer();
+  const tile = document.getElementById('greeting-shield-badge');
+  if (tile) {
+    tile.classList.toggle('has-offer', !!offer);
+    tile.setAttribute('aria-label', offer ? 'Streak shield. You missed yesterday: use your shield?' : `Streak shields: ${userStreakShields}. What a shield does`);
+    const sub = document.getElementById('greeting-shield-sub');
+    if (sub) sub.textContent = offer ? 'Use it?' : 'Safety net';
+  }
+  if (!offer) { moments.hideMoment('shield'); return; }
+  if (moments.momentShowing() === 'shield') { showShieldQuestion(offer); return; }      // keep its words current
+  if (mayRaise && !moments.momentShowing() && moments.momentAllowed(currentUser.uid, todayStr())) {
+    moments.markMoment(currentUser.uid, todayStr());
+    showShieldQuestion(offer);
+    track('shield_offer_shown');
+  }
+}
+document.getElementById('greeting-shield-badge')?.addEventListener('click', () => {
+  const offer = shieldOffer();
+  if (offer) { showShieldQuestion(offer); return; }
+  toast(userStreakShields > 0
+    ? 'A streak shield covers one missed day. If you miss a day, you choose whether to use it.'
+    : 'Your shield has been used. A new one arrives a week after the last one was spent.', 'info', 6000);
+});
 
 // ── Shareable 9:16 Story Progress Canvas ─────────────────
 function drawRoundRect(ctx, x, y, width, height, radius, fillStyle = null, strokeStyle = null, lineWidth = 1) {
@@ -1004,6 +1058,7 @@ document.addEventListener('keydown', e => {
       return;
     }
   }
+  if (moments.momentShowing()) { moments.dismissMoment(); e.preventDefault(); }   // no dialog open: Escape puts the card away
 });
 
 // ── Auth ──────────────────────────────────────────────────
@@ -1324,6 +1379,7 @@ function updateAvatars(user) {
       if (typeof uData.shieldUsedAt === 'number') userShieldUsedAt = uData.shieldUsedAt;
       if (typeof uData.allDoneBonusDate === 'string') userAllDoneBonusDate = uData.allDoneBonusDate;
       updateStreakShieldUI();
+      if (userDocLoaded) refreshShieldOffer();        // answered on another device: the question here goes too
     }
     // Only a server answer can tell us the account has no XP: a cache miss looks the same as "no profile".
     if (!docSnap.metadata.fromCache && !docSnap.metadata.hasPendingWrites) {
@@ -2054,6 +2110,7 @@ function checkDayRollover() {
   renderedDay = todayStr();
   renderHabits();
   updateStreak();
+  refreshShieldOffer(true);
   if (location.hash === '#stats') renderStats();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayRollover(); });
@@ -3825,7 +3882,10 @@ function maybeAskForReminders() {
     if (!messaging || typeof Notification === 'undefined' || Notification.permission !== 'default') return;
     if (Date.now() - (+localStorage.getItem(NOTIF_ASKED_KEY) || 0) < 7 * 864e5) return;   // at most weekly
   } catch (_) { return; }
-  setTimeout(() => { document.getElementById('notif-ask')?.classList.remove('hidden'); track('reminder_ask_shown'); }, 1800);
+  setTimeout(() => {
+    if (moments.momentShowing()) return;              // one card at the foot of the screen at a time; it asks again another day
+    document.getElementById('notif-ask')?.classList.remove('hidden'); track('reminder_ask_shown');
+  }, 1800);
 }
 function closeReminderAsk() {
   document.getElementById('notif-ask')?.classList.add('hidden');

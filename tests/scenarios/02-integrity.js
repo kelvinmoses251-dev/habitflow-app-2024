@@ -49,6 +49,9 @@ module.exports = (scenario, c) => {
   scenario('shield: protects a REAL streak that missed yesterday, and is consumed', async () => {
     await boot({ seed: { ...signedIn(), ...db({ h1: habitDoc('Read', [key(-2), key(-3), key(-4)]) }) } });
     await waitFor(`!document.getElementById('app').classList.contains('hidden')`);
+    await sleep(700);
+    check('nothing is spent until the person says so', await ev(`!((window.__mockDB.users||{})['u-test']?.frozenDates||[]).length`));
+    check('the app asks, and Use shield is tapped', await waitFor(`(() => { const b = [...document.querySelectorAll('#moment button')].find(x => x.textContent.trim() === 'Use shield'); if (!b) return false; b.click(); return true; })()`, 4000));
     check('yesterday gets frozen', await waitFor(`JSON.stringify((window.__mockDB.users||{})['u-test']?.frozenDates||[]).includes(${JSON.stringify(key(-1))})`));
     check('streak preserved (4)', await waitFor(`document.getElementById('greeting-streak').textContent === '4'`));
     check('shield consumed', await waitFor(`document.getElementById('greeting-shield-count').textContent === '0'`));

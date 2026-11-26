@@ -166,4 +166,8 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b4seed }], ['-dark', { seed: b4seed, colorScheme: 'dark' }], ['-desktop', { seed: b4seed, mobile: false }]]) {
     run('b4-achievements' + tag, opts, async () => { await ready(); await settle(); await ev(`location.hash = '#profile'`); await settle(500); await ev(`document.getElementById('open-achievements').click()`); await settle(); });
   }
+  const b4shield = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: db.users, habits: { a: mk('Read 10 pages', 'reading', 1, streak(13).slice(1)), b: mk('Workout for 30 minutes', 'fitness', 2, [key(-3)]), c: mk('Meditate for 10 minutes', 'relaxation', 3, []) } } };
+  for (const [tag, opts] of [['', { seed: b4shield }], ['-dark', { seed: b4shield, colorScheme: 'dark' }], ['-desktop', { seed: b4shield, mobile: false }]]) {
+    run('b4-shield' + tag, opts, async () => { await ready(); await waitFor(`!document.getElementById('moment').classList.contains('hidden')`); await settle(900); });
+  }
 };

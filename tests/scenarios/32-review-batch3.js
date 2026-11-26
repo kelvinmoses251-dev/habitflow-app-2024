@@ -80,6 +80,7 @@ module.exports = (scenario, c) => {
     await boot({ seed: seed({ a: H('Paused', { completedDates: run(3, 4), pauses: [{ from: day(2) }] }), b: H('Also paused', { order: 2, pauses: [{ from: day(2) }] }) }, { streakShields: 1, frozenDates: [] }) }); await sleep(1800);
     check('everything paused: the shield is kept', await ev(`__mockDB.users['u-test'].streakShields === 1 && !(__mockDB.users['u-test'].frozenDates || []).length`));
     await boot({ seed: seed({ a: H('Every day', { completedDates: run(2, 4) }) }, { streakShields: 1, frozenDates: [] }) }); await rows(); await sleep(1500);
+    await waitFor(`(() => { const b = [...document.querySelectorAll('#moment button')].find(x => x.textContent.trim() === 'Use shield'); if (!b) return false; b.click(); return true; })()`, 4000); await sleep(600);   // the shield is a choice now (batch 4): the app asks first
     check('a real missed day is still covered, as before', await ev(`__mockDB.users['u-test'].streakShields === 0 && JSON.stringify(__mockDB.users['u-test'].frozenDates) === ${JSON.stringify(JSON.stringify([day(1)]))}`), await ev(`JSON.stringify(__mockDB.users['u-test'])`));
     noExceptions();
   });

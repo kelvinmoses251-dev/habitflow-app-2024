@@ -33,6 +33,9 @@ module.exports = (scenario, c) => {
     if (sameMonth(day(4))) check('a day that was due and not done reads as missed', /is-missed/.test(await cls(day(4))) && /missed/.test(await ev(`document.querySelector('#hp-calendar td[data-day="${day(4)}"]').getAttribute('aria-label')`)));
     if (sameMonth(day(6))) check('a single done day stands alone', /run-single/.test(await cls(day(6))), await cls(day(6)));
     check('a run is drawn as one band behind its days', await ev(`(() => { const td = document.querySelector('#hp-calendar td.run-end'); const b = getComputedStyle(td, '::before'); return b.content !== 'none' && b.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(b.height) > 20; })()`));
+    await ev(`__mockRemote('habits', 'a', { completedDates: ${JSON.stringify(run(0, 45))} })`); await sleep(500);
+    check('blank cells of the neighbouring months carry no band', (await ev(`document.querySelectorAll('#hp-calendar td.cal-out').length`)) >= 0 && (await ev(`[...document.querySelectorAll('#hp-calendar td.cal-out')].every(td => !/run-/.test(td.className) && getComputedStyle(td, '::before').content === 'none')`)));
+    await ev(`__mockRemote('habits', 'a', { completedDates: ${JSON.stringify([...run(0, 3), day(6)])} })`); await sleep(500);
     check('every day of the month has a label in words', await ev(`[...document.querySelectorAll('#hp-calendar td.cal-day')].every(td => /^[A-Z][a-z]+day [0-9]/.test(td.getAttribute('aria-label')))`));
     check('a line sums the month up', /^[0-9]+ of [0-9]+ days done this month$/.test((await text('#cal-sum')).trim()), await text('#cal-sum'));
     check('Next is off in the current month, Previous is on', await ev(`document.querySelector('.cal-nav[aria-label="Next month"]').disabled && !document.querySelector('.cal-nav[aria-label="Previous month"]').disabled`));
@@ -214,6 +217,37 @@ module.exports = (scenario, c) => {
     check('a history that is not a list shows as none', /No sessions yet/.test(await text('#focus-total')));
     const privacy = require('fs').readFileSync(require('path').resolve(__dirname, '..', '..', 'privacy.html'), 'utf8');
     check('the privacy policy says focus sessions are stored', /focus sessions/.test(privacy));
+    noExceptions();
+  });
+  // ── 47: a share card for one habit ───────────────────────
+  const dlSpy = `window.__dl = []; const _click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__dl.push({ name: this.download, size: (this.href || '').length, png: /^data:image\\/png/.test(this.href || '') }); return; } return _click.call(this); };
+    try { Object.defineProperty(Navigator.prototype, 'share', { configurable: true, value: undefined }); } catch (_) {}`;
+  scenario('share: a picture of one habit, made on the device', async () => {
+    const long = 'Practise the piano every single evening after dinner for a while';
+    await boot({ seed: seed({ a: H('Read 10 pages', { completedDates: run(0, 20), completedTimestamps: { [day(0)]: Date.now() - 4000000 } }), l: H(long.slice(0, 60), { order: 2, completedDates: [day(1)] }), e: H('Émile <b>&</b> Zoë', { order: 3 }) }), initScript: dlSpy }); await rows(); await sleep(300);
+    await open('a');
+    check('the page has a Share button, named and thumb-sized', await ev(`(() => { const b = document.getElementById('hp-share'); return !!b && b.tagName === 'BUTTON' && /share/i.test(b.textContent) && b.getBoundingClientRect().height >= 44; })()`));
+    await ev(`document.getElementById('hp-share').click()`); await sleep(1200);
+    let dl = await ev(`window.__dl`);
+    check('Share makes a picture, saved when the device cannot share files', dl.length === 1 && dl[0].png && dl[0].size > 20000, JSON.stringify(dl));
+    check('the file is named after the habit', dl[0] && dl[0].name === 'habitly-read-10-pages.png', dl[0] && dl[0].name);
+    const px = JSON.parse(await ev(`JSON.stringify((() => { const c = document.getElementById('habit-card-canvas'), x = c.getContext('2d'); const at = (px, py) => [...x.getImageData(px, py, 1, 1).data].slice(0, 3).join(',');
+      let lit = 0; const d = x.getImageData(96, 380, 500, 240).data; for (let i = 0; i < d.length; i += 4) if (d[i] > 200) lit++;
+      return { w: c.width, h: c.height, corner: at(5, 5), lit, right: at(1070, 300) }; })())`));
+    check('it is 1080 by 1350 on the dark ink', px.w === 1080 && px.h === 1350 && px.corner === '17,17,19', JSON.stringify(px));
+    check('the streak is drawn large', px.lit > 2000, String(px.lit));
+    check('it says so', await ev(`[...document.querySelectorAll('.toast')].some(t => /Image saved/.test(t.textContent))`));
+    await open('l'); await ev(`window.__dl = []`);
+    await ev(`document.getElementById('hp-share').click()`); await sleep(1200);
+    dl = await ev(`window.__dl`);
+    check('a long name is cut short in the picture, not run off the edge', dl.length === 1 && (await ev(`(() => { const x = document.getElementById('habit-card-canvas').getContext('2d'); const d = x.getImageData(1000, 240, 80, 80).data; for (let i = 0; i < d.length; i += 4) if (d[i] > 60) return false; return true; })()`)), JSON.stringify(dl));
+    check('and the file name is a plain slug', /^habitly-[a-z0-9-]{3,40}\.png$/.test(dl[0].name), dl[0] && dl[0].name);
+    await open('e'); await ev(`window.__dl = []`);
+    await ev(`document.getElementById('hp-share').click()`); await sleep(1200);
+    dl = await ev(`window.__dl`);
+    check('accents and symbols in a name make a safe file name', dl.length === 1 && dl[0].name === 'habitly-emile-b-b-zoe.png', dl[0] && dl[0].name);
+    await size(320, 568); await sleep(200);
+    check('320px: Back, Share and Copy link share the top row without spilling', await ev(`document.documentElement.scrollWidth <= innerWidth && ['details-close', 'hp-share', 'hp-link'].every(id => { const r = document.getElementById(id).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })`));
     noExceptions();
   });
 };

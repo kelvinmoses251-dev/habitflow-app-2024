@@ -4199,6 +4199,25 @@ function showHabitRoute(arrived) {
   document.title = `${habit.name} \u00b7 Habitly`;
   if (fresh) { window.scrollTo(0, 0); document.getElementById('details-habit-name').focus({ preventScroll: true }); }
 }
+// Share: a picture of this one habit (its streak, three figures, the last twelve weeks). Nothing else is on it.
+document.getElementById('hp-share')?.addEventListener('click', async () => {
+  const habit = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (!habit) return;
+  track('habit_share_clicked');
+  const today = todayStr(), frozen = userFrozenDates || [], sum = habitSummary(habit, today, frozen);
+  const canvas = document.getElementById('habit-card-canvas');
+  const slug = String(habit.name || 'habit').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'habit';
+  try {
+    await habitPage.drawHabitCard(canvas, { name: habit.name, streak: sum.streak, unit: streakUnit(habit, sum.streak), longest: sum.longest, total: sum.total, rate30: sum.rate30,
+      weeks: yearCells(habit, today, frozen).weeks.slice(-12), url: SHARE_URL.replace(/^https?:\/\//, '') });
+    const how = await moments.shareCanvas(canvas, { filename: `habitly-${slug}.png`, title: habit.name, text: `${sum.streak} ${streakUnit(habit, sum.streak)} in a row on Habitly. ${SHARE_URL}` });
+    if (how === 'saved') toast('Image saved', 'success');
+    if (how === 'failed') toast('Could not share the picture. Try again.', 'error');
+  } catch (err) {
+    console.warn('Habit share failed:', err);
+    toast('Could not make the picture. Try again.', 'error');
+  }
+});
 document.getElementById('hp-link')?.addEventListener('click', async () => {
   if (!currentDetailsHabitId) return;
   const url = location.origin + location.pathname + '#habit/' + encodeURIComponent(currentDetailsHabitId);

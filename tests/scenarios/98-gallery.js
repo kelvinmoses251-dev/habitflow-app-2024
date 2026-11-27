@@ -221,4 +221,17 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b5year }], ['-dark', { seed: b5year, colorScheme: 'dark' }], ['-desktop', { seed: b5year, mobile: false }]]) {
     run('b5-charts-year' + tag, opts, async () => { await openHabit('c'); await section('hp-charts'); await settle(400); });
   }
+  const stampAt = (n, hour) => { const d = new Date(Date.now() - n * 864e5); d.setHours(hour, 10, 0, 0); return d.getTime(); };
+  const b5full = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: b5year.mock_fb_db.users, habits: { c: { ...b5year.mock_fb_db.habits.c, cue: 'After work, before dinner',
+    completedTimestamps: Object.fromEntries(pattern.slice(0, 30).map((d, n) => [d, stampAt(n + 1, 18)])), moods: Object.fromEntries(pattern.slice(0, 6).map(d => [d, 4])),
+    sessions: [{ at: Date.now() - 864e5, minutes: 25 }, { at: Date.now() - 3 * 864e5, minutes: 45 }, { at: Date.now() - 6 * 864e5, minutes: 15 }],
+    journals: [{ date: new Date(Date.now() - 2 * 864e5).toISOString(), text: 'Legs day. Slow but done.' }, { date: new Date(Date.now() - 9 * 864e5).toISOString(), text: 'New shoes help.' }, { date: new Date(Date.now() - 35 * 864e5).toISOString(), text: 'Knee felt fine after the long run.' }, { date: new Date(Date.now() - 40 * 864e5).toISOString(), text: 'Back at it after the break.' }] } } } };
+  for (const [tag, opts] of [['', { seed: b5full }], ['-dark', { seed: b5full, colorScheme: 'dark' }]]) {
+    run('b5-page-top' + tag, opts, async () => { await openHabit('c'); });
+    run('b5-insights' + tag, opts, async () => { await openHabit('c'); await section('hp-insights-card'); await settle(300); });
+    run('b5-focus' + tag, opts, async () => { await openHabit('c'); await section('hp-focus'); await settle(300); });
+    run('b5-notes' + tag, opts, async () => { await openHabit('c'); await section('hp-notes'); await ev(`(() => { const b = document.getElementById('notes-search'); b.value = 'run'; b.dispatchEvent(new Event('input', { bubbles: true })); })()`); await settle(300); });
+  }
+  run('b5-share-card', { seed: b5full }, async () => { await openHabit('c'); await ev(`HTMLAnchorElement.prototype.click = function () {}; document.getElementById('hp-share').click()`); await settle(1200);
+    await ev(`(() => { const c = document.getElementById('habit-card-canvas'); c.hidden = false; c.style.cssText = 'position:fixed;inset:0;margin:auto;height:100vh;width:auto;max-width:100vw;z-index:99999;background:#111113'; document.body.appendChild(c); })()`); await settle(300); });
 };

@@ -1053,6 +1053,9 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .hp-head-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
 .hp-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-right: calc(var(--sp-3) * -1); padding: 0 var(--sp-3); color: var(--text-2); }
 .hp-link .icon { width: 16px; height: 16px; }
+.hp-head-tools { display: inline-flex; align-items: center; }
+.hp-head-tools .hp-link + .hp-link { margin-left: 0; }
+.hp-head-tools .hp-link:first-child { margin-right: 0; }
 .habit-page[hidden] { display: none; }
 .hp-missing { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-3); }
 .hp-missing p { color: var(--text-2); }

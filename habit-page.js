@@ -17,7 +17,7 @@ const WEEKDAYS = [['Mon', 'Monday'], ['Tue', 'Tuesday'], ['Wed', 'Wednesday'], [
 // cell says in words what happened. Done days next to each other are joined into one band (run-start/mid/end).
 export function renderCalendar(el, grid) {
   const say = c => `${longDay(c.day)}${STATE_WORDS[c.state] ? ': ' + STATE_WORDS[c.state] : ''}${c.late ? ', filled in late' : ''}${c.today ? ' (today)' : ''}`;
-  const td = c => (!c.inMonth ? `<td class="cal-out${c.run && c.run !== 'single' ? ' run-' + c.run : ''}" aria-hidden="true"></td>`
+  const td = c => (!c.inMonth ? '<td class="cal-out" aria-hidden="true"></td>'      // a blank cell: no day, and no band either
     : `<td class="cal-day is-${c.state}${c.run ? ' run-' + c.run : ''}${c.today ? ' is-today' : ''}${c.late ? ' is-late' : ''}" data-day="${c.day}" aria-label="${esc(say(c))}"><span class="cal-num" aria-hidden="true">${Number(c.day.slice(8))}</span></td>`);
   el.innerHTML = `
     <div class="cal-head">
@@ -114,4 +114,45 @@ const duration = min => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${m
 export function renderSessions(listEl, totalEl, totals) {
   totalEl.textContent = totals.count ? `${plural(totals.count, 'session')}, ${duration(totals.minutes)} in all.` : 'No sessions yet. A finished session also completes the habit for today.';
   listEl.innerHTML = totals.recent.map(s => `<li><strong>${duration(s.minutes)}</strong><time datetime="${new Date(s.at).toISOString()}">${esc(noteWhen(new Date(s.at).toISOString()))}</time></li>`).join('');
+}
+
+// ── A share card for one habit ─────────────────────────────
+// 1080 x 1350, the same ink and accent as the other cards. Only this habit's own numbers are on it.
+// card: { name, streak, unit, longest, total, rate30, weeks: the last 12 columns of yearCells, url }
+function fitLine(ctx, text, max) {
+  let t = String(text);
+  if (ctx.measureText(t).width <= max) return t;
+  while (t.length > 1 && ctx.measureText(t + '\u2026').width > max) t = t.slice(0, -1);
+  return t.trimEnd() + '\u2026';
+}
+export async function drawHabitCard(canvas, card) {
+  try { await Promise.all([document.fonts.load('600 40px Inter'), document.fonts.load('400 40px "Instrument Serif"')]); } catch (_) { /* system fonts will do */ }
+  const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height, M = 96;
+  const INK = '#111113', LINE = '#2C2C31', TEXT = '#F2F2F4', MUTED = '#9A9AA3', ACCENT = '#A79EF5', FONT = 'Inter, system-ui, sans-serif';
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillStyle = TEXT; ctx.font = `600 44px ${FONT}`; ctx.fillText('Habitly', M, 140);
+  ctx.fillStyle = ACCENT; ctx.font = `600 60px ${FONT}`; ctx.fillText(fitLine(ctx, card.name, W - M * 2), M, 300);
+  ctx.fillStyle = TEXT; ctx.font = '400 300px "Instrument Serif", Georgia, serif'; ctx.fillText(String(card.streak), M - 8, 610);
+  const numWidth = ctx.measureText(String(card.streak)).width;
+  ctx.fillStyle = MUTED; ctx.font = `500 48px ${FONT}`; ctx.fillText(`${card.unit} in a row`, M + numWidth + 24, 600);
+  // three small figures
+  const figures = [['Longest', String(card.longest)], ['Total', String(card.total)], ['Last 30 days', card.rate30 === null ? '\u2013' : card.rate30 + '%']];
+  figures.forEach(([label, value], i) => {
+    const x = M + i * ((W - M * 2) / 3);
+    ctx.fillStyle = MUTED; ctx.font = `400 32px ${FONT}`; ctx.fillText(label, x, 720);
+    ctx.fillStyle = TEXT; ctx.font = `600 56px ${FONT}`; ctx.fillText(value, x, 790);
+  });
+  // the last twelve weeks, a dot a day
+  const pitchX = (W - M * 2) / 12, pitchY = 42, top = 880, left = M;      // twelve columns of seven days
+  ctx.fillStyle = MUTED; ctx.font = `400 28px ${FONT}`; ctx.fillText('Last 12 weeks', left, top - 24);
+  (card.weeks || []).forEach((col, c) => col.forEach((cell, r) => {
+    const x = left + c * pitchX + 15, y = top + r * pitchY + 15;
+    ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2);
+    if (cell.state === 'done') { ctx.fillStyle = ACCENT; ctx.fill(); }
+    else if (cell.state === 'future' || cell.state === 'before') { /* nothing */ }
+    else { ctx.strokeStyle = LINE; ctx.lineWidth = 3; ctx.stroke(); }
+  }));
+  ctx.fillStyle = LINE; ctx.fillRect(M, 1206, W - M * 2, 2);
+  ctx.fillStyle = MUTED; ctx.font = `400 34px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(card.url, W / 2, 1272);
 }

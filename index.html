@@ -547,7 +547,11 @@
         <header class="hp-head">
           <div class="hp-head-row">
             <button id="details-close" class="btn-ghost hp-back" type="button"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>Back</button>
-            <button id="hp-link" class="btn-ghost hp-link" type="button"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>Copy link</button>
+            <span class="hp-head-tools">
+              <button id="hp-share" class="btn-ghost hp-link" type="button"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Share</button>
+              <button id="hp-link" class="btn-ghost hp-link" type="button"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>Copy link</button>
+            </span>
+            <canvas id="habit-card-canvas" width="1080" height="1350" hidden></canvas>
           </div>
           <div class="hp-title">
             <span class="cat-ico hp-ico" id="hp-ico" aria-hidden="true"></span>

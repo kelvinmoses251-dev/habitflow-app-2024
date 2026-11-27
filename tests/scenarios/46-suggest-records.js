@@ -59,4 +59,38 @@ module.exports = (scenario, c) => {
     check('on a phone both buttons are thumb-sized and nothing overflows', (await ev(`[...document.querySelectorAll('#suggest-list button')].every(b => b.getBoundingClientRect().height >= 44)`)) && (await ev(`document.documentElement.scrollWidth <= innerWidth`)));
     noExceptions();
   });
+  // ── 60: a personal records wall ──────────────────────────
+  const tile = id => ev(`(() => { const t = document.querySelector('#records .rec[data-id="${id}"]'); return t ? { label: t.querySelector('.rec-label').childNodes[0].textContent.trim(), value: t.querySelector('.rec-value').textContent.replace(/\\s+/g, ' ').trim(), detail: t.querySelector('.rec-detail').textContent.trim(), fresh: t.classList.contains('is-fresh'), tag: !!t.querySelector('.rec-new') } : null; })()`);
+  scenario('records: a wall of personal bests, each with when or which habit', async () => {
+    await boot({ seed: seed({
+      a: H('Read <b>10</b> pages', { completedDates: [...run(0, 11), ...run(20, 50)], createdAt: new Date(Date.now() - 60 * 864e5).toISOString() }),
+      b: H('Run', { order: 2, completedDates: [...run(1, 4), ...run(30, 36)], createdAt: new Date(Date.now() - 60 * 864e5).toISOString(), sessions: [{ at: Date.now() - 864e5, minutes: 25 }, { at: Date.now() - 2 * 864e5, minutes: 45 }] }),
+      w: H('Call home', { order: 3, frequency: 'weekly', completedDates: [day(3), day(33)], createdAt: new Date(Date.now() - 60 * 864e5).toISOString() }),
+    }) }); await stats();
+    check('the wall is on the Stats page', (await visible('#records-card')) && /^Personal records/.test(await trim('#records-card .card-title')));
+    const streak = await tile('streak');
+    check('the longest streak, with the habit it belongs to (as text)', streak && streak.value === '31 days' && streak.detail === 'Read <b>10</b> pages' && !streak.fresh && !(await ev(`!!document.querySelector('#records b')`)), JSON.stringify(streak));
+    const perfect = await tile('perfect');
+    check('the longest run of perfect days, with its dates', perfect && perfect.value === '7 days' && / to /.test(perfect.detail), JSON.stringify(perfect));
+    const best = await tile('day');
+    check('the fullest day, marked New because it was this week', best && best.value === '3 check-ins' && best.fresh && best.tag && /\d{4}$/.test(best.detail), JSON.stringify(best));
+    check('the most-done habit', (await tile('habit')).value === '43 times' && (await tile('habit')).detail === 'Read <b>10</b> pages', JSON.stringify(await tile('habit')));
+    check('every check-in, and how many days you showed up', (await tile('total')).value === '56 check-ins' && /^Since /.test((await tile('total')).detail) && (await tile('active')).value === '43 days' && /^Of 6[01] since you began$/.test((await tile('active')).detail), JSON.stringify([await tile('total'), await tile('active')]));
+    check('time in focus', (await tile('focus')).value === '1 h 10 min' && (await tile('focus')).detail === '2 sessions', JSON.stringify(await tile('focus')));
+    check('a best week and a best month', !!(await tile('week')) && !!(await tile('month')));
+    check('New is said in words, not only by colour', (await ev(`document.querySelector('#records .rec.is-fresh .rec-new').textContent`)) === 'New');
+    noExceptions();
+  });
+
+  scenario('records: a streak still running, an account with nothing done, and a phone', async () => {
+    await boot({ seed: seed({ a: H('Read', { completedDates: run(0, 11), createdAt: new Date(Date.now() - 40 * 864e5).toISOString() }) }) }); await stats();
+    const streak = await tile('streak');
+    check('a streak that is still going says so, and is marked New', streak && streak.value === '12 days' && streak.detail === 'Read, and still going' && streak.fresh, JSON.stringify(streak));
+    await boot({ seed: seed({ a: H('Idle') }) }); await stats();
+    check('with nothing done there are no tiles, only how to begin', (await visible('#records-none')) && !(await ev(`!!document.querySelector('#records .rec')`)) && !/NaN|undefined|null/.test(await trim('#records-card')));
+    await size(375, 667);
+    await boot({ seed: seed({ a: H('Read a very long habit name that goes on and on', { completedDates: run(0, 11) }) }) }); await stats();
+    check('on a phone the tiles sit two across and nothing overflows', await ev(`(() => { const t = [...document.querySelectorAll('#records .rec')].map(x => x.getBoundingClientRect()); return t.length >= 4 && Math.abs(t[0].top - t[1].top) < 2 && t[2].top > t[0].top + 10 && document.documentElement.scrollWidth <= innerWidth && t.every(r => r.right <= innerWidth); })()`));
+    noExceptions();
+  });
 };

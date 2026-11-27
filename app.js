@@ -22,7 +22,7 @@ import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achiev
 import * as moments from "./moments.js?v=1";
 import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
-import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail } from "./stats.js?v=1";
+import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail, records } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
 import { weekReview, focusChoices, focusProgress, withReview, story, suggestions, undismissed } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
@@ -3233,6 +3233,7 @@ function renderStats() {
   renderInsights();
   renderSuggestions();
   renderReviewCard();
+  statsPage.renderRecords(document.getElementById('records'), records(allHabits, today, userFrozenDates || []));
 }
 
 // ── Suggestions drawn from the data ───────────────────────

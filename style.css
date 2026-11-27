@@ -1254,6 +1254,16 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .sg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-1); }
 .sg-actions button { min-height: 44px; }
 
+/* Personal records: a wall of tiles */
+.rec-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.25rem), 1fr)); gap: var(--sp-3); }
+.rec { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-lg); min-width: 0; }
+.rec.is-fresh { border-color: var(--primary-line); background: var(--primary-soft); }
+.rec-label { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--muted); }
+.rec-new { flex: none; padding: 1px var(--sp-2); border-radius: var(--r-full); background: var(--primary); color: var(--on-primary); font-size: var(--fs-2xs); font-weight: 600; }
+.rec-value { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-3xl); line-height: 1.05; overflow-wrap: anywhere; }
+.rec-unit { font-family: var(--font); font-size: var(--fs-sm); color: var(--text-2); }
+.rec-detail { font-size: var(--fs-sm); color: var(--text-2); overflow-wrap: anywhere; }
+
 /* Look back: the weekly review card and its dialog */
 .rv-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; }
 .rv-row + .rv-row { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--border); }

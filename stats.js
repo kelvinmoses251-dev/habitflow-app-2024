@@ -277,3 +277,62 @@ export function dayDetail(habits, day, today) {
   const t = dayTotals(habits, day, today);
   return { day, long: `${longDay(day)} ${day.slice(0, 4)}`, owed: t.owed + t.open, doneOwed: t.doneOwed, done: t.done, doneNames, missedNames, openNames };
 }
+
+// ── Personal records ───────────────────────────────────────
+// The bests of the whole history, each with when (or which habit) it was. `fresh` marks a record set or still
+// being extended in the last seven days. With no check-ins at all there are no records (the page says how to
+// start instead of showing a wall of zeros). Ties go to the most recent.
+export function records(habits, today, frozen = []) {
+  const list = real(habits), from = firstDay(list, today);
+  const shields = Array.isArray(frozen) ? frozen.filter(isDay) : [];
+  const recent = day => isDay(day) && rules.dayNumber(today) - rules.dayNumber(day) < 7;
+  let total = 0, active = 0, days = 0;
+  let bestDay = { n: 0, day: '' }, run = 0, runStart = '', bestRun = { n: 0, from: '', to: '' };
+  const weeks = new Map(), months = new Map();
+  eachDay(from, today, day => {
+    const t = dayTotals(list, day, today);
+    days++; total += t.done; if (t.done) active++;
+    if (t.done && t.done >= bestDay.n) bestDay = { n: t.done, day };
+    const perfect = t.owed > 0 && t.doneOwed === t.owed && t.open === 0;
+    if (perfect) { if (!run) runStart = day; run++; if (run >= bestRun.n) bestRun = { n: run, from: runStart, to: day }; }
+    else if (!(day === today && t.open > 0 && t.doneOwed === t.owed)) run = 0;      // an open today neither extends a run nor ends it
+    if (t.done) {
+      const w = rules.shiftDay(day, -((rules.weekdayOf(day) + 6) % 7)), m = day.slice(0, 7);
+      weeks.set(w, (weeks.get(w) || 0) + t.done); months.set(m, (months.get(m) || 0) + t.done);
+    }
+  });
+  if (!total) return [];
+  const most = map => [...map].reduce((a, b) => (b[1] >= a[1] ? b : a));
+  const out = [];
+
+  let streak = null;
+  for (const h of list) {
+    if (rules.baseFreq(h) !== 'daily') continue;
+    let longest = 0, current = 0;
+    try { longest = rules.habitLongestStreak(h, today, shields); current = rules.habitStreak(h, today, shields); } catch (_) { /* junk dates: no streak */ }
+    if (longest > 0 && (!streak || longest > streak.n || (longest === streak.n && current === longest && !streak.going))) streak = { n: longest, name: String(h.name == null ? '' : h.name), going: current === longest };
+  }
+  if (streak && streak.n >= 2) out.push({ id: 'streak', value: String(streak.n), unit: 'days', label: 'Longest streak', detail: streak.going ? `${streak.name}, and still going` : streak.name, fresh: streak.going });
+
+  if (bestRun.n >= 2) out.push({ id: 'perfect', value: String(bestRun.n), unit: 'days', label: 'Longest run of perfect days', detail: `${shortDay(bestRun.from)} to ${shortDay(bestRun.to, true)}`, fresh: recent(bestRun.to) });
+  out.push({ id: 'day', value: String(bestDay.n), unit: bestDay.n === 1 ? 'check-in' : 'check-ins', label: 'Most in one day', detail: `${longDay(bestDay.day)} ${bestDay.day.slice(0, 4)}`, fresh: recent(bestDay.day) });
+  const [week, weekN] = most(weeks), [month, monthN] = most(months);
+  out.push({ id: 'week', value: String(weekN), unit: weekN === 1 ? 'check-in' : 'check-ins', label: 'Best week', detail: `Week of ${shortDay(week, true)}`, fresh: recent(rules.shiftDay(week, 6)) || recent(week) });
+  out.push({ id: 'month', value: String(monthN), unit: monthN === 1 ? 'check-in' : 'check-ins', label: 'Best month', detail: `${MONTHS_LONG[Number(month.slice(5)) - 1]} ${month.slice(0, 4)}`, fresh: month === today.slice(0, 7) });
+
+  let top = null;
+  for (const h of list) { const n = doneSet(h).size; if (n && (!top || n > top.n)) top = { n, name: String(h.name == null ? '' : h.name) }; }
+  if (top) out.push({ id: 'habit', value: String(top.n), unit: top.n === 1 ? 'time' : 'times', label: 'Most-done habit', detail: top.name, fresh: false });
+  out.push({ id: 'total', value: String(total), unit: total === 1 ? 'check-in' : 'check-ins', label: 'All check-ins', detail: `Since ${shortDay(from, true)}`, fresh: false });
+  out.push({ id: 'active', value: String(active), unit: active === 1 ? 'day' : 'days', label: 'Days you showed up', detail: `Of ${days} since you began`, fresh: false });
+
+  let minutes = 0, sessions = 0;
+  for (const h of list) {
+    const kept = Array.isArray(h.sessions) ? h.sessions.filter(s => s && Number.isFinite(s.minutes) && s.minutes > 0) : [];
+    const sum = kept.reduce((s, x) => s + x.minutes, 0);
+    const ok = Number.isFinite(h.focusCount) && Number.isFinite(h.focusMinutes) && h.focusCount >= kept.length && h.focusMinutes >= sum;
+    minutes += ok ? Math.round(h.focusMinutes) : sum; sessions += ok ? Math.round(h.focusCount) : kept.length;
+  }
+  if (minutes > 0) out.push({ id: 'focus', value: minutes >= 60 ? `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}` : `${minutes} min`, unit: '', label: 'Time in focus', detail: `${sessions} ${sessions === 1 ? 'session' : 'sessions'}`, fresh: false });
+  return out;
+}

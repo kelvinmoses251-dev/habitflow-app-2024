@@ -274,3 +274,42 @@ test('categoryBalance: a category with habits and no check-ins is listed as quie
   const none = categoryBalance([H('Sit', [], { category: 'mind' })], periodRange('week', TODAY, []), ['health', 'mind']);
   assert.deepEqual([none.length, none[0].share, none[0].rate], [1, 0, 0]);
 });
+
+// ── Records ────────────────────────────────────────────────
+test('records: the bests of the whole history, each with when or which', async () => {
+  const { records } = await load();
+  const habits = [
+    H('Read', [...range(0, 9), ...range(20, 50)], { createdAt: ago(60) + 'T08:00:00' }),
+    H('Run', [...range(1, 4), ...range(30, 36)], { createdAt: ago(60) + 'T08:00:00', sessions: [{ at: 1e12, minutes: 25 }, { at: 1e12 + 1, minutes: 45 }] }),
+    H('Call', [3, 33], { frequency: 'weekly', createdAt: ago(60) + 'T08:00:00' }),
+  ];
+  const by = Object.fromEntries(records(habits, TODAY).map(r => [r.id, r]));
+  assert.deepEqual([by.streak.value, by.streak.unit, by.streak.label, by.streak.detail, by.streak.fresh], ['31', 'days', 'Longest streak', 'Read', false]);
+  assert.deepEqual([by.perfect.value, by.perfect.detail, by.perfect.fresh], ['7', '20 Oct to 26 Oct 2026', false]);
+  assert.deepEqual([by.day.value, by.day.unit, by.day.detail, by.day.fresh], ['3', 'check-ins', 'Sun 22 Nov 2026', true]);
+  assert.deepEqual([by.habit.value, by.habit.unit, by.habit.detail], ['41', 'times', 'Read']);
+  assert.deepEqual([by.total.value, by.total.detail], ['54', 'Since 26 Sep 2026']);
+  assert.deepEqual([by.active.value, by.active.detail], ['41', 'Of 61 since you began']);
+  assert.deepEqual([by.focus.value, by.focus.detail], ['1 h 10 min', '2 sessions']);
+  assert.equal(by.month.detail, 'October 2026');
+  assert.match(by.week.detail, /^Week of \d+ Oct 2026$/);
+});
+
+test('records: a streak still running says so and counts as fresh; ties go to the most recent', async () => {
+  const { records } = await load();
+  const by = Object.fromEntries(records([H('Read', range(0, 11), { createdAt: ago(40) + 'T08:00:00' }), H('Old', range(20, 31), { createdAt: ago(40) + 'T08:00:00' })], TODAY).map(r => [r.id, r]));
+  assert.deepEqual([by.streak.value, by.streak.detail, by.streak.fresh], ['12', 'Read, and still going', true]);
+  assert.equal(by.day.detail, 'Wed 25 Nov 2026', 'one check-in a day everywhere: the latest day wins');
+});
+
+test('records: nothing done means no records; junk is ignored; a counter keeps focus time past the stored sessions', async () => {
+  const { records } = await load();
+  assert.deepEqual(records([], TODAY), []);
+  assert.deepEqual(records([H('Idle')], TODAY), []);
+  assert.deepEqual(records([null, 'junk', { completedDates: 'no' }], TODAY), []);
+  const one = records([H('Once', [3], { createdAt: ago(5) + 'T08:00:00' })], TODAY);
+  assert.deepEqual(one.map(r => r.id), ['day', 'week', 'month', 'habit', 'total', 'active'], 'no streak or run of one');
+  assert.deepEqual(one.find(r => r.id === 'total').unit, 'check-in');
+  const counted = records([H('Deep', [1], { sessions: [{ at: 1e12, minutes: 25 }], focusCount: 80, focusMinutes: 2000 })], TODAY).find(r => r.id === 'focus');
+  assert.deepEqual([counted.value, counted.detail], ['33 h 20 min', '80 sessions']);
+});

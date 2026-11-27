@@ -371,3 +371,14 @@ export function renderSuggestions(el, items) {
     <div class="sg-actions">${s.action ? `<button type="button" class="btn-secondary" data-suggest="act" data-go="${esc(s.action.go)}" data-habit="${esc(s.habitId)}">${esc(s.action.label)}</button>` : ''}<button type="button" class="btn-link sg-dismiss" data-suggest="dismiss" aria-label="Not now: ${esc(s.title)}">Not now</button></div>
   </li>`).join('')}</ul>`;
 }
+
+// ── Personal records ───────────────────────────────────────
+// items: stats.records(...). A wall of tiles: the figure large, what it is, and when or which habit.
+export function renderRecords(el, items) {
+  if (!items.length) { el.innerHTML = '<p class="empty-note" id="records-none">Your records appear here after your first check-in.</p>'; return; }
+  el.innerHTML = `<ul class="rec-grid">${items.map(r => `<li class="rec${r.fresh ? ' is-fresh' : ''}" data-id="${esc(r.id)}">
+    <span class="rec-label">${esc(r.label)}${r.fresh ? '<span class="rec-new">New</span>' : ''}</span>
+    <strong class="rec-value">${esc(r.value)}${r.unit ? ` <span class="rec-unit">${esc(r.unit)}</span>` : ''}</strong>
+    <span class="rec-detail">${esc(r.detail)}</span>
+  </li>`).join('')}</ul>`;
+}

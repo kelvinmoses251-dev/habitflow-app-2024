@@ -54,7 +54,7 @@ module.exports = (scenario, c) => {
     check('streak is 1', await waitFor(`document.getElementById('greeting-streak').textContent === '1'`));
 
     await ev(`location.hash = '#stats'`);
-    check('stats shows 1/1 today', await waitFor(`document.getElementById('stat-today').textContent === '1/1'`));
+    check('stats counts the check-in', await waitFor(`document.getElementById('stat-done').textContent === '1'`));
     await ev(`location.hash = '#profile'`);
     check('profile shows name', await waitFor(`document.getElementById('profile-name').textContent === 'Test User'`));
 

@@ -22,6 +22,8 @@ import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achiev
 import * as moments from "./moments.js?v=1";
 import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
+import { PERIODS, periodRange, periodSummary, habitRates } from "./stats.js?v=1";
+import * as statsPage from "./stats-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -3219,49 +3221,45 @@ document.getElementById('deleted-habits-list').addEventListener('click', async e
 });
 
 // ── Render: Stats Page ────────────────────────────────────
+// The period is chosen with the switcher at the top of the page and remembered on this device. Every figure on the
+// page follows it (stats.js works them out; stats-page.js draws them).
+let statsPeriod = PERIODS.includes(localStorage.getItem('habitly_stats_period')) ? localStorage.getItem('habitly_stats_period') : 'week';
 function renderStats() {
-  const t = todayStr();
-  const doneToday = allHabits.filter(h => (h.completedDates || []).includes(t)).length;
-  const streak    = calcStreak(allHabits);
-  const total     = calcTotalDone(allHabits);
-  const { labels, counts } = getWeeklyData(allHabits);
-
-  // Weekly completion rate
-  let maxPossible = 0;                                   // what was due over the same seven days (not "every habit, every day")
-  for (let i = 0; i < 7; i++) { const ds = dayKeyOffset(-i); maxPossible += allHabits.filter(h => rules.isDueOn(h, ds)).length; }
-  const weeklySum   = counts.reduce((a, b) => a + b, 0);
-  const rate        = maxPossible > 0 ? Math.min(100, Math.round((weeklySum / maxPossible) * 100)) : 0;
-
-  document.getElementById('stat-today').textContent  = `${doneToday}/${allHabits.filter(h => (h.completedDates || []).includes(t) || rules.isDueOn(h, t)).length}`;
-  animCount('stat-streak', streak);
-  animCount('stat-total',  total);
-  document.getElementById('stat-rate').textContent   = rate + '%';
+  const root = document.getElementById('page-stats');
+  document.getElementById('stats-empty').hidden = allHabits.length > 0;
+  document.getElementById('stats-body').hidden = allHabits.length === 0;
+  statsPage.renderPeriod(document.getElementById('stats-period'), statsPeriod);
+  if (!allHabits.length) return;
+  const today = todayStr(), range = periodRange(statsPeriod, today, allHabits);
+  statsPage.renderHeadline(root, periodSummary(allHabits, range), range, calcStreak(allHabits));
+  document.getElementById('by-habit-sub').textContent = range.label;
+  statsPage.renderByHabit(document.getElementById('by-habit-list'), habitRates(allHabits, range));
 
   renderHeatmap();
-  renderWeeklyReport();
-  renderSuccessRate();
   renderInsights();
+  const { labels, counts } = getWeeklyData(allHabits);
   ensureLib('chart').then(() => {
     if (location.hash !== '#stats') return;      // user navigated away while it loaded
     renderChart(labels, counts);
     renderCatBreakdown();
   }).catch(() => {});
 }
-
-function animCount(id, target) {
-  const el = document.getElementById(id);
-  if (typeof target !== 'number') { el.textContent = target; return; }
-  const from = parseInt(el.textContent) || 0;
-  const dur  = 700;
-  let start;
-  const step = ts => {
-    if (!start) start = ts;
-    const p = Math.min((ts - start) / dur, 1);
-    el.textContent = Math.round(from + (target - from) * p);
-    if (p < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
+function setStatsPeriod(period, focus = false) {
+  if (!PERIODS.includes(period)) return;
+  statsPeriod = period;
+  localStorage.setItem('habitly_stats_period', period);
+  renderStats();
+  if (focus) document.querySelector(`#stats-period [data-period="${period}"]`)?.focus();
+  track('stats_period', { period });
 }
+document.getElementById('stats-period')?.addEventListener('click', e => {
+  const b = e.target instanceof Element ? e.target.closest('[data-period]') : null;
+  if (b) setStatsPeriod(b.dataset.period);
+});
+document.getElementById('stats-period')?.addEventListener('keydown', e => {
+  const next = statsPage.periodForKey(e.key, PERIODS, statsPeriod);
+  if (next) { e.preventDefault(); setStatsPeriod(next, true); }
+});
 
 function renderChart(labels, counts) {
   const ctx = document.getElementById('weekly-chart').getContext('2d');
@@ -3493,120 +3491,6 @@ function renderInsights() {
   const items = allHabits.length ? buildInsights(allHabits) : [];
   list.innerHTML = items.map(i => `<li><span class="ins-ic" aria-hidden="true"><svg class="icon"><use href="#i-${i.ic}"/></svg></span><span>${i.html}</span></li>`).join('');
   card.classList.toggle('hidden', !items.length);
-}
-
-function renderWeeklyReport() {
-  if (!allHabits.length) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-  // Analyse last 30 days
-  const days30 = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(today); d.setDate(d.getDate() - i);
-    const ds = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
-    days30.push({ ds, date: d });
-  }
-
-  // Perfect days (all daily habits done)
-  const dailyHabits = allHabits.filter(h => !h.frequency || h.frequency === 'daily');
-  let perfectDays = 0;
-  let bestDayCount = 0; let bestDayName = '—';
-  const dayTotals = {};
-
-  days30.forEach(({ ds, date }) => {
-    const doneThatDay = allHabits.filter(h => (h.completedDates || []).includes(ds)).length;
-    const dueThatDay = dailyHabits.filter(h => rules.isDueOn(h, ds));           // rest days, pauses and archived habits are not owed
-    if (dueThatDay.length > 0 && dueThatDay.every(h => (h.completedDates||[]).includes(ds))) perfectDays++;
-    if (doneThatDay > bestDayCount) { bestDayCount = doneThatDay; bestDayName = DAYS[date.getDay()]; }
-    const dayName = DAYS[date.getDay()];
-    dayTotals[dayName] = (dayTotals[dayName] || 0) + doneThatDay;
-  });
-
-  // Top habit (most completions in 30 days)
-  const topHabit = allHabits
-    .map(h => ({ name: h.name, count: (h.completedDates||[]).filter(ds => days30.some(d => d.ds === ds)).length }))
-    .sort((a, b) => b.count - a.count)[0];
-
-  // Active weeks (weeks where at least 1 habit was done)
-  let activeWeeks = 0;
-  for (let w = 0; w < 4; w++) {
-    const wStart = new Date(today); wStart.setDate(today.getDate() - (w+1)*7 + 1);
-    const wEnd   = new Date(today); wEnd.setDate(today.getDate() - w*7);
-    const active = allHabits.some(h =>
-      (h.completedDates||[]).some(ds => { const d = new Date(ds); return d >= wStart && d <= wEnd; })
-    );
-    if (active) activeWeeks++;
-  }
-
-  document.getElementById('report-best-day').textContent  = bestDayCount > 0 ? `${bestDayName} (${bestDayCount})` : '—';
-  document.getElementById('report-top-habit').textContent  = topHabit?.count > 0 ? topHabit.name : '—';
-  document.getElementById('report-perfect-days').textContent = perfectDays;
-  document.getElementById('report-active-weeks').textContent = `${activeWeeks}/4`;
-
-  // Summary sentence
-  const total30 = days30.reduce((s, {ds}) => s + allHabits.filter(h => (h.completedDates||[]).includes(ds)).length, 0);
-  const possible30 = days30.reduce((sum, { ds }) => sum + dailyHabits.filter(h => rules.isDueOn(h, ds)).length, 0);
-  const pct30 = possible30 > 0 ? Math.min(100, Math.round((total30 / possible30) * 100)) : 0;
-  let summary = '';
-  if (pct30 >= 80) summary = `You completed ${pct30}% of your habits over the last 30 days. Excellent consistency.`;
-  else if (pct30 >= 50) summary = `You completed ${pct30}% of your habits over the last 30 days. Solid progress.`;
-  else if (pct30 > 0) summary = `You completed ${pct30}% of your habits over the last 30 days. Showing up regularly will raise this.`;
-  else summary = 'No completed habits in the last 30 days yet. Complete one today to start your record.';
-  document.getElementById('report-summary-text').textContent = summary;
-}
-
-function renderSuccessRate() {
-  const list = document.getElementById('success-rate-list');
-  if (!list || !allHabits.length) return;
-  list.innerHTML = '';
-
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days30 = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(today); d.setDate(d.getDate() - i);
-    days30.push([d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'));
-  }
-
-  const rates = allHabits
-    .filter(h => !h.frequency || h.frequency === 'daily') // only daily habits for 30-day rate
-    .map(h => {
-      const done = (h.completedDates || []).filter(ds => days30.includes(ds)).length;
-      const pct  = Math.round((done / 30) * 100);
-      return { name: h.name, done, pct };
-    })
-    .sort((a, b) => b.pct - a.pct);
-
-  if (!rates.length) {
-    list.innerHTML = '<p class="empty-note">No daily habits tracked yet.</p>';
-    return;
-  }
-
-  rates.forEach(({ name, done, pct }) => {
-    const colorClass = pct >= 70 ? 'high' : pct >= 40 ? 'mid' : 'low';
-    const item = document.createElement('div');
-    item.className = 'success-rate-item';
-    item.innerHTML = `
-      <div class="success-rate-header">
-        <span class="success-rate-name">${escHtml(name)}</span>
-        <span class="success-rate-pct">${pct}%</span>
-      </div>
-      <div class="success-rate-bar-bg">
-        <div class="success-rate-bar-fill ${colorClass}" style="width:0%" data-pct="${pct}"></div>
-      </div>
-      <span class="success-rate-meta">${done} of 30 days completed</span>
-    `;
-    list.appendChild(item);
-  });
-
-  // Animate bars after a short delay (for visual pop)
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      list.querySelectorAll('.success-rate-bar-fill').forEach(bar => {
-        bar.style.width = bar.dataset.pct + '%';
-      });
-    }, 100);
-  });
 }
 
 // ── Render: Profile Page ──────────────────────────────────

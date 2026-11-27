@@ -57,11 +57,13 @@
   <link rel="modulepreload" href="habit-history.js?v=1" />
   <link rel="modulepreload" href="habit-page.js?v=1" />
   <link rel="modulepreload" href="moments.js?v=1" />
+  <link rel="modulepreload" href="stats.js?v=1" />
+  <link rel="modulepreload" href="stats-page.js?v=1" />
   <link rel="modulepreload" href="sounds.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
 
-  <link rel="stylesheet" href="style.css?v=67" />
+  <link rel="stylesheet" href="style.css?v=68" />
 </head>
 <body>
 
@@ -469,29 +471,29 @@
     <!-- Stats -->
     <section id="page-stats" class="page">
       <div class="page-content">
-        <h1 class="page-title">Statistics</h1>
+        <div class="stats-head">
+          <h1 class="page-title">Statistics</h1>
+          <div class="seg" id="stats-period" role="radiogroup" aria-label="Period">
+            <button type="button" class="seg-btn" role="radio" aria-checked="true" data-period="week">Week</button>
+            <button type="button" class="seg-btn" role="radio" aria-checked="false" tabindex="-1" data-period="month">Month</button>
+            <button type="button" class="seg-btn" role="radio" aria-checked="false" tabindex="-1" data-period="year">Year</button>
+            <button type="button" class="seg-btn" role="radio" aria-checked="false" tabindex="-1" data-period="all">All</button>
+          </div>
+        </div>
 
+        <div class="card stats-empty" id="stats-empty" hidden>
+          <h2 class="card-title">Nothing to count yet</h2>
+          <p>Add a habit and tick it off. Your rate, your streaks and your best days show up here.</p>
+          <a class="btn-primary" href="#home">Go to Home</a>
+        </div>
+
+        <div class="stats-body" id="stats-body">
+        <p class="stats-range" id="stats-range" aria-live="polite"></p>
         <div class="stats-grid">
-          <div class="stat-card"><span class="stat-lbl">Today</span><span class="stat-val" id="stat-today">0/0</span></div>
-          <div class="stat-card"><span class="stat-lbl">Streak</span><span class="stat-val" id="stat-streak">0</span></div>
-          <div class="stat-card"><span class="stat-lbl">Total done</span><span class="stat-val" id="stat-total">0</span></div>
-          <div class="stat-card"><span class="stat-lbl">This week</span><span class="stat-val" id="stat-rate">0%</span></div>
-        </div>
-
-        <div class="card insights-card hidden" id="insights-card">
-          <h2 class="card-title">Insights</h2>
-          <ul class="insights-list" id="insights-list"></ul>
-        </div>
-
-        <div class="card weekly-report-card">
-          <h2 class="card-title">Weekly report</h2>
-          <dl class="report-grid">
-            <div class="report-item"><dt class="report-label">Best day</dt><dd class="report-val" id="report-best-day">-</dd></div>
-            <div class="report-item"><dt class="report-label">Top habit</dt><dd class="report-val" id="report-top-habit">-</dd></div>
-            <div class="report-item"><dt class="report-label">Perfect days</dt><dd class="report-val" id="report-perfect-days">0</dd></div>
-            <div class="report-item"><dt class="report-label">Active weeks</dt><dd class="report-val" id="report-active-weeks">0</dd></div>
-          </dl>
-          <div class="report-summary" id="report-summary-text"></div>
+          <div class="stat-card"><span class="stat-lbl">Completion</span><span class="stat-val" id="stat-rate">–</span><span class="stat-sub" id="stat-rate-sub"></span></div>
+          <div class="stat-card"><span class="stat-lbl">Check-ins</span><span class="stat-val" id="stat-done">0</span><span class="stat-sub" id="stat-done-sub"></span></div>
+          <div class="stat-card"><span class="stat-lbl">Perfect days</span><span class="stat-val" id="stat-perfect">0</span><span class="stat-sub" id="stat-perfect-sub"></span></div>
+          <div class="stat-card"><span class="stat-lbl">Current streak</span><span class="stat-val" id="stat-streak">0</span><span class="stat-sub" id="stat-streak-sub"></span></div>
         </div>
 
         <div class="card card-wide">
@@ -521,14 +523,20 @@
           </div>
         </div>
 
-        <div class="card">
-          <h2 class="card-title">Success rate <span class="card-subtitle">Last 30 days</span></h2>
-          <div id="success-rate-list" class="success-rate-list"></div>
+        <div class="card insights-card hidden" id="insights-card">
+          <h2 class="card-title">Insights</h2>
+          <ul class="insights-list" id="insights-list"></ul>
+        </div>
+
+        <div class="card by-habit-card">
+          <h2 class="card-title">By habit <span class="card-subtitle" id="by-habit-sub"></span></h2>
+          <div id="by-habit-list" class="rate-list"></div>
         </div>
 
         <div class="card">
           <h2 class="card-title">By category</h2>
           <div class="chart-wrap chart-wrap-tall"><canvas id="pie-chart"></canvas></div>
+        </div>
         </div>
       </div>
     </section>
@@ -1154,6 +1162,6 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=69"></script>
+<script type="module" src="app.js?v=70"></script>
 </body>
 </html>

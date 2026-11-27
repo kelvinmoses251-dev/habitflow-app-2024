@@ -234,4 +234,19 @@ module.exports = (scenario, c) => {
   }
   run('b5-share-card', { seed: b5full }, async () => { await openHabit('c'); await ev(`HTMLAnchorElement.prototype.click = function () {}; document.getElementById('hp-share').click()`); await settle(1200);
     await ev(`(() => { const c = document.getElementById('habit-card-canvas'); c.hidden = false; c.style.cssText = 'position:fixed;inset:0;margin:auto;height:100vh;width:auto;max-width:100vw;z-index:99999;background:#111113'; document.body.appendChild(c); })()`); await settle(300); });
+  // ── Batch 6: the Stats dashboard ──────────────────────────
+  const b6days = (len, skip) => Array.from({ length: len }, (_, i) => i).filter(i => !skip(i)).map(i => key(-i));
+  const b6made = new Date(Date.now() - 400 * 864e5).toISOString();
+  const b6seed = { ...signedIn(), habitly_confirm: null, mock_fb_db: { users: { 'u-test': { xp: 5200, streakShields: 1, frozenDates: [] } }, habits: {
+    a: mk('Drink 2 litres of water', 'health', 1, b6days(400, i => i % 9 === 4 || (i > 200 && i < 215)), { createdAt: b6made }),
+    b: mk('Read 10 pages', 'reading', 2, b6days(400, i => i % 4 === 1 || (i > 90 && i < 120)), { createdAt: b6made }),
+    c: mk('Workout for 30 minutes', 'fitness', 3, b6days(400, i => i % 7 === 5 || i % 7 === 6 || i % 13 === 2), { createdAt: b6made, sessions: [{ at: Date.now() - 864e5, minutes: 45 }, { at: Date.now() - 3 * 864e5, minutes: 25 }] }),
+    d: mk('Meditate for 10 minutes', 'relaxation', 4, b6days(300, i => (i < 21 ? i % 3 !== 2 : i % 5 === 0)), { createdAt: new Date(Date.now() - 300 * 864e5).toISOString() }),
+    e: mk('Write in journal', 'mind', 5, b6days(120, i => i % 2 === 1 || i % 5 === 0), { createdAt: new Date(Date.now() - 120 * 864e5).toISOString() }),
+    f: mk('Review weekly budget', 'saving', 6, b6days(400, i => i % 7 !== 3), { frequency: 'weekly', createdAt: b6made }),
+  } } };
+  const b6open = async period => { await ready(); await ev(`location.hash = '#stats'`); await settle(600); if (period) { await ev(`document.querySelector('#stats-period [data-period="${period}"]').click()`); await settle(500); } };
+  for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }], ['-desktop', { seed: b6seed, mobile: false }]]) {
+    run('b6-dashboard' + tag, opts, async () => { await b6open('month'); });
+  }
 };

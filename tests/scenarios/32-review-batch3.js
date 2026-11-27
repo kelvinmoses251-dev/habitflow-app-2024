@@ -117,8 +117,9 @@ module.exports = (scenario, c) => {
       p: H('Paused all month', { order: 3, pauses: [{ from: day(45) }] }),
       n: H('Starts next week', { order: 4, startDate: day(-7) }),
     }), mobile: false, hash: '#stats' }); await sleep(2000);
-    check('archived, paused and not-yet-started habits do not spoil perfect days', (await text('#report-perfect-days')).trim() === '30', await text('#report-perfect-days'));
-    check('today counts one habit of one', (await text('#stat-today')).trim() === '1/1', await text('#stat-today'));
+    await ev(`document.querySelector('#stats-period [data-period="month"]').click()`); await sleep(400);
+    check('archived, paused and not-yet-started habits do not spoil perfect days', (await text('#stat-perfect')).trim() === '30', await text('#stat-perfect'));
+    check('and the rate counts one habit only', (await text('#stat-rate')).trim() === '100%' && /30 of 30/.test(await text('#stat-rate-sub')), await text('#stat-rate-sub'));
     noExceptions();
   });
 };

@@ -163,4 +163,31 @@ module.exports = (scenario, c) => {
     check('Escape returns to the summary', /^Active on/.test(await trim('#heat .chart-detail')));
     noExceptions();
   });
+  // ── 55: the balance between categories ───────────────────
+  scenario('balance: where the check-ins went, and which areas went quiet', async () => {
+    await boot({ seed: seed({ ...three(), q: H('Sit still', { order: 4, category: 'mind' }) }) }); await stats();
+    const rows = await ev(`[...document.querySelectorAll('#cat-list .cat-row')].map(r => r.dataset.cat + ':' + r.querySelector('.cat-share').textContent.trim() + ':' + r.querySelector('.cat-n').textContent.trim()).join('|')`);
+    check('each category with its share and its count, most first, the quiet one last', rows === 'reading:64%:7|fitness:27%:3|social:9%:1|mind:none:0', rows);
+    check('one bar is split by share, widest first', await ev(`(() => { const s = [...document.querySelectorAll('#cat-list .bal-seg')].map(x => x.getBoundingClientRect().width); const all = s.reduce((a, b) => a + b, 0); return s.length === 3 && Math.abs(s[0] / all - 0.64) < 0.04 && s[0] > s[1] && s[1] > s[2]; })()`));
+    check('each segment has its category colour, and they differ', await ev(`(() => { const c = [...document.querySelectorAll('#cat-list .bal-seg')].map(x => getComputedStyle(x).backgroundColor); return new Set(c).size === 3 && c.every(v => v !== 'rgba(0, 0, 0, 0)'); })()`));
+    check('each row says how many habits and how they did', /1 habit · 100% of what was due/.test(await trim('#cat-list .cat-row[data-cat="reading"]')) && /1 habit · 50% of what was due/.test(await trim('#cat-list .cat-row[data-cat="fitness"]')) && /no daily rate/.test(await trim('#cat-list .cat-row[data-cat="social"]')), await trim('#cat-list'));
+    check('a sentence names the largest and the quiet one', (await trim('#balance-says')) === 'Reading took 64% of your check-ins. Mind had none.', await trim('#balance-says'));
+    check('the quiet category is marked by more than colour', await ev(`document.querySelector('#cat-list .cat-row[data-cat="mind"]').classList.contains('is-quiet')`) && /none/.test(await trim('#cat-list .cat-row[data-cat="mind"]')));
+    await pick('month');
+    check('it follows the period', /^reading:84%:21\|/.test(await ev(`[...document.querySelectorAll('#cat-list .cat-row')].map(r => r.dataset.cat + ':' + r.querySelector('.cat-share').textContent.trim() + ':' + r.querySelector('.cat-n').textContent.trim()).join('|')`)));
+    check('the card is called Balance', /^Balance/.test(await trim('.balance-card .card-title')));
+    noExceptions();
+  });
+
+  scenario('balance: one area, many areas and none', async () => {
+    await boot({ seed: seed({ a: H('Read', { completedDates: run(0, 3), category: 'reading' }) }) }); await stats();
+    check('one area says so', (await trim('#balance-says')) === 'Every check-in in this period went to Reading.', await trim('#balance-says'));
+    const many = Object.fromEntries(['health', 'mind', 'social', 'growth', 'fitness'].map((cat, i) => [cat, H('H ' + cat, { order: i, category: cat, completedDates: [day(1), day(2)] })]));
+    await boot({ seed: seed(many) }); await stats();
+    check('an even spread is called a spread', /^Your check-ins are spread over 5 areas; .* leads with 20%\.$/.test(await trim('#balance-says')), await trim('#balance-says'));
+    check('shares add up to 100', (await ev(`[...document.querySelectorAll('#cat-list .cat-share')].reduce((s, x) => s + parseInt(x.textContent, 10), 0)`)) === 100);
+    await boot({ seed: seed({ a: H('<i>Odd</i>', { category: '<img src=x onerror=alert(1)>' }) }) }); await stats();
+    check('a category the app does not know is shown as Health, and nothing is injected', /Health/.test(await trim('#cat-list')) && !(await ev(`!!document.querySelector('#cat-list img, #cat-list i:not(.cat-dot)')`)) && /No check-ins|none/.test(await trim('#cat-list')));
+    noExceptions();
+  });
 };

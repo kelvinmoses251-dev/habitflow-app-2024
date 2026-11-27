@@ -145,19 +145,31 @@ export function renderBars(box, series, range) {
   picker(box, series, say, rest);
 }
 
-// ── Categories ─────────────────────────────────────────────
-// rows: [{ key, checkins }]. look(key) gives { label, color } for a category.
-export function renderCategories(el, rows, look) {
+// ── The balance between categories ─────────────────────────
+// rows: stats.categoryBalance(...). look(key) gives { label, color }. One bar split by share of check-ins, then a
+// row per category with its figures in words, then a sentence naming the largest and any that had nothing.
+const listed = names => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
+export function balanceSentence(rows, look) {
+  const active = rows.filter(r => r.checkins), quiet = rows.filter(r => !r.checkins).map(r => look(r.key).label);
+  if (!active.length) return 'No check-ins in this period yet.';
+  const top = look(active[0].key).label;
+  const head = active.length === 1 ? `Every check-in in this period went to ${top}.`
+    : active[0].share >= 40 ? `${top} took ${active[0].share}% of your check-ins.`
+    : `Your check-ins are spread over ${active.length} areas; ${top} leads with ${active[0].share}%.`;
+  return quiet.length ? `${head} ${listed(quiet)} had none.` : head;
+}
+export function renderBalance(el, rows, look) {
   if (!rows.length) { el.innerHTML = '<p class="empty-note">No check-ins in this period yet.</p>'; return; }
-  const max = Math.max(...rows.map(r => r.checkins));
-  el.innerHTML = rows.map(r => {
+  const active = rows.filter(r => r.checkins);
+  const bar = active.length ? `<div class="bal-bar" aria-hidden="true">${active.map(r => `<span class="bal-seg" data-cat="${esc(r.key)}" style="flex-grow:${r.checkins};--cat:${esc(look(r.key).color)}"></span>`).join('')}</div>` : '';
+  el.innerHTML = `${bar}<div class="cat-rows">${rows.map(r => {
     const { label, color } = look(r.key);
-    return `<div class="cat-row" data-cat="${esc(r.key)}" style="--cat:${esc(color)}">
-      <span class="cat-name"><i class="cat-dot" aria-hidden="true"></i>${esc(label)}</span>
-      <span class="cat-bar" aria-hidden="true"><span class="cat-fill" style="width:${Math.max(2, Math.round((r.checkins / max) * 100))}%"></span></span>
-      <span class="cat-n">${r.checkins}</span>
+    const sub = [plural(r.habits, 'habit'), r.rate !== null ? `${r.rate}% of what was due` : r.checkins ? 'no daily rate' : ''].filter(Boolean).join(' \u00b7 ');
+    return `<div class="cat-row${r.checkins ? '' : ' is-quiet'}" data-cat="${esc(r.key)}" style="--cat:${esc(color)}">
+      <span class="cat-name"><i class="cat-dot" aria-hidden="true"></i><span><strong>${esc(label)}</strong><span class="cat-sub">${sub}</span></span></span>
+      <span class="cat-figs"><span class="cat-share">${r.checkins ? r.share + '%' : 'none'}</span><span class="cat-n-wrap"><span class="cat-n">${r.checkins}</span> ${r.checkins === 1 ? 'check-in' : 'check-ins'}</span></span>
     </div>`;
-  }).join('');
+  }).join('')}</div><p class="chart-detail" id="balance-says">${esc(balanceSentence(rows, look))}</p>`;
 }
 
 // ── The rate as a line, against the period before ──────────

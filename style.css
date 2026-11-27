@@ -1202,13 +1202,21 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .lg-line { width: 18px; height: 0; border-top: 2px solid var(--primary); }
 .lg-line.is-before { border-top: 2px dashed var(--border-strong); }
 .chart-detail { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); min-height: 2.8em; }
-.cat-list { display: flex; flex-direction: column; gap: var(--sp-3); }
-.cat-row { display: grid; grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) 2.5rem; align-items: center; gap: var(--sp-3); font-size: var(--fs-ui); }
-.cat-name { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; overflow-wrap: anywhere; }
+/* Balance: one bar split by share of check-ins, then each category in words */
+.bal-bar { display: flex; gap: 2px; height: 12px; margin-bottom: var(--sp-4); border-radius: var(--r-full); overflow: hidden; }
+.bal-seg { flex: 1 1 0; min-width: 4px; background: var(--cat); }
+.cat-rows { display: flex; flex-direction: column; gap: var(--sp-3); }
+.cat-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); font-size: var(--fs-ui); }
+.cat-name { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.cat-name > span { display: flex; flex-direction: column; min-width: 0; }
+.cat-name strong { font-weight: 500; overflow-wrap: anywhere; }
+.cat-sub { font-size: var(--fs-xs); color: var(--muted); }
 .cat-dot { flex: none; width: 10px; height: 10px; border-radius: var(--r-full); background: var(--cat); }
-.cat-bar { display: block; height: 8px; background: var(--surface-2); border-radius: var(--r-full); overflow: hidden; }
-.cat-fill { display: block; height: 100%; background: var(--cat); border-radius: var(--r-full); }
-.cat-n { text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.cat-row.is-quiet .cat-dot { background: none; border: 2px solid var(--cat); }
+.cat-figs { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.cat-share { font-weight: 600; font-variant-numeric: tabular-nums; }
+.cat-row.is-quiet .cat-share { font-weight: 400; color: var(--muted); }
+.cat-n-wrap { font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .insights-card.hidden { display: none !important; }
 .insights-list { list-style: none; display: flex; flex-direction: column; gap: var(--sp-3); }

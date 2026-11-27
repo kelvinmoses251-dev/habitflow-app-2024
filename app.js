@@ -22,7 +22,7 @@ import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achiev
 import * as moments from "./moments.js?v=1";
 import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
-import { PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryCheckins, trend, heatYear, dayDetail } from "./stats.js?v=1";
+import { PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -3223,7 +3223,7 @@ function renderStats() {
   statsDrawnAt = document.getElementById('stats-body').clientWidth;
   statsPage.renderBars(document.getElementById('bars'), barSeries(allHabits, range), range);
   statsPage.renderTrend(document.getElementById('trend'), trend(allHabits, range), range);
-  statsPage.renderCategories(document.getElementById('cat-list'), categoryCheckins(allHabits, range), key => { const cat = CATS[key] || CATS.health; return { label: cat.label, color: catColor(cat) }; });
+  statsPage.renderBalance(document.getElementById('cat-list'), categoryBalance(allHabits, range, Object.keys(CATS)), key => { const cat = CATS[key] || CATS.health; return { label: cat.label, color: catColor(cat) }; });
   statsPage.renderHeat(document.getElementById('heat'), heatYear(allHabits, today), day => dayDetail(allHabits, day, today));
   renderInsights();
 }

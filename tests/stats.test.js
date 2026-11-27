@@ -164,11 +164,6 @@ test('barSeries: all time is by month up to two years, then by year', async () =
   assert.deepEqual([years[0].from, years[4].to, years[4].done], ['2022-06-01', TODAY, 11]);
 });
 
-test('categoryCheckins: check-ins by category over the period, most first', async () => {
-  const { periodRange, categoryCheckins } = await load();
-  const habits = [H('Read', range(0, 6), { category: 'reading' }), H('Run', [1, 2], { category: 'fitness' }), H('Lift', [1], { category: 'fitness' }), H('Odd', [1, 2, 3, 4], { category: 'nonsense' }), H('Idle', [], { category: 'mind' })];
-  assert.deepEqual(categoryCheckins(habits, periodRange('week', TODAY, habits)), [{ key: 'reading', checkins: 7 }, { key: 'nonsense', checkins: 4 }, { key: 'fitness', checkins: 3 }]);
-});
 
 // ── The trend ──────────────────────────────────────────────
 test('trend: this week against the week before, point by point', async () => {
@@ -247,4 +242,35 @@ test('dayDetail: a day by name', async () => {
   assert.deepEqual(dayDetail(habits, ago(1), TODAY), { day: ago(1), long: 'Tue 24 Nov 2026', owed: 3, doneOwed: 2, done: 3, doneNames: ['Read', 'Run', 'Call'], missedNames: ['Swim'], openNames: [] });
   const now = dayDetail(habits, TODAY, TODAY);
   assert.deepEqual([now.owed, now.doneOwed, now.doneNames, now.missedNames, now.openNames], [3, 1, ['Read'], [], ['Run', 'Swim']]);
+});
+
+// ── The balance between categories ─────────────────────────
+test('categoryBalance: check-ins, share and rate for each category, most first', async () => {
+  const { periodRange, categoryBalance } = await load();
+  const habits = [H('Read', range(0, 6), { category: 'reading' }), H('Run', [1, 2], { category: 'fitness' }), H('Lift', [1], { category: 'fitness' }), H('Call', [2], { category: 'social', frequency: 'weekly' })];
+  const rows = categoryBalance(habits, periodRange('week', TODAY, habits), ['health', 'reading', 'fitness', 'social']);
+  assert.deepEqual(rows, [
+    { key: 'reading', habits: 1, checkins: 7, share: 64, owed: 7, doneOwed: 7, rate: 100 },
+    { key: 'fitness', habits: 2, checkins: 3, share: 27, owed: 12, doneOwed: 3, rate: 25 },
+    { key: 'social', habits: 1, checkins: 1, share: 9, owed: 0, doneOwed: 0, rate: null },
+  ]);
+});
+
+test('categoryBalance: shares are whole percents that add up to 100', async () => {
+  const { periodRange, categoryBalance } = await load();
+  const habits = [H('A', [1], { category: 'a' }), H('B', [1], { category: 'b' }), H('C', [1], { category: 'c' })];
+  const rows = categoryBalance(habits, periodRange('week', TODAY, habits));
+  assert.deepEqual(rows.map(r => r.share), [34, 33, 33]);
+  const seven = [H('A', [1, 2, 3], { category: 'a' }), H('B', [1, 2], { category: 'b' }), H('C', [1, 2], { category: 'c' })];
+  assert.equal(categoryBalance(seven, periodRange('week', TODAY, seven)).reduce((s, r) => s + r.share, 0), 100);
+});
+
+test('categoryBalance: a category with habits and no check-ins is listed as quiet; an archived one is not', async () => {
+  const { periodRange, categoryBalance } = await load();
+  const habits = [H('Read', [1], { category: 'reading' }), H('Sit', [], { category: 'mind' }), H('Gone', [], { category: 'saving', archivedAt: num(ago(40)) * 864e5, archivedOn: ago(40) }), H('Odd', [2], { category: 'nonsense' })];
+  const rows = categoryBalance(habits, periodRange('week', TODAY, habits), ['health', 'reading', 'mind', 'saving']);
+  assert.deepEqual(rows.map(r => [r.key, r.habits, r.checkins, r.share]), [['health', 1, 1, 50], ['reading', 1, 1, 50], ['mind', 1, 0, 0]]);
+  assert.deepEqual(categoryBalance([], periodRange('week', TODAY, [])), []);
+  const none = categoryBalance([H('Sit', [], { category: 'mind' })], periodRange('week', TODAY, []), ['health', 'mind']);
+  assert.deepEqual([none.length, none[0].share, none[0].rate], [1, 0, 0]);
 });

@@ -253,4 +253,9 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }], ['-desktop', { seed: b6seed, mobile: false }]]) {
     run('b6-charts' + tag, opts, async () => { await b6open('month'); await b6at('#bars'); await settle(400); await ev(`document.querySelectorAll('#bars .bar-slot')[22].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))`); await settle(300); });
   }
+  for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }], ['-desktop', { seed: b6seed, mobile: false }]]) {
+    run('b6-trend' + tag, opts, async () => { await b6open('month'); await b6at('#trend'); await settle(400); });
+    run('b6-year' + tag, opts, async () => { await b6open('month'); await b6at('#heat'); await settle(400); await ev(`document.querySelectorAll('#heat .hc[data-day]')[330].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))`); await settle(300); });
+    run('b6-balance' + tag, opts, async () => { await b6open('month'); await b6at('#cat-list'); await settle(400); });
+  }
 };

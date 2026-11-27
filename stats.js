@@ -179,16 +179,37 @@ export function barSeries(habits, range) {
   });
 }
 
-// ── Categories ─────────────────────────────────────────────
-// Check-ins by category over the period, most first; categories with none are left out.
-export function categoryCheckins(habits, range) {
-  const counts = new Map();
+// ── The balance between categories ─────────────────────────
+// For each category that has a habit in play, or had a check-in in the period: how many habits, how many
+// check-ins, its share of all check-ins (whole percents that add up to 100), and the rate of its day-by-day
+// habits. A category with habits and no check-ins is listed too: that silence is the point of the view.
+// known: the category keys the app has; anything else counts as the first of them.
+export function categoryBalance(habits, range, known = []) {
+  const rows = new Map();
+  const row = key => { if (!rows.has(key)) rows.set(key, { key, habits: 0, checkins: 0, share: 0, owed: 0, doneOwed: 0, rate: null }); return rows.get(key); };
   for (const h of real(habits)) {
-    let n = 0;
-    eachDay(range.from, range.to, day => { if (wasDone(h, day)) n++; });
-    if (n) { const key = typeof h.category === 'string' && h.category ? h.category : 'health'; counts.set(key, (counts.get(key) || 0) + n); }
+    const key = known.length && !known.includes(h.category) ? known[0] : typeof h.category === 'string' && h.category ? h.category : (known[0] || 'health');
+    let n = 0, owed = 0, doneOwed = 0;
+    eachDay(range.from, range.to, day => {
+      const done = wasDone(h, day), due = wasOwed(h, day);
+      if (done) n++;
+      if (due && (done || day !== range.to)) { owed++; if (done) doneOwed++; }
+    });
+    const inPlay = !h.archivedAt && !rules.hasEndedOn(h, range.to);
+    if (!n && !inPlay) continue;
+    const r = row(key);
+    if (inPlay) r.habits++;
+    r.checkins += n; r.owed += owed; r.doneOwed += doneOwed;
   }
-  return [...counts].map(([key, checkins]) => ({ key, checkins })).sort((a, b) => b.checkins - a.checkins || a.key.localeCompare(b.key));
+  const list = [...rows.values()], total = list.reduce((s, r) => s + r.checkins, 0);
+  for (const r of list) r.rate = pct(r.doneOwed, r.owed);
+  if (total) {                                                 // largest remainder: whole percents that add up to 100
+    const exact = list.map(r => (r.checkins / total) * 100);
+    list.forEach((r, i) => { r.share = Math.floor(exact[i]); });
+    let left = 100 - list.reduce((s, r) => s + r.share, 0);
+    for (const i of exact.map((v, i) => [v - Math.floor(v), i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).map(x => x[1])) { if (left-- <= 0) break; list[i].share++; }
+  }
+  return list.sort((a, b) => b.checkins - a.checkins || b.habits - a.habits || a.key.localeCompare(b.key));
 }
 
 // ── The rate over the period, against the period before ────

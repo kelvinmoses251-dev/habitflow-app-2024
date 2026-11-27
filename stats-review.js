@@ -187,3 +187,94 @@ export function story(habits, kind, today) {
   return { kind: k, title: span.title, from: span.from, to: span.to, enough: slides.length >= STORY_MIN_SLIDES,
     sum: { rate: sum.rate, checkins: sum.checkins, active: sum.active, days: sum.days, perfect: sum.perfect }, slides };
 }
+
+// ── Suggestions drawn from the data ────────────────────────
+// Up to three things worth changing, each with the numbers behind it. Only habits that are in play and not paused
+// are looked at, a habit gets at most one suggestion, and nothing is said below these thresholds.
+export const SUGGEST = {
+  max: 3,
+  slipDays: 14, slipOwed: 7, slipDrop: 25, slipBelow: 60,      // two fortnights; at least 7 days owed in each; down 25 points to under 60%
+  dayWeeks: 8, dayOwed: 6, dayAtMost: 25, othersAtLeast: 70,   // one weekday at 25% or less over 8 weeks while the other days are at 70% or more
+  loadDays: 14, loadPerDay: 8, loadBelow: 50,                  // eight or more due on a typical day, under half done
+  raiseDays: 30, raiseOwed: 25,                                // every one of at least 25 owed days in the last 30
+  timeShare: 0.6, timeMin: 5,                                  // "mostly in the morning": 60% of at least five timed completions
+  restDays: 28,                                                // a dismissed suggestion stays away this long
+};
+const DAY_ONE = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// When the habit usually got done over a span, from the times saved with each completion: 'morning' (before
+// noon), 'evening' (from six) or null when there is no clear pattern or too little to go on.
+function usualTime(h, from, to) {
+  const stamps = h.completedTimestamps && typeof h.completedTimestamps === 'object' ? h.completedTimestamps : {};
+  let n = 0, morning = 0, evening = 0;
+  eachDay(from, to, day => {
+    const at = stamps[day];
+    if (!Number.isFinite(at) || !wasDone(h, day)) return;
+    const hour = new Date(at).getHours();
+    n++; if (hour < 12) morning++; else if (hour >= 18) evening++;
+  });
+  if (n < SUGGEST.timeMin) return null;
+  return morning / n >= SUGGEST.timeShare ? 'morning' : evening / n >= SUGGEST.timeShare ? 'evening' : null;
+}
+
+export function suggestions(habits, today) {
+  const list = real(habits).filter(h => inPlay(h, today) && !rules.isPausedOn(h, today));
+  const out = [], used = new Set();
+  const yesterday = rules.shiftDay(today, -1);                 // today is still open, so every window ends yesterday
+  const back = n => rules.shiftDay(yesterday, -(n - 1));
+  const daily = list.filter(h => rules.baseFreq(h) === 'daily');
+
+  // 1. Slipping: the last fortnight against the one before
+  const slips = [];
+  for (const h of daily) {
+    const now = habitSpan(h, back(SUGGEST.slipDays), yesterday), was = habitSpan(h, back(SUGGEST.slipDays * 2), rules.shiftDay(back(SUGGEST.slipDays), -1));
+    if (now.owed < SUGGEST.slipOwed || was.owed < SUGGEST.slipOwed) continue;
+    const r = pct(now.doneOwed, now.owed), before = pct(was.doneOwed, was.owed);
+    if (before - r < SUGGEST.slipDrop || r >= SUGGEST.slipBelow) continue;
+    const time = usualTime(h, back(SUGGEST.slipDays * 2), rules.shiftDay(back(SUGGEST.slipDays), -1));
+    slips.push({ drop: before - r, item: { id: `slipping:${h.id}`, kind: 'slipping', habitId: h.id, title: `${nameOf(h)} is slipping`,
+      text: `Done on ${now.doneOwed} of the last ${plural(now.owed, 'day')} it was due, down from ${was.doneOwed} of ${was.owed} before that.${time ? ` It mostly got done in the ${time}. Try ${time}s again?` : ' A smaller version may be easier to keep.'}`,
+      action: { label: 'Edit habit', go: 'edit' } } });
+  }
+  slips.sort((a, b) => b.drop - a.drop).forEach(s => { out.push(s.item); used.add(s.item.habitId); });
+
+  // 2. One day of the week it rarely happens
+  for (const h of daily) {
+    if (used.has(h.id)) continue;
+    const byDay = Array.from({ length: 7 }, () => ({ owed: 0, done: 0 }));
+    eachDay(back(SUGGEST.dayWeeks * 7), yesterday, day => { if (!wasOwed(h, day)) return; const w = byDay[rules.weekdayOf(day)]; w.owed++; if (wasDone(h, day)) w.done++; });
+    let worst = -1;
+    byDay.forEach((w, i) => { if (w.owed >= SUGGEST.dayOwed && pct(w.done, w.owed) <= SUGGEST.dayAtMost && (worst < 0 || w.done / w.owed < byDay[worst].done / byDay[worst].owed)) worst = i; });
+    if (worst < 0) continue;
+    const rest = byDay.reduce((s, w, i) => (i === worst ? s : { owed: s.owed + w.owed, done: s.done + w.done }), { owed: 0, done: 0 });
+    if (!rest.owed || pct(rest.done, rest.owed) < SUGGEST.othersAtLeast) continue;
+    out.push({ id: `weekday:${h.id}:${worst}`, kind: 'weekday', habitId: h.id, title: `${nameOf(h)} rarely happens on ${DAY_NAMES[worst]}`,
+      text: `Done on ${byDay[worst].done} of the last ${byDay[worst].owed} ${DAY_NAMES[worst]}, against ${pct(rest.done, rest.owed)}% on other days. Make ${DAY_ONE[worst]} a rest day?`,
+      action: { label: 'Edit schedule', go: 'edit' } });
+    used.add(h.id);
+  }
+
+  // 3. Too much due each day
+  const load = spanTotals(list, back(SUGGEST.loadDays), yesterday, today);
+  if (load.days && load.owed / load.days >= SUGGEST.loadPerDay && load.rate !== null && load.rate < SUGGEST.loadBelow) {
+    out.push({ id: 'overload', kind: 'overload', habitId: null, title: 'A lot is due each day',
+      text: `About ${Math.round(load.owed / load.days)} habits are due on a typical day, and ${load.rate}% of them got done in the last two weeks. Pausing a few may help the rest.`, action: null });
+  }
+
+  // 4. Solid for a month: ready for more
+  for (const h of daily) {
+    if (used.has(h.id)) continue;
+    const s = habitSpan(h, back(SUGGEST.raiseDays), yesterday);
+    if (s.owed < SUGGEST.raiseOwed || s.doneOwed < s.owed) continue;
+    out.push({ id: `raise:${h.id}`, kind: 'raise', habitId: h.id, title: `${nameOf(h)} is solid`,
+      text: `Done on all ${s.owed} of the last ${s.owed} days it was due. Ready to make it a little bigger?`, action: { label: 'Edit habit', go: 'edit' } });
+    used.add(h.id);
+  }
+  return out.slice(0, SUGGEST.max);
+}
+
+// Suggestions that have not been dismissed in the last four weeks. dismissed: { [id]: day it was dismissed }.
+export function undismissed(items, dismissed, today) {
+  const d = dismissed && typeof dismissed === 'object' ? dismissed : {};
+  return items.filter(s => { const on = d[s.id]; return !(typeof on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(on) && on <= today && rules.dayNumber(today) - rules.dayNumber(on) < SUGGEST.restDays); });
+}

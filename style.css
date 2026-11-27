@@ -1245,6 +1245,15 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .heat-legend span:first-child { margin-right: 2px; }
 .heat-legend span:last-child { margin-left: 2px; }
 
+/* Suggestions: up to three, each with its numbers and a way to act or put it away */
+.suggest-card[hidden] { display: none; }
+.sg-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--sp-3); }
+.sg { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); background: var(--surface-2); border-radius: var(--r-lg); min-width: 0; }
+.sg-title { font-size: var(--fs-base); font-weight: 600; overflow-wrap: anywhere; }
+.sg-text { font-size: var(--fs-ui); color: var(--text-2); line-height: 1.5; overflow-wrap: anywhere; flex: 1; }
+.sg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); margin-top: var(--sp-1); }
+.sg-actions button { min-height: 44px; }
+
 /* Look back: the weekly review card and its dialog */
 .rv-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; }
 .rv-row + .rv-row { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--border); }

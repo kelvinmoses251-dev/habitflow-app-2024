@@ -24,7 +24,7 @@ import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNo
 import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
-import { weekReview, focusChoices, focusProgress, withReview, story } from "./stats-review.js?v=1";
+import { weekReview, focusChoices, focusProgress, withReview, story, suggestions, undismissed } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -3231,8 +3231,38 @@ function renderStats() {
   statsPage.renderBalance(document.getElementById('cat-list'), categoryBalance(allHabits, range, Object.keys(CATS)), key => { const cat = CATS[key] || CATS.health; return { label: cat.label, color: catColor(cat) }; });
   statsPage.renderHeat(document.getElementById('heat'), heatYear(allHabits, today), day => dayDetail(allHabits, day, today));
   renderInsights();
+  renderSuggestions();
   renderReviewCard();
 }
+
+// ── Suggestions drawn from the data ───────────────────────
+// Up to three, each with its numbers. "Not now" puts one away for four weeks on this device.
+const suggestKey = () => `habitly_suggest_${currentUser ? currentUser.uid : ''}`;
+function dismissedSuggestions() {
+  try { const v = JSON.parse(localStorage.getItem(suggestKey()) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (_) { return {}; }
+}
+function renderSuggestions() {
+  const today = todayStr(), items = undismissed(suggestions(allHabits, today), dismissedSuggestions(), today);
+  document.getElementById('suggest-card').hidden = items.length === 0;
+  statsPage.renderSuggestions(document.getElementById('suggest-list'), items);
+}
+document.getElementById('suggest-list')?.addEventListener('click', e => {
+  const b = e.target instanceof Element ? e.target.closest('[data-suggest]') : null, item = b ? b.closest('.sg') : null;
+  if (!b || !item) return;
+  if (b.dataset.suggest === 'dismiss') {
+    const kept = Object.fromEntries(Object.entries(dismissedSuggestions()).filter(([, day]) => typeof day === 'string').slice(-40));   // never grows without end
+    kept[item.dataset.id] = todayStr();
+    try { localStorage.setItem(suggestKey(), JSON.stringify(kept)); } catch (_) { /* storage full or blocked: it comes back next time */ }
+    renderSuggestions();
+    toast('Put away for four weeks.', 'info');
+    track('suggestion_dismissed', { kind: item.dataset.kind });
+    return;
+  }
+  const h = allHabits.find(x => x.id === b.dataset.habit);
+  if (!h) { renderSuggestions(); return; }
+  track('suggestion_used', { kind: item.dataset.kind });
+  openHabitSheet(h);
+});
 
 // ── Looking back: the weekly review ───────────────────────
 // A card on Stats offers a review of the last finished week. The dialog walks through four steps (the week, what

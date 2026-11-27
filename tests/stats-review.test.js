@@ -153,3 +153,78 @@ test('story: the year so far, and in January the year just ended', async () => {
   const jan = story(habits, 'year', '2026-01-10');
   assert.deepEqual([jan.title, jan.from, jan.to], ['2025', '2025-01-01', '2025-12-31']);
 });
+
+// ── Suggestions ────────────────────────────────────────────
+const at = (n, hour) => { const [y, m, d] = ago(n).split('-').map(Number); return new Date(y, m - 1, d, hour, 5).getTime(); };
+const stamps = (days, hour) => Object.fromEntries(days.map(n => [ago(n), at(n, hour)]));
+
+test('suggestions: a habit that is slipping is named with both fortnights, and the time of day it used to work', async () => {
+  const { suggestions } = await load();
+  const before = range(15, 28), h = H('Meditate', [2, 6, 10, 14, ...before], { completedTimestamps: stamps(before, 7) });
+  const s = suggestions([h], TODAY);
+  assert.equal(s.length, 1);
+  assert.deepEqual([s[0].id, s[0].kind, s[0].habitId, s[0].title], ['slipping:meditate', 'slipping', 'meditate', 'Meditate is slipping']);
+  assert.equal(s[0].text, 'Done on 4 of the last 14 days it was due, down from 14 of 14 before that. It mostly got done in the morning. Try mornings again?');
+  assert.deepEqual(s[0].action, { label: 'Edit habit', go: 'edit' });
+  const evening = suggestions([{ ...h, completedTimestamps: stamps(before, 21) }], TODAY)[0].text;
+  assert.match(evening, /It mostly got done in the evening\. Try evenings again\?$/);
+  const noTimes = suggestions([{ ...h, completedTimestamps: undefined }], TODAY)[0].text;
+  assert.match(noTimes, /before that\. A smaller version may be easier to keep\.$/);
+});
+
+test('suggestions: a small dip, a young habit and a habit still mostly done are left alone', async () => {
+  const { suggestions } = await load();
+  const dip = H('Dip', [...range(1, 11), ...range(15, 28)]);                 // 11 of 14 after 14 of 14: down 21 points
+  const fine = H('Fine', [...range(1, 9), ...range(15, 28)], {});            // 9 of 14 = 64%: still above 60
+  const young = H('Young', [1, 2], { createdAt: ago(10) + 'T08:00:00' });    // no earlier fortnight to compare with
+  assert.deepEqual(suggestions([dip, fine, young], TODAY), []);
+  assert.deepEqual(suggestions([], TODAY), []);
+  assert.deepEqual(suggestions([null, 'junk'], TODAY), []);
+});
+
+test('suggestions: one day of the week a habit rarely happens on', async () => {
+  const { suggestions } = await load();
+  // TODAY is a Wednesday, so Fridays are 5, 12, 19 ... days ago
+  const h = H('Run', range(1, 60).filter(n => n % 7 !== 5));
+  const s = suggestions([h], TODAY);
+  assert.deepEqual([s.length, s[0].kind, s[0].title], [1, 'weekday', 'Run rarely happens on Fridays']);
+  assert.equal(s[0].text, 'Done on 0 of the last 8 Fridays, against 100% on other days. Make Friday a rest day?');
+  assert.equal(s[0].id, 'weekday:run:5');
+  assert.equal(suggestions([H('Run', range(1, 60).filter(n => n % 7 !== 5 && n % 2))], TODAY).filter(x => x.kind === 'weekday').length, 0, 'not when the other days are weak too');
+});
+
+test('suggestions: too much due each day', async () => {
+  const { suggestions } = await load();
+  const many = range(1, 9).map(i => H('H' + i, range(0, 60).filter(n => (n + i) % 5 < 2)));       // nine habits, each done two days in five
+  const s = suggestions(many, TODAY);
+  assert.deepEqual(s.map(x => x.kind), ['overload']);
+  assert.equal(s[0].text, 'About 9 habits are due on a typical day, and 40% of them got done in the last two weeks. Pausing a few may help the rest.');
+  assert.deepEqual([s[0].habitId, s[0].action], [null, null]);
+});
+
+test('suggestions: a habit done every day for a month is ready for more', async () => {
+  const { suggestions } = await load();
+  const s = suggestions([H('Read', range(1, 40))], TODAY);
+  assert.deepEqual([s.length, s[0].kind, s[0].title, s[0].text], [1, 'raise', 'Read is solid', 'Done on all 30 of the last 30 days it was due. Ready to make it a little bigger?']);
+  assert.deepEqual(suggestions([H('Read', range(1, 40).filter(n => n !== 17))], TODAY), [], 'one miss and it is not said');
+});
+
+test('suggestions: at most three, one per habit, never for paused or archived habits', async () => {
+  const { suggestions } = await load();
+  const before = range(15, 28);
+  const slipping = ['A', 'B', 'C', 'D'].map((n, i) => H(n, [...range(1, i), ...before]));
+  const s = suggestions([...slipping, H('Solid', range(1, 40))], TODAY);
+  assert.deepEqual(s.map(x => x.id), ['slipping:a', 'slipping:b', 'slipping:c']);
+  const off = [H('Paused', before, { pauses: [{ from: ago(2) }] }), H('Gone', before, { archivedAt: 1, archivedOn: ago(1) }), H('Call', before, { frequency: 'weekly' })];
+  assert.deepEqual(suggestions(off, TODAY), []);
+});
+
+test('undismissed: a dismissed suggestion stays away for four weeks, then may return', async () => {
+  const { undismissed } = await load();
+  const items = [{ id: 'slipping:a' }, { id: 'raise:b' }];
+  assert.deepEqual(undismissed(items, { 'slipping:a': ago(3) }, TODAY).map(x => x.id), ['raise:b']);
+  assert.deepEqual(undismissed(items, { 'slipping:a': ago(27) }, TODAY).map(x => x.id), ['raise:b']);
+  assert.deepEqual(undismissed(items, { 'slipping:a': ago(28) }, TODAY).map(x => x.id), ['slipping:a', 'raise:b']);
+  assert.deepEqual(undismissed(items, { 'slipping:a': 'junk', 'raise:b': ago(-3) }, TODAY).length, 2, 'junk and future dates dismiss nothing');
+  assert.deepEqual(undismissed(items, null, TODAY).length, 2);
+});

@@ -361,3 +361,13 @@ export async function drawStoryCard(canvas, s, url) {
   ctx.fillStyle = LINE; ctx.fillRect(M, 1206, W - M * 2, 2);
   ctx.fillStyle = MUTED; ctx.font = `400 34px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(url, W / 2, 1272);
 }
+
+// ── Suggestions ────────────────────────────────────────────
+// items: statsReview.suggestions(...), already without the dismissed ones. Each can be acted on or put away.
+export function renderSuggestions(el, items) {
+  el.innerHTML = `<ul class="sg-list">${items.map(s => `<li class="sg" data-id="${esc(s.id)}" data-kind="${esc(s.kind)}">
+    <strong class="sg-title">${esc(s.title)}</strong>
+    <p class="sg-text">${esc(s.text)}</p>
+    <div class="sg-actions">${s.action ? `<button type="button" class="btn-secondary" data-suggest="act" data-go="${esc(s.action.go)}" data-habit="${esc(s.habitId)}">${esc(s.action.label)}</button>` : ''}<button type="button" class="btn-link sg-dismiss" data-suggest="dismiss" aria-label="Not now: ${esc(s.title)}">Not now</button></div>
+  </li>`).join('')}</ul>`;
+}

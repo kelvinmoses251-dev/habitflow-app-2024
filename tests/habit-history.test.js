@@ -327,3 +327,31 @@ test('habitInsights: weekly habits speak in weeks, and junk never throws', async
   }
   assert.ok(habitInsights(H('Read', range(0, 40)), TODAY).every(i => typeof i.icon === 'string' && typeof i.text === 'string' && !/[<>]/.test(i.text)));
 });
+
+// ── Focus sessions ─────────────────────────────────────────
+test('sessionTotals: how many, how long in all, and the latest five', async () => {
+  const { sessionTotals } = await load();
+  const list = [{ at: 1000, minutes: 25 }, { at: 5000, minutes: 15 }, { at: 3000, minutes: 45 }, { at: 2000, minutes: 10 }, { at: 4000, minutes: 5 }, { at: 6000, minutes: 20 }];
+  const t = sessionTotals(list);
+  assert.equal(t.count, 6); assert.equal(t.minutes, 120);
+  assert.deepEqual(t.recent.map(s => s.at), [6000, 5000, 4000, 3000, 2000]);
+  assert.deepEqual(sessionTotals([]), { count: 0, minutes: 0, recent: [] });
+});
+
+test('sessionTotals: entries that are not sessions are ignored', async () => {
+  const { sessionTotals } = await load();
+  const t = sessionTotals([{ at: 'x', minutes: 5 }, null, 'no', { at: 9000, minutes: 30.4 }, { at: 9100, minutes: 0 }, { at: 9200, minutes: 601 }, { at: -1, minutes: 5 }, { minutes: 5 }, { at: 9300 }]);
+  assert.deepEqual(t, { count: 1, minutes: 30, recent: [{ at: 9000, minutes: 30 }] });
+  for (const bad of [null, undefined, 'none', 7, {}]) assert.equal(sessionTotals(bad).count, 0);
+});
+
+test('withSession: adds one, keeps the newest sixty in time order, and drops junk on the way', async () => {
+  const { withSession, SESSIONS_KEPT } = await load();
+  assert.equal(SESSIONS_KEPT, 60);
+  assert.deepEqual(withSession(undefined, 500, 25), [{ at: 500, minutes: 25 }]);
+  assert.deepEqual(withSession([{ at: 900, minutes: 10 }, 'junk'], 500, 25), [{ at: 500, minutes: 25 }, { at: 900, minutes: 10 }]);
+  const full = Array.from({ length: 60 }, (_, i) => ({ at: 1000 + i, minutes: 10 }));
+  const next = withSession(full, 5000, 30);
+  assert.equal(next.length, 60); assert.equal(next[0].at, 1001); assert.deepEqual(next[59], { at: 5000, minutes: 30 });
+  assert.deepEqual(withSession(full, 5000, 0), full);                       // a session of no length is not a session
+});

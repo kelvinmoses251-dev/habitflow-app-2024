@@ -20,7 +20,7 @@ import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, at
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
 import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
 import * as moments from "./moments.js?v=1";
-import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights } from "./habit-history.js?v=1";
+import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -4108,8 +4108,14 @@ function renderHabitPage(habit) {
   yearShownFor = habit.id;
   habitPage.renderWeeksChart(document.getElementById('hp-weeks'), weeklyRates(habit, today));
   habitPage.renderWeekdayChart(document.getElementById('hp-weekdays'), weekdayRates(habit, today));
+  habitPage.renderSessions(document.getElementById('focus-sessions'), document.getElementById('focus-total'), sessionTotals(habit.sessions));
   renderJournal(habit);
 }
+document.getElementById('hp-focus')?.addEventListener('click', e => {
+  const b = e.target instanceof Element ? e.target.closest('[data-focus]') : null;
+  const habit = allHabits.find(x => x.id === currentDetailsHabitId);
+  if (b && habit) openTimerModal(habit, Number(b.dataset.focus), true);      // one tap: the session starts
+});
 let yearShownFor = null;                       // the habit whose year is on screen (a redraw keeps its sideways scroll)
 // ── Filling in yesterday ──────────────────────────────────
 // A day that was due and missed can be completed until the end of the day after (habit-rules canFillIn). It earns
@@ -4284,14 +4290,17 @@ let timerInterval = null;
 let timeLeft = 25 * 60; // 25 minutes in seconds
 let activeTimerHabit = null;
 
-function openTimerModal(habit) {
+let timerMinutes = 25;                          // how long the session in the dialog is meant to be
+function openTimerModal(habit, minutes = 25, startNow = false) {
   activeTimerHabit = habit;
+  timerMinutes = Math.min(120, Math.max(1, Math.round(minutes) || 25));
   const inputEl = document.getElementById('timer-input');
-  if (inputEl) inputEl.value = '25'; // Reset to default on open
-  timeLeft = 25 * 60;
+  if (inputEl) inputEl.value = String(timerMinutes);
+  timeLeft = timerMinutes * 60;
   updateTimerDisplay();
   document.getElementById('timer-habit-name').textContent = habit.name;
   document.getElementById('timer-modal').classList.remove('hidden');
+  if (startNow) document.getElementById('timer-start').click();
 }
 
 document.getElementById('timer-input')?.addEventListener('input', (e) => {
@@ -4299,6 +4308,7 @@ document.getElementById('timer-input')?.addEventListener('input', (e) => {
   let mins = parseInt(e.target.value);
   if (isNaN(mins) || mins < 1) mins = 1;
   if (mins > 120) mins = 120;
+  timerMinutes = mins;
   timeLeft = mins * 60;
   updateTimerDisplay();
 });
@@ -4330,6 +4340,11 @@ function finishFocusSession() {
   document.getElementById('timer-modal').classList.add('hidden');
   playChime();
   const h = activeTimerHabit && allHabits.find(x => x.id === activeTimerHabit.id);
+  // Every finished session is kept on the habit (when, and how long), for the history on its page
+  if (h) {
+    backgroundWrite(updateDoc(doc(db, 'habits', h.id), { sessions: withSession(h.sessions, Date.now(), timerMinutes) }), 'save the focus session', true);
+    track('focus_session_finished', { minutes: timerMinutes });
+  }
   // A session completes the habit like a normal tick, for the normal XP, once. It used to add 50 XP every
   // time, even on a habit that was already done, so short sessions could be repeated for unlimited XP.
   if (!h || isHabitDoneNow(h)) { toast('Focus session complete.', 'success'); return; }

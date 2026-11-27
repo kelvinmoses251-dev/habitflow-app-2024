@@ -160,4 +160,60 @@ module.exports = (scenario, c) => {
     check('320px: the sentences wrap inside the card', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#hp-insights li')].every(li => li.getBoundingClientRect().right <= innerWidth)`));
     noExceptions();
   });
+  // ── 49: focus sessions on the habit page ─────────────────
+  const clock = `(() => { const real = Date.now.bind(Date); window.__skew = 0; Date.now = () => real() + window.__skew; })();`;
+  const running = () => ev(`!document.getElementById('timer-modal').classList.contains('hidden') && !document.getElementById('timer-pause').classList.contains('hidden')`);
+  const pass = async minutes => { await ev(`window.__skew += ${minutes} * 60000 + 1000; 0`); await sleep(1900); };
+  const sessions = id => ev(`JSON.stringify(__mockDB.habits[${JSON.stringify(id)}].sessions || [])`).then(JSON.parse);
+
+  scenario('focus: a session starts from the habit page in one tap, and is kept in its history', async () => {
+    await boot({ seed: seed({ a: H('Read'), b: H('Run', { order: 2 }) }, { xp: 900 }), initScript: clock }); await rows(); await sleep(300);
+    await open('a');
+    check('the page has a Focus section with three lengths', (await ev(`[...document.querySelectorAll('#hp-focus [data-focus]')].map(b => b.textContent.trim()).join(',')`)) === '15 min,25 min,45 min' && await ev(`document.querySelector('#hp-focus [role="group"]').getAttribute('aria-label').length > 5`));
+    check('with no sessions yet it says what a session does', /No sessions yet/.test(await text('#focus-total')) && (await ev(`document.querySelectorAll('#focus-sessions li').length`)) === 0);
+    await ev(`document.querySelector('#hp-focus [data-focus="15"]').click()`); await sleep(400);
+    check('one tap starts a 15-minute session for this habit', (await running()) && (await ev(`document.getElementById('timer-input').value`)) === '15' && (await text('#timer-habit-name')).trim() === 'Read' && /^1[45]:[0-9]{2}$/.test((await text('#timer-display')).trim()), await text('#timer-display'));
+    await pass(15);
+    check('when it ends the timer closes', await ev(`document.getElementById('timer-modal').classList.contains('hidden')`));
+    const one = await sessions('a');
+    check('the session is saved on the habit: when, and how long', one.length === 1 && one[0].minutes === 15 && typeof one[0].at === 'number', JSON.stringify(one));
+    check('the habit is completed for the normal 25 XP', await ev(`__mockDB.habits.a.completedDates.length === 1 && __mockDB.users['u-test'].xp === 925`), String(await ev(`__mockDB.users['u-test'].xp`)));
+    check('the page lists it', /^15 min/.test((await text('#focus-sessions li')).trim()) && (await text('#focus-total')).trim() === '1 session, 15 min in all.', await text('#focus-total'));
+    await ev(`document.getElementById('all-done-close')?.click()`); await sleep(300);
+    await ev(`document.querySelector('#hp-focus [data-focus="45"]').click()`); await sleep(400);
+    await pass(45);
+    const two = await sessions('a');
+    check('a second session on a habit already done is recorded too', two.length === 2 && two[1].minutes === 45, JSON.stringify(two));
+    check('but earns nothing more', await ev(`__mockDB.users['u-test'].xp === 925 && __mockDB.habits.a.completedDates.length === 1`));
+    check('the total adds up in hours and minutes', (await text('#focus-total')).trim() === '2 sessions, 1 h in all.' && (await ev(`document.querySelectorAll('#focus-sessions li').length`)) === 2 && /^45 min/.test((await text('#focus-sessions li')).trim()), await text('#focus-total'));
+    await ev(`document.querySelector('#hp-focus [data-focus="25"]').click()`); await sleep(400);
+    await ev(`document.getElementById('timer-close').click()`); await sleep(300);
+    check('a session that is cancelled is not recorded', (await sessions('a')).length === 2);
+    await ev(`location.hash = '#home'`); await sleep(400);
+    await ev(`(() => { document.querySelector('.habit-item[data-id="b"] [data-action="timer"]').click(); const i = document.getElementById('timer-input'); i.value = '2'; i.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('timer-start').click(); })()`); await sleep(300);
+    await pass(2);
+    check('a session started from a row is kept as well, with the length typed', JSON.stringify((await sessions('b')).map(s => s.minutes)) === '[2]', JSON.stringify(await sessions('b')));
+    await size(320, 568); await sleep(100); await open('a');
+    check('320px: the three buttons fit and are thumb-sized', await ev(`document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('#hp-focus [data-focus]')].every(b => b.getBoundingClientRect().height >= 44 && b.getBoundingClientRect().right <= innerWidth)`));
+    noExceptions();
+  });
+
+  scenario('focus: only the newest sixty sessions are kept, and junk in the history is ignored', async () => {
+    const sixty = Array.from({ length: 60 }, (_, i) => ({ at: Date.now() - (70 - i) * 864e5, minutes: 10 }));
+    await boot({ seed: seed({ a: H('Read', { sessions: sixty }), j: H('Junk', { order: 2, sessions: [{ at: 'x', minutes: 5 }, null, { at: Date.now() - 864e5, minutes: 30 }, { at: Date.now(), minutes: -4 }, 'no'] }), k: H('Odd', { order: 3, sessions: 'none' }) }), initScript: clock }); await rows(); await sleep(300);
+    await open('a');
+    check('sixty sessions: the total counts them all, the list shows the latest five', (await text('#focus-total')).trim() === '60 sessions, 10 h in all.' && (await ev(`document.querySelectorAll('#focus-sessions li').length`)) === 5, await text('#focus-total'));
+    await ev(`document.querySelector('#hp-focus [data-focus="25"]').click()`); await sleep(400);
+    await pass(25);
+    const kept = await sessions('a');
+    check('one more: still sixty, the oldest dropped, the new one last', kept.length === 60 && kept[59].minutes === 25 && kept[0].at === sixty[1].at, kept.length + ' ' + JSON.stringify(kept[59]));
+    await ev(`document.getElementById('all-done-close')?.click()`); await sleep(200);
+    await open('j');
+    check('junk entries are ignored: one real session counts', (await text('#focus-total')).trim() === '1 session, 30 min in all.', await text('#focus-total'));
+    await open('k');
+    check('a history that is not a list shows as none', /No sessions yet/.test(await text('#focus-total')));
+    const privacy = require('fs').readFileSync(require('path').resolve(__dirname, '..', '..', 'privacy.html'), 'utf8');
+    check('the privacy policy says focus sessions are stored', /focus sessions/.test(privacy));
+    noExceptions();
+  });
 };

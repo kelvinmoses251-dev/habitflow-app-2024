@@ -1026,6 +1026,16 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .insights-list li.is-waiting { color: var(--muted); }
 .insights-list li.is-waiting .ins-ic { background: var(--surface-2); color: var(--muted); }
 
+/* The habit page: focus sessions */
+.focus-starts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); }
+.focus-starts button { min-height: 44px; padding-left: var(--sp-2); padding-right: var(--sp-2); }
+.focus-sessions { list-style: none; margin: 0; padding: 0; display: grid; }
+.focus-sessions:empty { display: none; }
+.focus-sessions li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; font-size: var(--fs-sm); }
+.focus-sessions li + li { border-top: 1px solid var(--border); }
+.focus-sessions strong { font-variant-numeric: tabular-nums; color: var(--text); }
+.focus-sessions time { color: var(--muted); }
+
 /* Filling in yesterday */
 .hp-fill { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--warning-soft); border: 1px solid var(--warning-line); border-radius: var(--r-lg); }
 .hp-fill.hidden { display: none; }

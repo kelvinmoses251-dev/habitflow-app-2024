@@ -107,3 +107,11 @@ export function renderNotes(el, items, { total, query }) {
 export function renderInsights(el, items) {
   el.innerHTML = items.map(i => `<li${i.placeholder ? ' class="is-waiting"' : ''}><span class="ins-ic" aria-hidden="true">${icon(i.icon)}</span><span>${esc(i.text)}</span></li>`).join('');
 }
+
+// ── Focus sessions ─────────────────────────────────────────
+// totals: habitHistory.sessionTotals(...)
+const duration = min => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ' ' + (min % 60) + ' min' : ''}`);
+export function renderSessions(listEl, totalEl, totals) {
+  totalEl.textContent = totals.count ? `${plural(totals.count, 'session')}, ${duration(totals.minutes)} in all.` : 'No sessions yet. A finished session also completes the habit for today.';
+  listEl.innerHTML = totals.recent.map(s => `<li><strong>${duration(s.minutes)}</strong><time datetime="${new Date(s.at).toISOString()}">${esc(noteWhen(new Date(s.at).toISOString()))}</time></li>`).join('');
+}

@@ -280,3 +280,18 @@ export function habitInsights(habit, today, frozen = []) {
   if (!out.length) return waiting;
   return out.slice(0, 4);
 }
+
+// ── Focus sessions ─────────────────────────────────────────
+// habit.sessions = [{ at: ms, minutes: n }]. Only real entries count (a time, and 1 to 600 minutes). The newest
+// SESSIONS_KEPT are stored; withSession is the list to save after one more.
+export const SESSIONS_KEPT = 60;
+const realSessions = list => (Array.isArray(list) ? list : []).filter(s => s && typeof s === 'object' && Number.isFinite(s.at) && s.at > 0 && Number.isFinite(s.minutes) && s.minutes >= 1 && s.minutes <= 600)
+  .map(s => ({ at: s.at, minutes: Math.round(s.minutes) }));
+export function withSession(list, at, minutes) {
+  const next = realSessions([...realSessions(list), { at, minutes }]).sort((a, b) => a.at - b.at);
+  return next.slice(-SESSIONS_KEPT);
+}
+export function sessionTotals(list) {
+  const all = realSessions(list).sort((a, b) => b.at - a.at);
+  return { count: all.length, minutes: all.reduce((sum, s) => sum + s.minutes, 0), recent: all.slice(0, 5) };
+}

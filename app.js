@@ -22,7 +22,7 @@ import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achiev
 import * as moments from "./moments.js?v=1";
 import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
-import { PERIODS, periodRange, periodSummary, habitRates } from "./stats.js?v=1";
+import { PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryCheckins } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -32,10 +32,9 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth        = getAuth(firebaseApp);
 
 // ── Lazy third-party libraries ────────────────────────────
-// Chart.js, jsPDF(+AutoTable) and Cropper used to load synchronously in <head> on every visit.
-// They are only needed on the Stats page, PDF export and avatar upload, so load them on demand.
+// jsPDF(+AutoTable) and Cropper used to load synchronously in <head> on every visit. They are only needed for
+// the PDF export and the avatar upload, so they load on demand. (The Stats charts are drawn in-house as SVG.)
 const LIBS = {
-  chart:   { js: ['https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'], ready: () => !!window.Chart },
   pdf:     { js: ['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
                   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'],
              ready: () => !!(window.jspdf && window.jspdf.jsPDF) },
@@ -232,8 +231,6 @@ let justCompletedId = null;      // the row that was just completed (gets a shor
 // ── State ─────────────────────────────────────────────────
 let currentUser  = null;
 let allHabits    = [];
-let weeklyChart  = null;
-let catChart     = null;
 let unsubHabits  = null;
 let routerReady  = false;
 
@@ -924,17 +921,6 @@ function calcTotalDone(habits) {
   return habits.reduce((s, h) => s + (h.completedDates?.length || 0), 0);
 }
 
-function getWeeklyData(habits) {
-  const labels = [], counts = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const ds = dayKey(d);
-    labels.push(d.toLocaleDateString('en', { weekday: 'short' }));
-    counts.push(habits.filter(h => (h.completedDates || []).includes(ds)).length);
-  }
-  return { labels, counts };
-}
-
 // ── Toast ─────────────────────────────────────────────────
 // toast() lives in ui.js
 
@@ -1297,8 +1283,6 @@ function showApp() {
   updateOnlineStatus();
   showHabitPlaceholders();
   if (!riskTimer) riskTimer = setInterval(updateStreakRisk, 60000);   // keep the countdown fresh
-  // Warm up Chart.js when the browser is idle so the Stats tab opens instantly
-  (window.requestIdleCallback || (cb => setTimeout(cb, 4000)))(() => ensureLib('chart').catch(() => {}));
   document.getElementById('auth-screen').classList.add('hidden');
   const appEl = document.getElementById('app');
   appEl.classList.remove('hidden');
@@ -3235,15 +3219,20 @@ function renderStats() {
   document.getElementById('by-habit-sub').textContent = range.label;
   statsPage.renderByHabit(document.getElementById('by-habit-list'), habitRates(allHabits, range));
 
+  for (const id of ['bars-sub', 'cat-sub']) document.getElementById(id).textContent = range.label;
+  statsDrawnAt = document.getElementById('stats-body').clientWidth;
+  statsPage.renderBars(document.getElementById('bars'), barSeries(allHabits, range), range);
+  statsPage.renderCategories(document.getElementById('cat-list'), categoryCheckins(allHabits, range), key => { const cat = CATS[key] || CATS.health; return { label: cat.label, color: catColor(cat) }; });
+
   renderHeatmap();
   renderInsights();
-  const { labels, counts } = getWeeklyData(allHabits);
-  ensureLib('chart').then(() => {
-    if (location.hash !== '#stats') return;      // user navigated away while it loaded
-    renderChart(labels, counts);
-    renderCatBreakdown();
-  }).catch(() => {});
 }
+// The charts are drawn at the pixel width of the page, so they are drawn again when that width changes.
+let statsDrawnAt = 0;
+if (window.ResizeObserver) new ResizeObserver(entries => {
+  const w = Math.round(entries[0].contentRect.width);
+  if (w && Math.abs(w - statsDrawnAt) > 1 && location.hash === '#stats') renderStats();
+}).observe(document.getElementById('stats-body'));
 function setStatsPeriod(period, focus = false) {
   if (!PERIODS.includes(period)) return;
   statsPeriod = period;
@@ -3260,87 +3249,6 @@ document.getElementById('stats-period')?.addEventListener('keydown', e => {
   const next = statsPage.periodForKey(e.key, PERIODS, statsPeriod);
   if (next) { e.preventDefault(); setStatsPeriod(next, true); }
 });
-
-function renderChart(labels, counts) {
-  const ctx = document.getElementById('weekly-chart').getContext('2d');
-  if (weeklyChart) weeklyChart.destroy();
-  const isDark = document.body.getAttribute('data-theme') === 'dark';
-  weeklyChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Habits done',
-        data: counts,
-        // Earlier days in a soft tint, today in the full accent
-        backgroundColor: counts.map((_, i) => i === counts.length - 1 ? (isDark ? '#8173EE' : '#4A3AB8') : (isDark ? '#3A3470' : '#CBC6EC')),
-        borderWidth: 0,
-        borderRadius: 8,
-        borderSkipped: false,
-        maxBarThickness: 36,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { backgroundColor: isDark ? '#EDEDF0' : '#1A1A1E', titleColor: isDark ? '#1A1A1E' : '#fff', bodyColor: isDark ? '#1A1A1E' : '#fff', padding: 10, cornerRadius: 8, displayColors: false, titleFont: { family: 'Inter', weight: '600' }, bodyFont: { family: 'Inter' } }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          border: { display: false },
-          ticks: { stepSize: 1, precision: 0, color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter', size: 11 }, padding: 8 },
-          grid:  { color: isDark ? '#26262B' : '#EEEEE9' }
-        },
-        x: {
-          border: { display: false },
-          ticks: { color: isDark ? '#8C8C96' : '#6B6B74', font: { family: 'Inter', size: 11 } },
-          grid:  { display: false }
-        }
-      }
-    }
-  });
-}
-
-function renderCatBreakdown() {
-  const catCounts = Object.entries(CATS).map(([key, cat]) => ({
-    key, cat,
-    count: allHabits
-      .filter(h => h.category === key)
-      .reduce((s, h) => s + (h.completedDates?.length || 0), 0)
-  })).filter(c => c.count > 0).sort((a, b) => b.count - a.count);
-
-  const ctx = document.getElementById('pie-chart').getContext('2d');
-  if (catChart) catChart.destroy();
-
-  if (!catCounts.length) {
-    return;
-  }
-
-  const isDark = document.body.getAttribute('data-theme') === 'dark';
-  catChart = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: catCounts.map(c => c.cat.label),
-      datasets: [{
-        data: catCounts.map(c => c.count),
-        backgroundColor: catCounts.map(c => catColor(c.cat)),
-        borderColor: isDark ? '#171719' : '#FFFFFF',
-        borderWidth: 3,
-        hoverOffset: 4
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '68%',
-      plugins: {
-        legend: { position: 'right', labels: { color: isDark ? '#ABABB4' : '#51515A', font: { family: 'Inter', size: 12 }, usePointStyle: true, pointStyle: 'circle' } }
-      }
-    }
-  });
-}
 
 function renderHeatmap() {
   const container = document.getElementById('heatmap');

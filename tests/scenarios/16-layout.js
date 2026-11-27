@@ -43,7 +43,7 @@ module.exports = (scenario, c) => {
     await boot({ seed: seed(), mobile: false });
     await ready();
     await ev(`location.hash = '#stats'`); await sleep(1600);
-    const ins = await rect('#insights-card'), rep = await rect('.by-habit-card'), chart = await rect('#weekly-chart');
+    const ins = await rect('#insights-card'), rep = await rect('.by-habit-card'), chart = await rect('#bars');
     check('insights and the habits list sit side by side', ins && rep && ins.r <= rep.l + 1 && Math.abs(ins.t - rep.t) < 4, JSON.stringify({ ins, rep }));
     check('the weekly chart spans the full width', chart.w > (ins.w + rep.w) * 0.9, JSON.stringify({ chart, ins, rep }));
   });

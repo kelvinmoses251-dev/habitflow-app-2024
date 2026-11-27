@@ -249,4 +249,8 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }], ['-desktop', { seed: b6seed, mobile: false }]]) {
     run('b6-dashboard' + tag, opts, async () => { await b6open('month'); });
   }
+  const b6at = sel => ev(`document.querySelector(${JSON.stringify(sel)}).closest('.card').scrollIntoView({ block: 'start' }); window.scrollBy(0, -70)`);
+  for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }], ['-desktop', { seed: b6seed, mobile: false }]]) {
+    run('b6-charts' + tag, opts, async () => { await b6open('month'); await b6at('#bars'); await settle(400); await ev(`document.querySelectorAll('#bars .bar-slot')[22].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))`); await settle(300); });
+  }
 };

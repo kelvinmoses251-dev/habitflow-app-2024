@@ -5,7 +5,6 @@ module.exports = (scenario, c) => {
 
   scenario('perf: no heavy or dead scripts in the initial HTML', async () => {
     await boot({ seed: signedIn() });
-    // Static HTML only: Chart.js is intentionally injected later, at idle time, by ensureLib('chart').
     const html = (await ev(`fetch('/index.html').then(r => r.text())`)).toLowerCase();
     for (const dead of ['html2canvas', 'sortablejs', 'jspdf', 'chart.umd', 'cropper']) {
       check(`index.html has no <script>/<link> for ${dead}`, !new RegExp(`<(script|link)[^>]*${dead}`).test(html));
@@ -14,14 +13,15 @@ module.exports = (scenario, c) => {
     check('no Firebase Storage import', !(await ev(`fetch('/app.js').then(r=>r.text()).then(t=>/firebase-storage/.test(t))`)));
   });
 
-  scenario('perf: Stats page lazy-loads Chart.js and still draws both charts', async () => {
+  scenario('perf: the Stats page draws its charts with no chart library', async () => {
     await boot({ seed: { ...signedIn(), mock_fb_db: { habits: { h1: habit('Run', [new Date().toLocaleDateString('en-CA')]) } } } });
     await waitFor(`!document.getElementById('app').classList.contains('hidden')`);
     await ev(`location.hash = '#stats'`);
-    check('Chart.js loaded on demand', await waitFor(`!!window.Chart`, 20000));
-    check('weekly chart rendered', await waitFor(`!!(window.Chart && Chart.getChart('weekly-chart'))`, 10000));
-    check('category chart rendered', await waitFor(`!!(window.Chart && Chart.getChart('pie-chart'))`, 10000));
-    check('heatmap still renders without Chart.js', (await ev(`document.querySelectorAll('#heatmap .heatmap-cell').length`)) > 50);
+    check('the check-ins chart is drawn at once', await waitFor(`!!document.querySelector('#bars svg .bar-rect')`, 3000));
+    check('the categories are listed', await waitFor(`!!document.querySelector('#cat-list .cat-row')`, 3000));
+    await sleep(1500);
+    check('Chart.js is not loaded', (await ev(`typeof window.Chart`)) === 'undefined');
+    check('the heatmap renders', (await ev(`document.querySelectorAll('#heatmap .heatmap-cell').length`)) > 50);
     noExceptions();
   });
 

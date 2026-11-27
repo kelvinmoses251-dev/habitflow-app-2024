@@ -1173,8 +1173,24 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: 6px; box-shadow: var(--elev-1); }
 .stat-lbl { font-size: var(--fs-xs); color: var(--muted); }
 .stat-val { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-4xl); letter-spacing: -.01em; line-height: 1; }
-.chart-wrap { height: 220px; position: relative; }
-.chart-wrap-tall { height: 250px; }
+/* Charts: inline SVG drawn at the pixel width of its box, coloured by tokens so it follows the theme */
+.chart-plot { border-radius: var(--r-md); touch-action: pan-y; }
+.chart-svg { display: block; max-width: 100%; overflow: visible; }
+.chart-svg text { font-family: var(--font); font-size: var(--fs-2xs); fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart-svg .grid { stroke: var(--border); stroke-width: 1; shape-rendering: crispEdges; }
+.bar-hit { fill: transparent; }
+.bar-rect { fill: var(--primary-line); }
+.bar-slot.is-now .bar-rect, .bar-slot.is-on .bar-rect { fill: var(--primary); }
+.bar-slot.is-on .bar-hit { fill: var(--surface-2); }
+.bar-slot.is-on .x-label { fill: var(--text); }
+.chart-detail { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); min-height: 2.8em; }
+.cat-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.cat-row { display: grid; grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) 2.5rem; align-items: center; gap: var(--sp-3); font-size: var(--fs-ui); }
+.cat-name { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; overflow-wrap: anywhere; }
+.cat-dot { flex: none; width: 10px; height: 10px; border-radius: var(--r-full); background: var(--cat); }
+.cat-bar { display: block; height: 8px; background: var(--surface-2); border-radius: var(--r-full); overflow: hidden; }
+.cat-fill { display: block; height: 100%; background: var(--cat); border-radius: var(--r-full); }
+.cat-n { text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 .insights-card.hidden { display: none !important; }
 .insights-list { list-style: none; display: flex; flex-direction: column; gap: var(--sp-3); }

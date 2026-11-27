@@ -129,3 +129,43 @@ test('a long history is summed quickly, and again at once', async () => {
   assert.ok(first < 1500, 'first pass ' + Math.round(first) + ' ms');
   assert.ok(again < 60, 'second pass ' + Math.round(again) + ' ms');
 });
+// ── The bars ───────────────────────────────────────────────
+test('barSeries: a week is seven days, named by weekday', async () => {
+  const { periodRange, barSeries } = await load();
+  const habits = [H('Read', range(0, 6)), H('Run', [1, 2, 3]), H('Call', [2], { frequency: 'weekly' })];
+  const bars = barSeries(habits, periodRange('week', TODAY, habits));
+  assert.deepEqual(bars.map(b => b.label), ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed']);
+  assert.deepEqual(bars.map(b => b.done), [1, 1, 1, 2, 3, 2, 1]);
+  assert.deepEqual(bars.map(b => b.now), [false, false, false, false, false, false, true]);
+  assert.equal(bars[4].long, 'Mon 23 Nov');
+  assert.deepEqual([bars[4].owed, bars[4].doneOwed, bars[4].rate], [2, 2, 100]);
+});
+
+test('barSeries: a month is thirty days, a year is twelve months', async () => {
+  const { periodRange, barSeries } = await load();
+  const habits = [H('Read', range(0, 400))];
+  const month = barSeries(habits, periodRange('month', TODAY, habits));
+  assert.equal(month.length, 30);
+  assert.deepEqual([month[0].label, month[29].label, month[29].long], ['27', '25', 'Wed 25 Nov']);
+  const year = barSeries(habits, periodRange('year', TODAY, habits));
+  assert.deepEqual(year.map(b => b.label), ['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']);
+  assert.deepEqual([year[0].done, year[2].done, year[11].done, year[11].to, year[0].long], [31, 28, 25, '2026-11-25', 'December 2025']);
+});
+
+test('barSeries: all time is by month up to two years, then by year', async () => {
+  const { periodRange, barSeries } = await load();
+  const young = [H('Read', range(0, 10), { createdAt: '2026-03-10T09:00:00' })];
+  const months = barSeries(young, periodRange('all', TODAY, young));
+  assert.deepEqual(months.map(b => b.label), ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']);
+  assert.equal(months[0].from, '2026-03-10', 'the first month starts when the habit did');
+  const old = [H('Read', range(0, 10), { createdAt: '2022-06-01T09:00:00' })];
+  const years = barSeries(old, periodRange('all', TODAY, old));
+  assert.deepEqual(years.map(b => b.label), ['2022', '2023', '2024', '2025', '2026']);
+  assert.deepEqual([years[0].from, years[4].to, years[4].done], ['2022-06-01', TODAY, 11]);
+});
+
+test('categoryCheckins: check-ins by category over the period, most first', async () => {
+  const { periodRange, categoryCheckins } = await load();
+  const habits = [H('Read', range(0, 6), { category: 'reading' }), H('Run', [1, 2], { category: 'fitness' }), H('Lift', [1], { category: 'fitness' }), H('Odd', [1, 2, 3, 4], { category: 'nonsense' }), H('Idle', [], { category: 'mind' })];
+  assert.deepEqual(categoryCheckins(habits, periodRange('week', TODAY, habits)), [{ key: 'reading', checkins: 7 }, { key: 'nonsense', checkins: 4 }, { key: 'fitness', checkins: 3 }]);
+});

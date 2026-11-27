@@ -59,3 +59,102 @@ export function renderByHabit(el, rows) {
     </${tag}>`;
   }).join('');
 }
+
+// ── Picking a point on a chart ─────────────────────────────
+// One line under each chart says the chart in words. Hovering, tapping or walking with the arrow keys puts one
+// item's figures there instead; leaving with the mouse, or Escape, brings the summary back. The listeners are
+// attached once to the chart's box and outlive every redraw.
+function picker(box, items, say, rest, moveBy = null) {
+  box._pick = { items, say, rest, at: -1, moveBy };
+  const show = i => {
+    const p = box._pick, n = p.items.length;
+    p.at = i >= 0 && i < n ? i : -1;
+    box.querySelectorAll('.is-on').forEach(x => x.classList.remove('is-on'));
+    if (p.at >= 0) box.querySelector(`[data-i="${p.at}"]`)?.classList.add('is-on');
+    const line = box.querySelector('.chart-detail');
+    if (line) line.textContent = p.at >= 0 ? p.say(p.items[p.at], p.at) : p.rest;
+  };
+  box._show = show;
+  if (box.dataset.wired) return;
+  box.dataset.wired = '1';
+  const hit = e => { const t = e.target instanceof Element ? e.target.closest('[data-i]') : null; if (t && box.contains(t)) box._show(Number(t.dataset.i)); };
+  box.addEventListener('pointermove', hit);
+  box.addEventListener('pointerdown', hit);
+  box.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') box._show(-1); });
+  box.addEventListener('keydown', e => {
+    const p = box._pick, n = p.items.length;
+    if (!n || !(e.target instanceof Element) || !e.target.closest('.chart-plot')) return;
+    let to = null;
+    if (e.key === 'Escape') { if (p.at < 0) return; to = -1; }
+    else if (e.key === 'Home') to = 0;
+    else if (e.key === 'End') to = n - 1;
+    else if (p.moveBy) to = p.moveBy(p.at, e.key, p.items);
+    else if (e.key === 'ArrowLeft') to = p.at < 0 ? n - 1 : Math.max(0, p.at - 1);
+    else if (e.key === 'ArrowRight') to = p.at < 0 ? n - 1 : Math.min(n - 1, p.at + 1);
+    if (to === null || to === undefined) return;
+    e.preventDefault(); e.stopPropagation();
+    box._show(to);
+  });
+}
+// Redraw a chart's box, keeping the keyboard where it was if it was on the plot.
+function draw(box, html) {
+  const had = box.contains(document.activeElement) && document.activeElement.classList.contains('chart-plot');
+  box.innerHTML = html;
+  if (had) box.querySelector('.chart-plot')?.focus({ preventScroll: true });
+}
+
+// A round top for an axis, and the steps up to it: at most five lines, on whole numbers.
+function axis(max) {
+  const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 50000, 100000];
+  const step = steps.find(s => max / s <= 4) || steps[steps.length - 1];
+  const top = Math.max(step, Math.ceil(max / step) * step), ticks = [];
+  for (let v = 0; v <= top; v += step) ticks.push(v);
+  return { top, ticks };
+}
+const widthOf = el => Math.max(260, Math.round(el.clientWidth || 320));
+
+// ── Check-ins as bars ──────────────────────────────────────
+// series: stats.barSeries(...). The SVG is drawn at the pixel width of its box (app.js redraws when that changes),
+// so text stays its real size; colours come from CSS variables and follow the theme by themselves.
+export function renderBars(box, series, range) {
+  const total = series.reduce((s, b) => s + b.done, 0);
+  if (!total) { draw(box, '<p class="empty-note chart-detail" id="bars-none">No check-ins in this period yet.</p>'); picker(box, [], () => '', 'No check-ins in this period yet.'); return; }
+  const W = widthOf(box), H = 200, L = 30, R = 4, T = 10, B = 24;
+  const n = series.length, plotW = W - L - R, plotH = H - T - B, slot = plotW / n, bw = Math.max(2, Math.min(36, slot * 0.68));
+  const { top, ticks } = axis(Math.max(...series.map(b => b.done)));
+  const y = v => T + plotH - (v / top) * plotH;
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(plotW / 44))));
+  const best = series.reduce((a, b) => (b.done >= a.done ? b : a));
+  const daily = series[0].unit === 'day';
+  const say = b => `${b.long}: ${plural(b.done, 'check-in')}${b.owed ? `, ${b.doneOwed} of ${b.owed} due done` : ''}${b.now ? ' so far' : ''}.`;
+  const rest = `${plural(total, 'check-in')}, ${range.label.toLowerCase()}. Most ${daily ? 'on' : 'in'} ${best.long} (${best.done}).`;
+  const grid = ticks.map(v => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="y-label" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join('');
+  const slots = series.map((b, i) => {
+    const x = L + i * slot, h = b.done ? Math.max(2, (b.done / top) * plotH) : 0;
+    const label = (n - 1 - i) % every === 0 ? `<text class="x-label" x="${x + slot / 2}" y="${H - 6}" text-anchor="middle">${esc(b.label)}</text>` : '';
+    return `<g class="bar-slot${b.now ? ' is-now' : ''}" data-i="${i}" data-v="${b.done}"><rect class="bar-hit" x="${x}" y="${T}" width="${slot}" height="${plotH}"/><rect class="bar-rect" x="${x + (slot - bw) / 2}" y="${T + plotH - h}" width="${bw}" height="${h}" rx="${Math.min(4, bw / 2, h / 2)}"/>${label}</g>`;
+  }).join('');
+  draw(box, `
+    <div class="chart-plot" tabindex="0" role="group" aria-label="Check-ins, ${esc(range.label.toLowerCase())}: ${n} bars. Use the left and right arrow keys to read each one.">
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true" focusable="false">${grid}${slots}</svg>
+    </div>
+    <p class="chart-detail" aria-live="polite">${esc(rest)}</p>
+    <div class="sr-only"><table><caption>Check-ins, ${esc(range.label.toLowerCase())}</caption><thead><tr><th scope="col">When</th><th scope="col">Check-ins</th><th scope="col">Done of what was due</th></tr></thead>
+      <tbody>${series.map(b => `<tr><th scope="row">${esc(b.long)}</th><td>${b.done}</td><td>${b.owed ? `${b.doneOwed} of ${b.owed}` : 'nothing due'}</td></tr>`).join('')}</tbody></table></div>`);
+  picker(box, series, say, rest);
+}
+
+// ── Categories ─────────────────────────────────────────────
+// rows: [{ key, checkins }]. look(key) gives { label, color } for a category.
+export function renderCategories(el, rows, look) {
+  if (!rows.length) { el.innerHTML = '<p class="empty-note">No check-ins in this period yet.</p>'; return; }
+  const max = Math.max(...rows.map(r => r.checkins));
+  el.innerHTML = rows.map(r => {
+    const { label, color } = look(r.key);
+    return `<div class="cat-row" data-cat="${esc(r.key)}" style="--cat:${esc(color)}">
+      <span class="cat-name"><i class="cat-dot" aria-hidden="true"></i>${esc(label)}</span>
+      <span class="cat-bar" aria-hidden="true"><span class="cat-fill" style="width:${Math.max(2, Math.round((r.checkins / max) * 100))}%"></span></span>
+      <span class="cat-n">${r.checkins}</span>
+    </div>`;
+  }).join('');
+}

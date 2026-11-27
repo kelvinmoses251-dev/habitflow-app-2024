@@ -144,3 +144,49 @@ export function habitRates(habits, range) {
   }
   return rows.sort((a, b) => (b.rate === null ? -1 : b.rate) - (a.rate === null ? -1 : a.rate) || b.done - a.done || a.name.localeCompare(b.name));
 }
+
+// ── The bars: check-ins over the period ────────────────────
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const later = (a, b) => (a > b ? a : b), earlier = (a, b) => (a < b ? a : b);
+const lastOfMonth = day => rules.shiftDay(firstOfMonth(day, -1), -1);
+export const longDay = day => `${WEEKDAYS[rules.weekdayOf(day)]} ${shortDay(day)}`;
+
+// The period cut into the pieces a chart shows: days for a week or a month, calendar months for a year, and for
+// all time months (up to two years of them) or years. The first and last piece are cut to the period.
+export function buckets(range) {
+  const out = [];
+  if (range.period === 'week' || range.period === 'month') {
+    eachDay(range.from, range.to, day => out.push({ from: day, to: day, label: range.period === 'week' ? WEEKDAYS[rules.weekdayOf(day)] : String(parts(day)[2]), long: longDay(day), unit: 'day' }));
+    return out;
+  }
+  const months = rules.monthIndex(range.to) - rules.monthIndex(range.from) + 1;
+  if (range.period === 'all' && months > 24) {
+    for (let y = parts(range.from)[0]; y <= parts(range.to)[0]; y++) out.push({ from: later(range.from, `${y}-01-01`), to: earlier(range.to, `${y}-12-31`), label: String(y), long: String(y), unit: 'year' });
+    return out;
+  }
+  for (let first = firstOfMonth(range.from), i = 0; first <= range.to && i < 400; first = firstOfMonth(first, -1), i++) {
+    const [y, m] = parts(first);
+    out.push({ from: later(range.from, first), to: earlier(range.to, lastOfMonth(first)), label: MONTHS[m - 1], long: `${MONTHS_LONG[m - 1]} ${y}`, unit: 'month' });
+  }
+  return out;
+}
+// done: check-ins in the piece. now: the piece that holds today (still filling up).
+export function barSeries(habits, range) {
+  return buckets(range).map(b => {
+    const t = spanTotals(habits, b.from, b.to, range.to);
+    return { ...b, owed: t.owed, doneOwed: t.doneOwed, done: t.checkins, rate: t.rate, now: b.to === range.to };
+  });
+}
+
+// ── Categories ─────────────────────────────────────────────
+// Check-ins by category over the period, most first; categories with none are left out.
+export function categoryCheckins(habits, range) {
+  const counts = new Map();
+  for (const h of real(habits)) {
+    let n = 0;
+    eachDay(range.from, range.to, day => { if (wasDone(h, day)) n++; });
+    if (n) { const key = typeof h.category === 'string' && h.category ? h.category : 'health'; counts.set(key, (counts.get(key) || 0) + n); }
+  }
+  return [...counts].map(([key, checkins]) => ({ key, checkins })).sort((a, b) => b.checkins - a.checkins || a.key.localeCompare(b.key));
+}

@@ -18,7 +18,7 @@ import { firebaseConfig } from "./firebase-config.js";
 import * as rules from "./habit-rules.js?v=7";
 import { timeSlot, currentSlot, slotOrder, SLOT_LABEL, weekDots, attachSwipe, attachReorder, planReorder, habitsOnDay, shiftDay, matchesFilter } from "./home.js?v=7";
 import { setBusy, setFieldError, clearFieldError, enhanceSelect, watchDialogs, toast } from "./ui.js?v=8";
-import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=1";
+import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achievements, daysAway, daysMissed, lastDoneDay, MOODS, moodInsights, moodOf, dayRecap, perfectStretch } from "./motivation.js?v=2";
 import * as moments from "./moments.js?v=1";
 import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
@@ -82,7 +82,9 @@ function track(name, params = {}) {
         .then(async m => (await m.isSupported()) ? { m, a: m.getAnalytics(firebaseApp) } : null)
         .catch(() => null);
     }
-    analyticsReady.then(x => { if (x) x.m.logEvent(x.a, name, params); });
+    // The page title and address are pinned: a habit's page has the habit's id in its address, and could have its
+    // name in the tab title. Neither may leave the device.
+    analyticsReady.then(x => { if (x) x.m.logEvent(x.a, name, { ...params, page_title: 'Habitly', page_location: location.origin + location.pathname }); });
   } catch (_) { /* analytics must never affect the app */ }
 }
 function drainTrackQueue() {
@@ -310,6 +312,7 @@ function resetUserState() {
   devicePushToken = null;
   profileHasXP = true;
   habitsLoaded = false;
+  currentDetailsHabitId = null; habitRouteId = null; document.title = BASE_TITLE;    // nothing of this account's is left on show
   habitsFresh = false; clearTimeout(freshTimer); freshTimer = 0;
   achievementsMemo = null; stretchMemo = null;
   previousMaxStreak = null;
@@ -2190,7 +2193,7 @@ function renderPastDay(day) {
   list.innerHTML = items.length ? items.map(({ habit: h, done }) => {
     const cat = CATS[h.category] || CATS.health;
     const look = habitLook(h);
-    const fill = !done && rules.canFillIn(h, day, today);
+    const fill = !done && rules.canFillIn(h, day, today), undoFill = done && day === shiftDay(today, -1) && canTakeBackFill(h, day);
     return `<li class="habit-item is-readonly" data-id="${h.id}" style="--cat:${look.color}">
       <div class="habit-label">
         <input type="checkbox" class="habit-check" disabled ${done ? 'checked' : ''} aria-label="${escHtml(h.name)}: ${done ? 'done' : 'not done'} that day" />
@@ -2199,7 +2202,8 @@ function renderPastDay(day) {
           <div class="badges-row"><span class="cat-badge"><span class="cat-ico">${look.icon}</span>${cat.label}</span>${h.backfilled && h.backfilled[day] === true && done ? '<span class="freq-badge late-badge">Filled in late</span>' : ''}</div>
         </div>
       </div>
-      ${fill ? `<div class="habit-actions"><button type="button" class="btn-link fill-btn" data-action="fill-in" data-id="${h.id}" aria-label="Fill in ${escHtml(h.name)} for yesterday">Fill in</button></div>` : ''}
+      ${fill ? `<div class="habit-actions"><button type="button" class="btn-link fill-btn" data-action="fill-in" data-id="${h.id}" data-day="${day}" aria-label="Fill in ${escHtml(h.name)} for yesterday">Fill in</button></div>` : ''}
+      ${undoFill ? `<div class="habit-actions"><button type="button" class="btn-link fill-btn" data-action="fill-undo" data-id="${h.id}" data-day="${day}" aria-label="Take back filling in ${escHtml(h.name)} for yesterday">Take back</button></div>` : ''}
     </li>`;
   }).join('') : '<li class="empty-note">You had no daily habits on this day.</li>';
 }
@@ -4102,13 +4106,21 @@ function renderHabitPage(habit) {
   document.getElementById('details-pause').innerHTML = iconSvg(pausedFrom ? 'play' : 'pause') + `<span>${pausedFrom ? 'Resume' : 'Pause'}</span>`;
   document.getElementById('details-life-note').textContent = pausedFrom ? `Paused since ${shortDate(pausedFrom)}. Paused days never break a streak.` : '';
   habitPage.renderInsights(document.getElementById('hp-insights'), habitInsights(habit, today, userFrozenDates || []));
-  document.getElementById('hp-fill').classList.toggle('hidden', !rules.canFillIn(habit, dayKeyOffset(-1), today));
+  {
+    const yesterday = dayKeyOffset(-1), fill = rules.canFillIn(habit, yesterday, today), undo = !fill && canTakeBackFill(habit, yesterday);
+    const box = document.getElementById('hp-fill');
+    box.classList.toggle('hidden', !fill && !undo);
+    box.dataset.mode = undo ? 'undo' : 'fill';
+    document.getElementById('hp-fill-title').textContent = undo ? 'Yesterday was filled in' : 'Missed yesterday?';
+    document.getElementById('hp-fill-text').textContent = undo ? 'Filled in by mistake? You can take it back for an hour.' : 'You have until midnight tonight to fill it in.';
+    document.getElementById('hp-fill-btn').textContent = undo ? 'Take it back' : 'Fill in yesterday';
+  }
   habitPage.renderCalendar(document.getElementById('hp-calendar'), monthGrid(habit, calendarMonth, today, userFrozenDates || []));
   habitPage.renderYear(document.getElementById('hp-year'), yearCells(habit, today, userFrozenDates || []), yearShownFor === habit.id);
   yearShownFor = habit.id;
   habitPage.renderWeeksChart(document.getElementById('hp-weeks'), weeklyRates(habit, today));
   habitPage.renderWeekdayChart(document.getElementById('hp-weekdays'), weekdayRates(habit, today));
-  habitPage.renderSessions(document.getElementById('focus-sessions'), document.getElementById('focus-total'), sessionTotals(habit.sessions));
+  habitPage.renderSessions(document.getElementById('focus-sessions'), document.getElementById('focus-total'), sessionTotals(habit.sessions, { count: habit.focusCount, minutes: habit.focusMinutes }));
   renderJournal(habit);
 }
 document.getElementById('hp-focus')?.addEventListener('click', e => {
@@ -4121,6 +4133,11 @@ let yearShownFor = null;                       // the habit whose year is on scr
 // A day that was due and missed can be completed until the end of the day after (habit-rules canFillIn). It earns
 // the normal 25 XP once, never the daily bonus, is marked as filled in late, and can be taken back for an hour
 // like any completion. Nothing older than yesterday can be changed.
+// Was yesterday filled in late within the last hour? Then it can still be taken back (the normal one-hour rule).
+function canTakeBackFill(h, day) {
+  const at = h && h.completedTimestamps && h.completedTimestamps[day];
+  return !!h && !!h.backfilled && h.backfilled[day] === true && (h.completedDates || []).includes(day) && Number.isFinite(at) && Date.now() - at < 3600000;
+}
 const fillingIn = new Set();                   // habits being filled in right now, so a double tap cannot pay twice
 function fillIn(id) {
   const h = allHabits.find(x => x.id === id), today = todayStr(), day = dayKeyOffset(-1);
@@ -4136,10 +4153,16 @@ function fillIn(id) {
   toast('Yesterday filled in. +25 XP', 'success', 6000, { label: 'Undo', onClick: () => { track('fill_in_undo'); uncompleteHabit(id, day); } });
   track('habit_filled_in');
 }
-document.getElementById('hp-fill-btn')?.addEventListener('click', () => { if (currentDetailsHabitId) fillIn(currentDetailsHabitId); });
+document.getElementById('hp-fill-btn')?.addEventListener('click', () => {
+  if (!currentDetailsHabitId) return;
+  if (document.getElementById('hp-fill').dataset.mode === 'undo') uncompleteHabit(currentDetailsHabitId, dayKeyOffset(-1));
+  else fillIn(currentDetailsHabitId);
+});
 document.getElementById('page-home').addEventListener('click', e => {
-  const b = e.target instanceof Element ? e.target.closest('[data-action="fill-in"]') : null;
-  if (b) fillIn(b.dataset.id);
+  const b = e.target instanceof Element ? e.target.closest('[data-action="fill-in"], [data-action="fill-undo"]') : null;
+  if (!b) return;
+  if (b.dataset.day !== dayKeyOffset(-1)) { toast('That day can no longer be changed.', 'info'); renderHabits(); return; }   // the view was drawn before midnight
+  if (b.dataset.action === 'fill-undo') uncompleteHabit(b.dataset.id, b.dataset.day); else fillIn(b.dataset.id);
 });
 
 // The month the calendar shows (null: this month). It goes back to this month whenever another habit is opened.
@@ -4196,7 +4219,8 @@ function showHabitRoute(arrived) {
   if (currentDetailsHabitId !== habit.id) { document.getElementById('details-journal-input').value = ''; document.getElementById('notes-search').value = ''; calendarMonth = null; }
   currentDetailsHabitId = habit.id;
   renderHabitPage(habit);
-  document.title = `${habit.name} \u00b7 Habitly`;
+  // Analytics reads the tab title. While usage data is shared, the title says only that this is a habit's page.
+  document.title = analyticsAllowed() ? 'Habit \u00b7 Habitly' : `${habit.name} \u00b7 Habitly`;
   if (fresh) { window.scrollTo(0, 0); document.getElementById('details-habit-name').focus({ preventScroll: true }); }
 }
 // Share: a picture of this one habit (its streak, three figures, the last twelve weeks). Nothing else is on it.
@@ -4272,9 +4296,13 @@ function renderJournal(habit) {
   count.classList.toggle('hidden', !query);
   count.textContent = query ? `${items.length} of ${all.length} notes` : '';
 }
+let notesSearchTimer = 0;
 document.getElementById('notes-search')?.addEventListener('input', () => {
-  const h = allHabits.find(x => x.id === currentDetailsHabitId);
-  if (h) renderJournal(h);
+  clearTimeout(notesSearchTimer);                      // wait for a pause in typing: one redraw, not one per key
+  notesSearchTimer = setTimeout(() => {
+    const h = allHabits.find(x => x.id === currentDetailsHabitId);
+    if (h) renderJournal(h);
+  }, 140);
 });
 
 document.getElementById('details-journal-list').addEventListener('click', async e => {
@@ -4361,7 +4389,8 @@ function finishFocusSession() {
   const h = activeTimerHabit && allHabits.find(x => x.id === activeTimerHabit.id);
   // Every finished session is kept on the habit (when, and how long), for the history on its page
   if (h) {
-    backgroundWrite(updateDoc(doc(db, 'habits', h.id), { sessions: withSession(h.sessions, Date.now(), timerMinutes) }), 'save the focus session', true);
+    const so = sessionTotals(h.sessions, { count: h.focusCount, minutes: h.focusMinutes });   // totals so far (counters, or what is stored)
+    backgroundWrite(updateDoc(doc(db, 'habits', h.id), { sessions: withSession(h.sessions, Date.now(), timerMinutes), focusCount: so.count + 1, focusMinutes: so.minutes + timerMinutes }), 'save the focus session', true);
     track('focus_session_finished', { minutes: timerMinutes });
   }
   // A session completes the habit like a normal tick, for the normal XP, once. It used to add 50 XP every

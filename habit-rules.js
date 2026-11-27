@@ -187,7 +187,22 @@ export function canFillIn(habit, day, today) {
   return true;
 }
 
-const countInWeek = (habit, idx) => ((habit && habit.completedDates) || []).filter(d => weekIndex(d) === idx).length;
+// How many completions fall in week `idx`. A streak asks this for every week of a habit's life, so the counts are
+// worked out once per list of dates and kept (the list is replaced, never edited in place, when the data changes;
+// its length is checked all the same).
+const weekCounts = new WeakMap();
+function countInWeek(habit, idx) {
+  const dates = habit && habit.completedDates;
+  if (!Array.isArray(dates)) return 0;
+  let kept = weekCounts.get(dates);
+  if (!kept || kept.length !== dates.length) {
+    const counts = new Map();
+    for (const d of dates) { const w = weekIndex(d); counts.set(w, (counts.get(w) || 0) + 1); }
+    kept = { length: dates.length, counts };
+    weekCounts.set(dates, kept);
+  }
+  return kept.counts.get(idx) || 0;
+}
 
 // How far along the current week or month a weekly/monthly habit is: { done, target }.
 export function periodProgress(habit, today) {

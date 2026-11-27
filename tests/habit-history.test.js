@@ -355,3 +355,62 @@ test('withSession: adds one, keeps the newest sixty in time order, and drops jun
   assert.equal(next.length, 60); assert.equal(next[0].at, 1001); assert.deepEqual(next[59], { at: 5000, minutes: 30 });
   assert.deepEqual(withSession(full, 5000, 0), full);                       // a session of no length is not a session
 });
+
+// ── Review of batch 5 ──────────────────────────────────────
+test('review: a weekly habit with five years of history is summed quickly', async () => {
+  const { habitSummary, habitInsights } = await load();
+  const days = []; for (let n = 0; n < 5 * 365; n++) if (new Date(num(ago(n)) * 86400000).getUTCDay() !== 0 && new Date(num(ago(n)) * 86400000).getUTCDay() !== 6) days.push(n);   // five times a week
+  const h = H('Run', days, { frequency: 'weekly', schedule: { type: 'times', times: 5 } });
+  const t = process.hrtime.bigint();
+  const s = habitSummary(h, TODAY); habitInsights(h, TODAY);
+  const ms = Number(process.hrtime.bigint() - t) / 1e6;
+  assert.ok(s.longest >= 250, String(s.longest));
+  assert.ok(ms < 200, `took ${ms.toFixed(0)}ms`);
+});
+
+test('review: searching hundreds of long notes is quick, and an empty search does no folding work', async () => {
+  const { searchNotes } = await load();
+  const body = 'Went for a long run by the river and felt strong for most of it. '.repeat(8);
+  const notes = Array.from({ length: 300 }, (_, i) => ({ date: new Date(num(ago(i)) * 86400000 + 12 * 3600000).toISOString(), text: `${i} ${body} café` }));
+  let t = process.hrtime.bigint();
+  assert.equal(searchNotes(notes, '').length, 300);
+  const empty = Number(process.hrtime.bigint() - t) / 1e6;
+  t = process.hrtime.bigint();
+  assert.equal(searchNotes(notes, 'river cafe').length, 300);
+  const found = Number(process.hrtime.bigint() - t) / 1e6;
+  assert.ok(empty < 25, `empty search took ${empty.toFixed(0)}ms`);
+  assert.ok(found < 150, `search took ${found.toFixed(0)}ms`);
+});
+
+test('review: a day that is still open is not counted against the last-30-days figure', async () => {
+  const { habitSummary, habitInsights } = await load();
+  const perfect = habitSummary(H('Read', range(1, 60)), TODAY);          // every day up to yesterday; today not done yet
+  assert.deepEqual([perfect.due30, perfect.done30, perfect.rate30], [30, 30, 100]);
+  assert.ok(habitInsights(H('Read', range(1, 60)), TODAY).some(i => /Done on 30 of the last 30 days/.test(i.text)));
+  const weekly = habitSummary(H('Call home', range(1, 20).map(w => w * 7 - 4), { frequency: 'weekly' }), TODAY);   // every week but this one, which is still open
+  assert.equal(weekly.rate30, 100);
+});
+
+test('review: days done when nothing was owed are not counted as "owed", so a weekly habit never reads "3 of 3 days"', async () => {
+  const { monthGrid, yearCells } = await load();
+  const weekly = H('Call home', [2, 9, 16], { frequency: 'weekly' });
+  const g = monthGrid(weekly, '2026-11', TODAY);
+  assert.equal(g.done, 3); assert.equal(g.owed, 0); assert.equal(g.doneOwed, 0);
+  const y = yearCells(weekly, TODAY);
+  assert.equal(y.done, 3); assert.equal(y.due, 0); assert.equal(y.doneDue, 0);
+  const weekdaysOnly = H('Gym', [3, 4], { schedule: { type: 'days', days: [1, 2, 3, 4, 5] } });   // done only at the weekend
+  const m = monthGrid(weekdaysOnly, '2026-11', TODAY);
+  assert.equal(m.done, 2); assert.equal(m.doneOwed, 0); assert.ok(m.owed >= 15);
+  const daily = monthGrid(H('Read', [0, 1, 2, 10]), '2026-11', TODAY);
+  assert.deepEqual([daily.done, daily.doneOwed, daily.owed], [4, 4, 25]);
+});
+
+test('review: the focus total keeps counting past the sixty sessions that are stored', async () => {
+  const { sessionTotals } = await load();
+  const sixty = Array.from({ length: 60 }, (_, i) => ({ at: 1000 + i, minutes: 10 }));
+  assert.deepEqual([sessionTotals(sixty, { count: 75, minutes: 900 }).count, sessionTotals(sixty, { count: 75, minutes: 900 }).minutes], [75, 900]);
+  assert.equal(sessionTotals(sixty).count, 60);                              // no counters yet: what is stored
+  assert.equal(sessionTotals(sixty, { count: 3, minutes: 'x' }).count, 60);  // counters that make no sense are ignored
+  assert.equal(sessionTotals(sixty, { count: 3, minutes: 'x' }).minutes, 600);
+  assert.equal(sessionTotals([{ at: 9e15, minutes: 5 }, { at: 2000, minutes: 5 }]).count, 1);   // a time no calendar can show is not a session
+});

@@ -79,7 +79,7 @@ module.exports = (scenario, c) => {
     const title = await ev(`document.title`);
     await openFromRow('a');
     check('the address names the habit', (await ev(`location.hash`)) === '#habit/a', await ev(`location.hash`));
-    check('the tab title is the habit', (await ev(`document.title`)) === 'Read 10 pages · Habitly', await ev(`document.title`));
+    check('the tab title says it is a habit page (the name stays out of it while usage data is shared)', (await ev(`document.title`)) === 'Habit · Habitly', await ev(`document.title`));
     await ev(`history.back()`); await sleep(450);
     check('the browser\'s Back goes to Home', (await ev(`location.hash`)) !== '#habit/a' && await ev(`document.getElementById('page-home').classList.contains('active')`));
     check('and the title goes back too', (await ev(`document.title`)) === title, await ev(`document.title`));

@@ -29,14 +29,14 @@ module.exports = (scenario, c) => {
     check('it earns 25 XP once, even on a double tap', (await xp()) === 325, String(await xp()));
     check('never the daily bonus, and no all-done card', (await ev(`__mockDB.users['u-test'].allDoneBonusDate`)) === undefined && await ev(`document.getElementById('all-done-overlay').classList.contains('hidden')`));
     check('the streak joins up', (await text('#details-current-streak')).trim() === '8', await text('#details-current-streak'));
-    check('the offer goes', !(await visible('#hp-fill')));
+    check('the offer becomes a way to take it back', (await visible('#hp-fill')) && /take it back/i.test(await text('#hp-fill-btn')));
     check('and so does the shield question: nothing was missed after all', (await moment()) === '' && (await ev(`__mockDB.users['u-test'].streakShields`)) === 1);
     if (day(1).slice(0, 7) === day(0).slice(0, 7)) check('the calendar shows the day as done, filled in late', await ev(`(() => { const td = document.querySelector('#hp-calendar td[data-day="${day(1)}"]'); return td.classList.contains('is-done') && td.classList.contains('is-late') && /filled in late/.test(td.getAttribute('aria-label')); })()`));
     check('a toast says so, with Undo', await ev(`[...document.querySelectorAll('.toast')].some(t => /Yesterday filled in/.test(t.textContent) && !!t.querySelector('.toast-action'))`));
     await ev(`[...document.querySelectorAll('.toast')].find(t => /Yesterday filled in/.test(t.textContent)).querySelector('.toast-action').click()`); await sleep(800);
     const undone = await habit('a');
     check('Undo takes it all back: the day, its time, the mark and the XP', !undone.completedDates.includes(day(1)) && !(undone.completedTimestamps && day(1) in undone.completedTimestamps) && !(undone.backfilled && day(1) in undone.backfilled) && (await xp()) === 300, JSON.stringify(undone) + ' ' + await xp());
-    check('and the offer is back', await visible('#hp-fill'));
+    check('and the offer is back', (await visible('#hp-fill')) && /Fill in yesterday/.test(await text('#hp-fill-btn')));
     noExceptions();
   });
 

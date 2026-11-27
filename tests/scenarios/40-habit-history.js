@@ -67,7 +67,7 @@ module.exports = (scenario, c) => {
     check('a full earlier week reads 29% (two days of seven)', weeks.rates[5] === '29', JSON.stringify(weeks.rates));
     check('bar heights follow the numbers', weeks.heights[5] > 10 && Math.abs(weeks.heights[5] - weeks.box * 0.29) <= 3, JSON.stringify(weeks.heights) + ' of ' + weeks.box);
     check('the chart says its numbers to a screen reader', weeks.role === 'img' && /twelve weeks/.test(weeks.label) && /29%/.test(weeks.label), weeks.label);
-    check('and a sentence under it sums it up', /^(This week: [0-9]+ of [0-9]+\.|Nothing due this week\.) Twelve-week average: [0-9]+%\.$/.test((await text('#weeks-cap')).trim()), await text('#weeks-cap'));
+    check('and a sentence under it sums it up', /^(This week: [0-9]+ of [0-9]+\.|Nothing due this week\.) Average of the weeks before: [0-9]+%\.$/.test((await text('#weeks-cap')).trim()), await text('#weeks-cap'));
     const days = JSON.parse(await ev(`JSON.stringify((() => { const c = document.querySelector('#hp-weekdays .chart'); const bars = [...c.querySelectorAll('.bar')];
       return { label: c.getAttribute('aria-label'), n: bars.length, best: bars.map((b, i) => (b.classList.contains('is-best') ? i : -1)).filter(i => i >= 0), heights: bars.map(b => Math.round(b.getBoundingClientRect().height)), letters: [...c.querySelectorAll('.bar-lbl')].map(l => l.textContent).join('') }; })())`));
     check('seven bars, Monday first', days.n === 7 && days.letters === 'MTWTFSS', JSON.stringify(days));
@@ -210,6 +210,7 @@ module.exports = (scenario, c) => {
     await pass(25);
     const kept = await sessions('a');
     check('one more: still sixty, the oldest dropped, the new one last', kept.length === 60 && kept[59].minutes === 25 && kept[0].at === sixty[1].at, kept.length + ' ' + JSON.stringify(kept[59]));
+    check('but the total keeps counting: 61 sessions', (await text('#focus-total')).trim() === '61 sessions, 10 h 25 min in all.', await text('#focus-total'));
     await ev(`document.getElementById('all-done-close')?.click()`); await sleep(200);
     await open('j');
     check('junk entries are ignored: one real session counts', (await text('#focus-total')).trim() === '1 session, 30 min in all.', await text('#focus-total'));

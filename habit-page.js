@@ -29,7 +29,7 @@ export function renderCalendar(el, grid) {
       <thead><tr>${WEEKDAYS.map(([a, full]) => `<th scope="col"><abbr title="${full}">${a[0]}</abbr><span class="sr-only">${full}</span></th>`).join('')}</tr></thead>
       <tbody>${grid.weeks.map(w => `<tr>${w.map(td).join('')}</tr>`).join('')}</tbody>
     </table>
-    <p class="cal-sum" id="cal-sum">${grid.owed ? `${grid.done} of ${grid.owed} days done this month` : grid.done ? `${grid.done} ${grid.done === 1 ? 'day' : 'days'} done this month` : 'Nothing was due this month'}</p>
+    <p class="cal-sum" id="cal-sum">${grid.owed ? `${grid.doneOwed} of ${grid.owed} days done this month` : grid.done ? `Done on ${grid.done} ${grid.done === 1 ? 'day' : 'days'} this month` : 'Nothing was due this month'}</p>
     <ul class="cal-legend" aria-hidden="true">
       <li><i class="lg is-done"></i>Done</li><li><i class="lg is-shield"></i>Shield</li><li><i class="lg is-missed"></i>Missed</li><li><i class="lg is-rest"></i>Rest or paused</li>
     </ul>`;
@@ -42,14 +42,15 @@ const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 export function renderWeeksChart(el, weeks) {
   const any = weeks.some(w => w.rate !== null);
   if (!any) { el.innerHTML = '<p class="sheet-note" id="weeks-none">A monthly habit has no week-by-week chart. Its calendar and year show the whole story.</p>'; return; }
-  const known = weeks.filter(w => w.rate !== null), avg = Math.round(known.reduce((s, w) => s + w.rate, 0) / known.length), now = weeks[weeks.length - 1];
+  const finished = weeks.filter(w => w.rate !== null && !w.current);
+  const known = finished.length ? finished : weeks.filter(w => w.rate !== null), avg = Math.round(known.reduce((s, w) => s + w.rate, 0) / known.length), now = weeks[weeks.length - 1];
   const label = 'Completion over the last twelve weeks, oldest first: ' + weeks.map(w => (w.rate === null ? 'nothing due' : w.rate + '%')).join(', ');
   el.innerHTML = `
     <div class="chart" role="img" aria-label="${esc(label)}">
       <div class="bars bars-12">${weeks.map(w => `<span class="bar${w.current ? ' is-now' : ''}${w.rate === null ? ' is-none' : ''}" style="--h:${w.rate === null ? 0 : Math.max(4, w.rate)}%" data-rate="${w.rate === null ? '' : w.rate}"></span>`).join('')}</div>
       <div class="bars-axis"><span>12 weeks ago</span><span>This week</span></div>
     </div>
-    <p class="chart-cap" id="weeks-cap">${now.rate === null ? 'Nothing due this week.' : `This week: ${now.done} of ${now.due}.`} Twelve-week average: ${avg}%.</p>`;
+    <p class="chart-cap" id="weeks-cap">${now.rate === null ? 'Nothing due this week.' : `This week: ${now.done} of ${now.due}.`} Average of the weeks before: ${avg}%.</p>`;
 }
 export function renderWeekdayChart(el, days) {
   const counted = days.some(d => d.rate !== null), max = Math.max(1, ...days.map(d => d.done)), best = days.find(d => d.best);
@@ -71,13 +72,13 @@ export function renderWeekdayChart(el, days) {
 export function renderYear(el, year, keepScroll = false) {
   const was = keepScroll && el.querySelector('.year-scroll') ? el.querySelector('.year-scroll').scrollLeft : null;
   el.innerHTML = `
-    <div class="year-scroll" id="year-scroll" tabindex="0" role="group" aria-label="The last year, day by day. ${year.due ? `${year.done} of ${year.due} days done.` : ''}">
+    <div class="year-scroll" id="year-scroll" tabindex="0" role="group" aria-label="The last year, day by day. ${year.due ? `${year.doneDue} of ${year.due} days done.` : year.done ? `Done on ${year.done} days.` : ''}">
       <div class="year-inner">
         <div class="year-months" aria-hidden="true">${year.months.map(m => `<span style="grid-column:${m.col + 1}">${m.label}</span>`).join('')}</div>
         <div class="year-grid" aria-hidden="true">${year.weeks.map(col => `<span class="year-col">${col.map(c => `<i class="yc is-${c.state}${c.today ? ' is-today' : ''}" data-day="${c.day}"></i>`).join('')}</span>`).join('')}</div>
       </div>
     </div>
-    <p class="chart-cap" id="year-sum">${year.due ? `${year.done} of ${plural(year.due, 'day')} in the last year.` : year.done ? `${plural(year.done, 'day')} done in the last year.` : 'Nothing was due in the last year.'}</p>`;
+    <p class="chart-cap" id="year-sum">${year.due ? `${year.doneDue} of ${plural(year.due, 'day')} in the last year.` : year.done ? `Done on ${plural(year.done, 'day')} in the last year.` : 'Nothing was due in the last year.'}</p>`;
   const box = el.querySelector('.year-scroll');
   box.scrollLeft = was === null ? box.scrollWidth : was;      // start at today (the right-hand end); a redraw stays where the person scrolled to
 }

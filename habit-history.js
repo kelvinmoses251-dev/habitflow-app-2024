@@ -28,6 +28,17 @@ export function createdDay(h) {
   createdCache.set(h, day);
   return day;
 }
+// A habit's current and longest streak, worked out once per habit object, day and set of shield days.
+const streakCache = new WeakMap();
+function streaksOf(h, today, frozen) {
+  const key = today + '|' + frozen.join(','), kept = streakCache.get(h);
+  if (kept && kept.key === key) return kept;
+  let streak = 0, longest = 0;
+  try { streak = rules.habitStreak(h, today, frozen); longest = rules.habitLongestStreak(h, today, frozen); } catch (_) { /* junk dates: no streak */ }
+  const fresh = { key, streak, longest };
+  streakCache.set(h, fresh);
+  return fresh;
+}
 // Was it a day-by-day habit on that day (rather than a weekly or monthly one)?
 const isDailyOn = (h, day) => { const t = rules.scheduleOn(h, day).type; return t === 'daily' || t === 'days'; };
 // Was it owed that day: already created, a daily habit then, due by its schedule, and not paused, ended or archived.
@@ -38,15 +49,19 @@ export const owedOn = (h, day) => createdDay(h) <= day && isDailyOn(h, day) && r
 // days that were done; a weekly habit is judged over its last four weeks instead, a monthly one has none.
 export function habitSummary(habit, today, frozen = []) {
   const h = asHabit(habit), done = doneSet(h), freq = rules.baseFreq(h);
-  let streak = 0, longest = 0;
-  try { streak = rules.habitStreak(h, today, days(frozen)); longest = rules.habitLongestStreak(h, today, days(frozen)); } catch (_) { /* junk dates: no streak */ }
+  const { streak, longest } = streaksOf(h, today, days(frozen));
   let due30 = 0, done30 = 0, rate30 = null;
+  // A day (or week) that is still open is not held against the figure: until today is done, the thirty days end
+  // yesterday; until this week's target is met, the four weeks end last week.
   if (freq === 'daily') {
-    for (let n = 0; n < 30; n++) { const day = rules.shiftDay(today, -n); if (owedOn(h, day)) { due30++; if (done.has(day)) done30++; } }
+    const from = done.has(today) ? 0 : 1;
+    for (let n = from; n < from + 30; n++) { const day = rules.shiftDay(today, -n); if (owedOn(h, day)) { due30++; if (done.has(day)) done30++; } }
     rate30 = due30 ? Math.round((done30 / due30) * 100) : null;
   } else if (freq === 'weekly') {
-    for (let w = 0; w < 4; w++) {
-      const day = rules.shiftDay(today, -7 * w);
+    let met = false;
+    try { const now = rules.periodProgress(h, today); met = now.done >= now.target; } catch (_) { /* junk dates */ }
+    for (let w = met ? 0 : 1; w < (met ? 4 : 5); w++) {
+      const day = w === 0 ? today : rules.shiftDay(rules.shiftDay(today, -((rules.weekdayOf(today) + 6) % 7)), -7 * (w - 1) - 1);   // the Sunday that closed that week
       if (createdDay(h) > day) continue;
       const p = rules.periodProgress(h, day);
       due30++; if (p.done >= p.target) done30++;
@@ -85,7 +100,7 @@ function runPart(habit, day, state, today, frozenSet) {
 }
 const cellOf = (h, day, today, frozenSet) => {
   const state = dayState(h, day, today, frozenSet);
-  return { day, state, late: isLate(h, day), run: runPart(h, day, state, today, frozenSet), today: day === today };
+  return { day, state, owed: owedOn(h, day), late: isLate(h, day), run: runPart(h, day, state, today, frozenSet), today: day === today };
 };
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const isMonth = v => typeof v === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
@@ -119,7 +134,11 @@ export function monthGrid(habit, month, today, frozen = []) {
   return {
     month: m, label: `${MONTHS[mo - 1]} ${y}`, weeks,
     prev: m > first ? stepMonth(m, -1) : null, next: m < thisMonth ? stepMonth(m, 1) : null,
-    done: inMonth.filter(c => c.state === 'done').length, owed: inMonth.filter(c => ['done', 'missed', 'shield', 'open'].includes(c.state)).length,
+    // done: every day it was done. owed: the days it was due. doneOwed: done on a day it was due. (A weekly habit
+    // is never "owed" on a day, and a day done on a rest day is a bonus: neither belongs in "N of M days".)
+    done: inMonth.filter(c => c.state === 'done').length,
+    owed: inMonth.filter(c => c.owed && c.state !== 'future' && c.state !== 'before' && c.state !== 'paused').length,
+    doneOwed: inMonth.filter(c => c.state === 'done' && c.owed).length,
   };
 }
 
@@ -170,13 +189,15 @@ export function weekdayRates(habit, today) {
 export function yearCells(habit, today, frozen = []) {
   const h = asHabit(habit), frozenSet = new Set(days(frozen));
   const first = rules.shiftDay(mondayOf(today), -7 * 52), weeks = [], months = [];
-  let done = 0, due = 0, lastMonth = '';
+  let done = 0, due = 0, doneDue = 0, lastMonth = '';
   for (let w = 0; w < 53; w++) {
     const col = [];
     for (let i = 0; i < 7; i++) {
       const day = rules.shiftDay(first, w * 7 + i), state = dayState(h, day, today, frozenSet);
+      const owed = state === 'missed' || state === 'shield' || state === 'open' || (state === 'done' && owedOn(h, day));
       if (state === 'done') done++;
-      if (state === 'done' || state === 'missed' || state === 'shield' || state === 'open') due++;
+      if (owed) due++;
+      if (owed && state === 'done') doneDue++;
       col.push({ day, state, today: day === today });
     }
     const month = col[0].day.slice(0, 7);
@@ -185,16 +206,20 @@ export function yearCells(habit, today, frozen = []) {
   }
   // A month with fewer than three columns before the next label has no room for its own: its label is left out
   const roomy = months.filter((m, i) => i === months.length - 1 || months[i + 1].col - m.col >= 3);
-  return { weeks, months: roomy, done, due };
+  return { weeks, months: roomy, done, due, doneDue };
 }
 
 // ── Notes: a timeline that can be searched ─────────────────
 // Folding makes "Café" match "cafe": lower case, accents removed. foldMap also remembers, for every folded
 // character, which character of the original it came from, so a match can be marked in the text as it was typed.
+const PLAIN = /^[\x00-\x7f]*$/;
 function foldMap(text) {
+  if (PLAIN.test(text)) return { folded: text.toLowerCase(), from: null };     // one for one: no map needed
   let folded = '';
   const from = [];
+  const lower = text.toLowerCase();
   for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) < 128 && lower.length === text.length) { folded += lower[i]; from.push(i); continue; }   // plain characters need no unpicking
     const f = text[i].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     for (let k = 0; k < f.length; k++) { folded += f[k]; from.push(i); }
   }
@@ -210,14 +235,17 @@ export function searchNotes(journals, query = '') {
     .sort((a, b) => new Date(b.date) - new Date(a.date));
   const out = [];
   for (const j of notes) {
-    const { folded, from } = foldMap(j.text);
-    if (!words.every(w => folded.includes(w))) continue;
-    const marked = new Array(j.text.length).fill(false);
-    for (const w of words) for (let at = folded.indexOf(w); at !== -1; at = folded.indexOf(w, at + 1)) for (let k = at; k < at + w.length; k++) marked[from[k]] = true;
-    const parts = [];
-    for (let i = 0; i < j.text.length; i++) {
-      const last = parts[parts.length - 1];
-      if (last && last.hit === marked[i]) last.text += j.text[i]; else parts.push({ text: j.text[i], hit: marked[i] });
+    let parts = [{ text: j.text, hit: false }];
+    if (words.length) {
+      const { folded, from } = foldMap(j.text);
+      if (!words.every(w => folded.includes(w))) continue;
+      const marked = new Uint8Array(j.text.length);
+      for (const w of words) for (let at = folded.indexOf(w); at !== -1; at = folded.indexOf(w, at + 1)) for (let k = at; k < at + w.length; k++) marked[from ? from[k] : k] = 1;
+      parts = [];
+      for (let i = 0, start = 0; i <= j.text.length; i++) {       // cut where "marked" changes
+        if (i === j.text.length || marked[i] !== marked[start]) { parts.push({ text: j.text.slice(start, i), hit: marked[start] === 1 }); start = i; }
+      }
+      parts = parts.filter(p => p.text.length);
     }
     const d = new Date(j.date);
     out.push({ date: j.date, day: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`, text: j.text, parts });
@@ -238,7 +266,8 @@ export function habitInsights(habit, today, frozen = []) {
   const span = (from, to) => { let due = 0, got = 0; for (let n = from; n <= to; n++) { const day = rules.shiftDay(today, -n); if (owedOn(h, day)) { due++; if (done.has(day)) got++; } } return { due, got }; };
 
   if (daily) {
-    const now = span(0, 29), before = span(30, 59);
+    const from = done.has(today) ? 0 : 1;                     // a day still open is not counted
+    const now = span(from, from + 29), before = span(from + 30, from + 59);
     if (now.due >= 10) {
       const pNow = now.got / now.due, pBefore = before.due >= 10 ? before.got / before.due : null;
       const head = `Done on ${now.got} of the last ${now.due} days it was due`;
@@ -265,8 +294,7 @@ export function habitInsights(habit, today, frozen = []) {
     if (counts[top] / hours.length >= 0.6) out.push({ icon: 'clock', text: `Usually done ${PARTS_OF_DAY[top][1]} (${counts[top]} of ${hours.length} times).` });
   }
 
-  let streak = 0, longest = 0;
-  try { streak = rules.habitStreak(h, today, days(frozen)); longest = rules.habitLongestStreak(h, today, days(frozen)); } catch (_) { /* junk dates */ }
+  const { streak, longest } = streaksOf(h, today, days(frozen));
   const unit = { daily: 'days', weekly: 'weeks', monthly: 'months' }[rules.baseFreq(h)];
   const enough = daily ? 7 : 4;
   if (longest >= enough) out.push({ icon: 'flame', text: streak >= longest ? `You are on your longest run yet: ${streak} ${unit}.` : `Your longest run is ${longest} ${unit}. You are at ${streak} now.` });
@@ -285,13 +313,17 @@ export function habitInsights(habit, today, frozen = []) {
 // habit.sessions = [{ at: ms, minutes: n }]. Only real entries count (a time, and 1 to 600 minutes). The newest
 // SESSIONS_KEPT are stored; withSession is the list to save after one more.
 export const SESSIONS_KEPT = 60;
-const realSessions = list => (Array.isArray(list) ? list : []).filter(s => s && typeof s === 'object' && Number.isFinite(s.at) && s.at > 0 && Number.isFinite(s.minutes) && s.minutes >= 1 && s.minutes <= 600)
+const realSessions = list => (Array.isArray(list) ? list : []).filter(s => s && typeof s === 'object' && Number.isFinite(s.at) && s.at > 0 && s.at < 8e12 && Number.isFinite(s.minutes) && s.minutes >= 1 && s.minutes <= 600)
   .map(s => ({ at: s.at, minutes: Math.round(s.minutes) }));
 export function withSession(list, at, minutes) {
   const next = realSessions([...realSessions(list), { at, minutes }]).sort((a, b) => a.at - b.at);
   return next.slice(-SESSIONS_KEPT);
 }
-export function sessionTotals(list) {
+// Only the newest sessions are stored, so the totals come from two running counters kept on the habit
+// (focusCount, focusMinutes) once they exist. Counters that make no sense, or lag what is stored, are ignored.
+export function sessionTotals(list, counters = null) {
   const all = realSessions(list).sort((a, b) => b.at - a.at);
-  return { count: all.length, minutes: all.reduce((sum, s) => sum + s.minutes, 0), recent: all.slice(0, 5) };
+  const stored = { count: all.length, minutes: all.reduce((sum, s) => sum + s.minutes, 0) };
+  const ok = counters && Number.isFinite(counters.count) && Number.isFinite(counters.minutes) && counters.count >= stored.count && counters.minutes >= stored.minutes;
+  return { count: ok ? Math.round(counters.count) : stored.count, minutes: ok ? Math.round(counters.minutes) : stored.minutes, recent: all.slice(0, 5) };
 }

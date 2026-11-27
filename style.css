@@ -500,6 +500,33 @@ html.dialog-open { overflow: hidden; }
   .feature-demo { padding: var(--sp-8); }
 }
 
+/* How it works, the price and the questions */
+.how-steps { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-5); }
+.how-steps li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--sp-4); row-gap: var(--sp-1); }
+.how-n { grid-row: span 2; width: 36px; height: 36px; display: grid; place-items: center; font-family: var(--font-display); font-size: var(--fs-xl); color: var(--primary-ink); background: var(--primary-soft); border: 1px solid var(--primary-line); border-radius: var(--r-full); }
+.how-steps h3 { font-size: var(--fs-md); font-weight: 600; align-self: end; }
+.how-steps p { color: var(--text-2); line-height: 1.55; }
+.price-box { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-6); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--elev-1); max-width: 30rem; }
+.price-head { display: flex; flex-direction: column; gap: var(--sp-1); }
+.price { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-5xl); line-height: 1; }
+.price-sub { color: var(--text-2); }
+.price-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); color: var(--text-2); }
+.price-list li { padding-left: var(--sp-5); position: relative; }
+.price-list li::before { content: ""; position: absolute; left: 0; top: .5em; width: 9px; height: 5px; border-left: 2px solid var(--success); border-bottom: 2px solid var(--success); transform: rotate(-45deg); }
+.price-go { min-height: 44px; align-self: flex-start; }
+.faq-list { margin-top: var(--sp-3); border-top: 1px solid var(--border); max-width: 44rem; }
+.faq-item { border-bottom: 1px solid var(--border); }
+.faq-item summary { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); min-height: 52px; padding: var(--sp-3) 0; font-weight: 500; cursor: pointer; list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: ""; flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); }
+.faq-item[open] summary::after { transform: rotate(-135deg); }
+.faq-a { padding: 0 var(--sp-6) var(--sp-4) 0; color: var(--text-2); line-height: 1.6; }
+@media (min-width: 960px) {
+  .how-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-8); }
+  .how-steps li { grid-template-columns: minmax(0, 1fr); }
+  .how-n { grid-row: auto; margin-bottom: var(--sp-2); }
+}
+
 /* Real pictures of the app, in frames drawn with CSS. The light or the dark picture shows, to match the theme. */
 .showcase-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5) var(--sp-4); align-items: start; margin-top: var(--sp-3); }
 .device { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }

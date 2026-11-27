@@ -20,6 +20,14 @@ function init() {
     heat.innerHTML = cells.join('');
   }
 
+  // "Create your account" buttons further down the page bring the sign-in card back into view
+  more.addEventListener('click', e => {
+    if (!(e.target instanceof Element) || !e.target.closest('[data-to-signup]')) return;
+    const card = document.getElementById('auth-card');
+    card.scrollIntoView({ behavior: window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+    setTimeout(() => document.getElementById('auth-email')?.focus({ preventScroll: true }), 400);
+  });
+
   const features = [...more.querySelectorAll('.feature')];
   const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (calm || !('IntersectionObserver' in window)) { features.forEach(f => f.classList.add('is-in')); return; }

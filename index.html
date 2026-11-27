@@ -39,6 +39,7 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#4A3AB8" />
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Habitly","url":"https://habit-tracker-demo-34c0a.web.app/","description":"A habit tracker with streaks, levels and clear progress charts. Free, with a demo you can try without an account.","applicationCategory":"LifestyleApplication","operatingSystem":"Any","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is it really free?","acceptedAnswer":{"@type":"Answer","text":"Yes. There is no paid plan, there are no ads, and there is nowhere to enter a card. Every feature you see is the whole app."}},{"@type":"Question","name":"Do I need to install anything?","acceptedAnswer":{"@type":"Answer","text":"No. Habitly runs in your browser on a phone, tablet or computer. If you like, you can add it to your home screen and it opens like an app."}},{"@type":"Question","name":"Does it work without a connection?","acceptedAnswer":{"@type":"Answer","text":"Yes, once you have opened it on that device. You can tick habits offline; they are saved on the device and sent to your account when you are back online."}},{"@type":"Question","name":"What happens to my data?","acceptedAnswer":{"@type":"Answer","text":"Your habits are stored in your own account and only you can read them. You can download everything as a spreadsheet or a PDF, and delete your account and all of its data from Profile at any time."}},{"@type":"Question","name":"Can I try it before I sign up?","acceptedAnswer":{"@type":"Answer","text":"Yes. The demo at the top of this page is a small working copy. Habits you add there, and what you tick today, are moved into your account if you sign up."}},{"@type":"Question","name":"What if I miss a day?","acceptedAnswer":{"@type":"Answer","text":"A streak shield covers one missed day, rest days never count against you, and a missed day can be filled in until the end of the next day. One bad day does not undo a month."}}]}</script>
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
 
@@ -358,6 +359,45 @@
             <p class="f-step">Step 3 of 4</p><p class="f-q">What slipped</p>
             <div class="f-slip"><span class="f-slip-name">Meditate<b>2 of 7</b></span><span class="f-opt"><i></i>Keep going</span><span class="f-opt f-opt-pick"><i></i>Pause for now</span></div>
           </div>
+        </div>
+      </section>
+
+      <section id="how" class="lm-section how" aria-labelledby="how-title">
+        <p class="lm-eyebrow">How it works</p>
+        <h2 id="how-title" class="lm-title">Three steps, and the third is the one that matters</h2>
+        <ol class="how-steps">
+          <li><span class="how-n" aria-hidden="true">1</span><h3>Pick a few habits</h3><p>Start with one to three. Tell Habitly what you want more of and it suggests first habits, or write your own.</p></li>
+          <li><span class="how-n" aria-hidden="true">2</span><h3>Tick them off each day</h3><p>One tap when it is done. Set a reminder for the habits that need one, and leave the rest alone.</p></li>
+          <li><span class="how-n" aria-hidden="true">3</span><h3>Look back once a week</h3><p>See what held and what slipped, pause what is not working, and choose one thing to focus on next.</p></li>
+        </ol>
+      </section>
+
+      <section id="pricing" class="lm-section pricing" aria-labelledby="pricing-title">
+        <p class="lm-eyebrow">Pricing</p>
+        <h2 id="pricing-title" class="lm-title">One plan</h2>
+        <div class="price-box">
+          <div class="price-head"><strong class="price">Free</strong><span class="price-sub">The whole app. There is no paid tier.</span></div>
+          <ul class="price-list">
+            <li>Every feature on this page</li>
+            <li>No ads, no card, no trial that ends</li>
+            <li>Works on phone, tablet and computer, and offline</li>
+            <li>Download your history as a spreadsheet or PDF</li>
+            <li>Delete your account and data whenever you like</li>
+          </ul>
+          <button type="button" class="btn-primary price-go" data-to-signup>Create your account</button>
+        </div>
+      </section>
+
+      <section id="faq" class="lm-section faq" aria-labelledby="faq-title">
+        <p class="lm-eyebrow">Questions</p>
+        <h2 id="faq-title" class="lm-title">Things people ask first</h2>
+        <div class="faq-list">
+          <details class="faq-item"><summary>Is it really free?</summary><p class="faq-a">Yes. There is no paid plan, there are no ads, and there is nowhere to enter a card. Every feature you see is the whole app.</p></details>
+          <details class="faq-item"><summary>Do I need to install anything?</summary><p class="faq-a">No. Habitly runs in your browser on a phone, tablet or computer. If you like, you can add it to your home screen and it opens like an app.</p></details>
+          <details class="faq-item"><summary>Does it work without a connection?</summary><p class="faq-a">Yes, once you have opened it on that device. You can tick habits offline; they are saved on the device and sent to your account when you are back online.</p></details>
+          <details class="faq-item"><summary>What happens to my data?</summary><p class="faq-a">Your habits are stored in your own account and only you can read them. You can download everything as a spreadsheet or a PDF, and delete your account and all of its data from Profile at any time.</p></details>
+          <details class="faq-item"><summary>Can I try it before I sign up?</summary><p class="faq-a">Yes. The demo at the top of this page is a small working copy. Habits you add there, and what you tick today, are moved into your account if you sign up.</p></details>
+          <details class="faq-item"><summary>What if I miss a day?</summary><p class="faq-a">A streak shield covers one missed day, rest days never count against you, and a missed day can be filled in until the end of the next day. One bad day does not undo a month.</p></details>
         </div>
       </section>
     </div>

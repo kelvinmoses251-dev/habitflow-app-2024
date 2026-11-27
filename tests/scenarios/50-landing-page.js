@@ -73,4 +73,26 @@ module.exports = (scenario, c) => {
     check('the hidden starting states apply only once the script has said it will reveal them', !/^\.feature(?!s)[^{]*\{[^}]*opacity: 0/m.test(css) && /\.js-reveal /.test(css));
     noExceptions();
   });
+  // ── 63: how it works, pricing and questions ──────────────
+  scenario('landing: how it works, an honest price and answers to common questions', async () => {
+    await boot(); await landing();
+    check('how it works is three numbered steps', await ev(`(() => { const l = document.querySelector('#how ol'); return !!l && l.children.length === 3 && [...l.children].every(li => li.querySelector('h3') && li.querySelector('p')); })()`));
+    check('the price is stated plainly: free, no ads, no card', /Free/.test(await trim('#pricing .price')) && /no ads/i.test(await trim('#pricing')) && /no card/i.test(await trim('#pricing')), await trim('#pricing'));
+    check('the price box leads to signing up', await ev(`(() => { const b = document.querySelector('#pricing [data-to-signup]'); return !!b && b.getBoundingClientRect().height >= 44; })()`));
+    const more = await ev(`document.getElementById('landing-more').innerText`);
+    check('nothing is invented: no testimonials, ratings, stars or user counts', !/testimonial|rated|\d[\d,.]* (users|people|downloads)|loved by|trusted by|★|out of 5/i.test(more));
+    const qs = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#faq details')].map(d => ({ q: d.querySelector('summary').textContent.trim(), a: d.querySelector('.faq-a').textContent.replace(/\\s+/g, ' ').trim(), open: d.open, h: d.querySelector('summary').getBoundingClientRect().height })))`));
+    check('six questions, closed to begin with, each a thumb-sized row', qs.length === 6 && qs.every(x => !x.open && x.h >= 44 && x.q.endsWith('?') && x.a.length > 40), JSON.stringify(qs.map(x => x.q)));
+    await ev(`document.querySelector('#faq summary').click()`); await sleep(200);
+    check('a question opens to its answer', await ev(`document.querySelector('#faq details').open && document.querySelector('#faq details .faq-a').getClientRects().length > 0`));
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => { try { return JSON.parse(m[1]); } catch (_) { return null; } });
+    const faq = blocks.find(b => b && b['@type'] === 'FAQPage');
+    check('the same questions and answers are given to search engines, word for word', !!faq && faq.mainEntity.length === 6 && faq.mainEntity.every((e, i) => e.name === qs[i].q && e.acceptedAnswer.text === qs[i].a), faq ? faq.mainEntity.map(e => e.name).join(' | ') : 'none');
+    await ev(`document.querySelector('#pricing [data-to-signup]').click()`); await sleep(900);
+    check('the price box button brings the sign-in card into view', await ev(`(() => { const r = document.getElementById('auth-card').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; })()`));
+    await size(320, 640); await sleep(300); await into('#faq');
+    check('nothing overflows at 320px', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    noExceptions();
+  });
 };

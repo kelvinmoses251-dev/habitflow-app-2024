@@ -35,7 +35,7 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
 
       - name: Logic tests (reminders, notifications)
-        run: node --test scripts/reminder-logic.test.js tests/sw-push.test.js tests/ui.test.js tests/home.test.js tests/habit-rules.test.js tests/templates.test.js tests/motivation.test.js tests/sounds.test.js tests/habit-history.test.js tests/stats.test.js tests/stats-review.test.js
+        run: node --test scripts/reminder-logic.test.js tests/sw-push.test.js tests/ui.test.js tests/home.test.js tests/habit-rules.test.js tests/templates.test.js tests/motivation.test.js tests/sounds.test.js tests/habit-history.test.js tests/stats.test.js tests/stats-review.test.js tests/stats-export.test.js
 
       # Drives the real app in headless Chrome (already installed on the runner) against an in-memory Firebase
       - name: Browser tests

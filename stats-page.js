@@ -382,3 +382,88 @@ export function renderRecords(el, items) {
     <span class="rec-detail">${esc(r.detail)}</span>
   </li>`).join('')}</ul>`;
 }
+
+// ── The PDF report ─────────────────────────────────────────
+// doc: a jsPDF document (A4, millimetres) with the AutoTable plug-in. m: statsExport.reportModel(...). Ink on
+// white with one accent, so it prints well; the same figures as the Stats page.
+export function drawReport(doc, m) {
+  const INK = [26, 26, 30], TEXT2 = [81, 81, 90], MUTED = [107, 107, 116], LINE = [226, 226, 220], SOFT = [246, 246, 243], ACCENT = [74, 58, 184];
+  const W = 210, M = 16, CW = W - M * 2;
+  const text = (s, x, y, o = {}) => { doc.setFont('helvetica', o.bold ? 'bold' : 'normal'); doc.setFontSize(o.size || 10); doc.setTextColor(...(o.color || INK)); doc.text(String(s), x, y, o.align ? { align: o.align } : undefined); };
+  let y = 22;
+  const room = need => { if (y + need > 280) { doc.addPage(); y = 20; } };
+  const heading = title => { room(24); text(title, M, y, { size: 12, bold: true }); y += 7; };
+
+  // Header
+  text('Habitly', M, y, { size: 16, bold: true, color: ACCENT });
+  text(m.made, W - M, y, { size: 9, color: MUTED, align: 'right' });
+  y += 11;
+  text(m.title, M, y, { size: 22, bold: true });
+  if (m.name) { y += 7; text(`Prepared for ${m.name}`, M, y, { size: 10, color: TEXT2 }); }
+  y += 6; doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M, y, W - M, y); y += 8;
+
+  // Four figures
+  const bw = (CW - 9) / 4;
+  m.figures.forEach((f, i) => {
+    const x = M + i * (bw + 3);
+    doc.setFillColor(...SOFT); doc.roundedRect(x, y, bw, 24, 2, 2, 'F');
+    text(f.value, x + 4, y + 11, { size: 16, bold: true });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+    doc.text(doc.splitTextToSize(f.label, bw - 8), x + 4, y + 16.5);
+  });
+  y += 34;
+
+  // Twelve months of check-ins, as bars
+  if (m.months.some(b => b.done > 0)) {
+    heading('Check-ins, last 12 months');
+    const top = Math.max(...m.months.map(b => b.done)), H = 30, slot = CW / m.months.length, barW = slot * 0.6;
+    m.months.forEach((b, i) => {
+      const x = M + i * slot + (slot - barW) / 2, h = b.done ? Math.max(0.8, (b.done / top) * H) : 0;
+      if (h) { doc.setFillColor(...ACCENT); doc.rect(x, y + 5 + H - h, barW, h, 'F'); }
+      text(b.done, x + barW / 2, y + 3.5 + H - h, { size: 7, color: TEXT2, align: 'center' });
+      text(b.label, x + barW / 2, y + H + 10, { size: 7.5, color: MUTED, align: 'center' });
+    });
+    doc.setDrawColor(...LINE); doc.line(M, y + 5 + H, W - M, y + 5 + H);
+    y += H + 20;
+  }
+
+  // Every habit
+  if (m.rows.length) {
+    heading('Your habits');
+    doc.autoTable({
+      startY: y, margin: { left: M, right: M }, theme: 'plain',
+      head: [['Habit', 'Category', 'Schedule', 'Streak', 'Best', 'Last 30 days', 'Total']], body: m.rows,
+      styles: { font: 'helvetica', fontSize: 8.5, textColor: INK, cellPadding: { top: 2.2, bottom: 2.2, left: 2, right: 2 }, lineColor: LINE, lineWidth: { bottom: 0.2 } },
+      headStyles: { fontStyle: 'bold', textColor: MUTED, fontSize: 7.5, lineWidth: { bottom: 0.4 } },
+      columnStyles: { 0: { cellWidth: 52 }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+    });
+    y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : y) + 12;
+  }
+
+  // Records
+  if (m.records.length) {
+    heading('Personal records');
+    doc.autoTable({
+      startY: y, margin: { left: M, right: M }, theme: 'plain', body: m.records,
+      styles: { font: 'helvetica', fontSize: 8.5, textColor: INK, cellPadding: { top: 1.8, bottom: 1.8, left: 2, right: 2 }, lineColor: LINE, lineWidth: { bottom: 0.2 } },
+      columnStyles: { 0: { cellWidth: 58, textColor: TEXT2 }, 1: { cellWidth: 40, fontStyle: 'bold' } },
+    });
+    y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : y) + 12;
+  }
+
+  // The newest notes
+  if (m.notes.length) {
+    heading('Latest notes');
+    for (const n of m.notes) {
+      const body = doc.splitTextToSize(n.text, CW - 4);
+      room(6 + body.length * 4.2);
+      text(`${n.when}  \u00b7  ${n.habit}`, M, y, { size: 8, color: MUTED });
+      y += 4.5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...INK); doc.text(body, M, y);
+      y += body.length * 4.2 + 3;
+    }
+  }
+
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) { doc.setPage(i); text(`Habitly  \u00b7  page ${i} of ${pages}`, W / 2, 290, { size: 8, color: MUTED, align: 'center' }); }
+}

@@ -1264,6 +1264,13 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .rec-unit { font-family: var(--font); font-size: var(--fs-sm); color: var(--text-2); }
 .rec-detail { font-size: var(--fs-sm); color: var(--text-2); overflow-wrap: anywhere; }
 
+/* Export: two kinds of file to choose from */
+.export-choices { display: flex; flex-direction: column; gap: var(--sp-2); }
+.export-choice { display: flex; flex-direction: column; gap: var(--sp-1); align-items: flex-start; text-align: left; width: 100%; min-height: 44px; padding: var(--sp-3) var(--sp-4); font-family: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md); cursor: pointer; }
+.export-choice:hover { background: var(--row-hover); border-color: var(--primary); }
+.export-choice strong { font-size: var(--fs-base); font-weight: 600; }
+.export-choice span { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.45; }
+
 /* Look back: the weekly review card and its dialog */
 .rv-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; }
 .rv-row + .rv-row { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--border); }

@@ -258,4 +258,15 @@ module.exports = (scenario, c) => {
     run('b6-year' + tag, opts, async () => { await b6open('month'); await b6at('#heat'); await settle(400); await ev(`document.querySelectorAll('#heat .hc[data-day]')[330].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))`); await settle(300); });
     run('b6-balance' + tag, opts, async () => { await b6open('month'); await b6at('#cat-list'); await settle(400); });
   }
+  const b6spy = `window.__blobs = []; const _make = URL.createObjectURL.bind(URL); URL.createObjectURL = b => { if (b instanceof Blob) window.__blobs.push(b); return _make(b); }; const _d = HTMLAnchorElement.prototype.dispatchEvent; HTMLAnchorElement.prototype.dispatchEvent = function (e) { if (this.download && e && e.type === 'click') return true; return _d.call(this, e); };`;
+  const b6notes = { ...b6seed, mock_fb_db: { ...b6seed.mock_fb_db, habits: { ...b6seed.mock_fb_db.habits, c: { ...b6seed.mock_fb_db.habits.c, journals: [{ date: new Date(Date.now() - 2 * 864e5).toISOString(), text: 'Legs day. Slow but done.' }, { date: new Date(Date.now() - 9 * 864e5).toISOString(), text: 'New shoes help. The first kilometre is always the worst one, then it settles and the rest goes by without much thought.' }] } } } };
+  run('b6-pdf', { seed: b6notes, initScript: b6spy }, async () => {
+    await ready(); await ev(`location.hash = '#profile'`); await settle(400); await ev(`document.getElementById('export-data-btn').click()`); await settle(400);
+    await ev(`document.getElementById('confirm-export-yes').click()`); await waitFor(`document.getElementById('toast-container').textContent.includes('Report downloaded')`, 25000); await settle(500);
+    const b64 = await ev(`(async () => { const b = new Uint8Array(await window.__blobs[window.__blobs.length - 1].arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode(...b.subarray(i, i + 8192)); return btoa(s); })()`);
+    require('fs').writeFileSync(require('path').join(process.env.PDF_OUT || '.', 'b6-report.pdf'), Buffer.from(b64, 'base64'));
+  });
+  for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }]]) {
+    run('b6-export' + tag, opts, async () => { await ready(); await ev(`location.hash = '#profile'`); await settle(400); await ev(`document.getElementById('export-data-btn').click()`); await settle(500); });
+  }
 };

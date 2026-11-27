@@ -24,6 +24,7 @@ import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNo
 import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail, records } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
+import { toCsv, reportModel } from "./stats-export.js?v=1";
 import { weekReview, focusChoices, focusProgress, withReview, story, suggestions, undismissed } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -3585,7 +3586,8 @@ function openExportConfirmModal() {
   }
   const summaryEl = document.getElementById('export-habit-summary');
   if (summaryEl) {
-    summaryEl.textContent = `The report covers ${allHabits.length} habit${allHabits.length === 1 ? '' : 's'} and their completion history.`;
+    const n = calcTotalDone(allHabits);
+    summaryEl.textContent = `${allHabits.length} habit${allHabits.length === 1 ? '' : 's'} and ${n.toLocaleString('en')} check-in${n === 1 ? '' : 's'}. Both files are made on this device; nothing is sent anywhere.`;
   }
   if (confirmExportModal) {
     confirmExportModal.classList.remove('hidden');
@@ -3597,155 +3599,48 @@ function closeExportConfirmModal() {
   if (confirmExportModal) confirmExportModal.classList.add('hidden');
 }
 
+// Two files, both made on this device: a PDF to read or print (drawn from stats-export.js reportModel, the same
+// figures as the Stats page) and a CSV with every check-in as a row. jsPDF loads only when the PDF is asked for.
+const catLabelOf = key => (CATS[key] || CATS.health).label;
+function downloadText(filename, text, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+function exportCsv() {
+  closeExportConfirmModal();
+  if (!allHabits || allHabits.length === 0) { toast('No habits to export', 'warning'); return; }
+  try {
+    downloadText(`habitly-check-ins-${dayKey()}.csv`, toCsv(allHabits, catLabelOf), 'text/csv;charset=utf-8');
+    toast('Spreadsheet downloaded', 'success');
+    track('export', { format: 'csv' });
+  } catch (err) {
+    console.error('CSV export failed:', err);
+    toast('Could not make the spreadsheet. Try again.', 'error');
+  }
+}
+document.getElementById('export-csv')?.addEventListener('click', exportCsv);
+
 async function executeDataExport() {
   closeExportConfirmModal();
   if (!allHabits || allHabits.length === 0) {
     toast('No habits to export', 'warning');
     return;
   }
-
   try {
-    toast('Preparing your report…', 'info', 1500);
+    toast('Preparing your report\u2026', 'info', 1500);
     try { await ensureLib('pdf'); }
     catch (_) { toast('Could not load the PDF generator. Check your connection and try again.', 'error'); return; }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    // ── Header Banner ──
-    doc.setFillColor(124, 58, 237); // #7C3AED
-    doc.rect(0, 0, 210, 36, 'F');
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Habitly', 14, 20);
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Habit & Consistency Progress Report', 14, 28);
-
-    const reportDate = new Date().toLocaleDateString('en-US', {
-      weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
-    });
-    doc.setFontSize(9);
-    doc.text(`Generated: ${reportDate}`, 196, 28, { align: 'right' });
-
-    // ── User Info & Overview ──
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('User Profile & Summary', 14, 46);
-
-    const userName = currentUser?.displayName || 'Habitly User';
-    const userEmail = currentUser?.email || 'N/A';
-    const totalHabits = allHabits.length;
-
-    let totalCompletions = 0;
-    allHabits.forEach(h => {
-      totalCompletions += (h.completedDates || []).length;
-    });
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`User: ${userName} (${userEmail})`, 14, 54);
-    doc.text(`Total Habits Tracked: ${totalHabits}    |    Total Check-ins Logged: ${totalCompletions}`, 14, 61);
-
-    // ── Habits Table ──
-    const tableRows = allHabits.map((h, idx) => {
-      const cat = CATS[h.category] || CATS.health;
-      const streak = calcHabitStreak(h);
-      const longest = calcLongestStreak(h);
-      const completions = (h.completedDates || []).length;
-      const freq = (h.frequency || 'daily').toUpperCase();
-
-      return [
-        idx + 1,
-        h.name || 'Untitled',
-        cat.label || h.category,
-        freq,
-        `${streak} ${streakUnit(h, streak)}`,
-        `${longest} ${streakUnit(h, longest)}`,
-        completions
-      ];
-    });
-
-    doc.autoTable({
-      startY: 68,
-      head: [['#', 'Habit Name', 'Category', 'Frequency', 'Current Streak', 'Best Streak', 'Total Done']],
-      body: tableRows,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [124, 58, 237],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 9
-      },
-      bodyStyles: {
-        fontSize: 9,
-        textColor: [51, 65, 85]
-      },
-      alternateRowStyles: {
-        fillColor: [247, 246, 255]
-      },
-      margin: { left: 14, right: 14 }
-    });
-
-    // ── Journal Notes Section (if any) ──
-    const habitsWithNotes = allHabits.filter(h => h.notes && h.notes.length > 0);
-    if (habitsWithNotes.length > 0) {
-      let currentY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 14 : 140;
-      if (currentY > 250) {
-        doc.addPage();
-        currentY = 20;
-      }
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('Journal Notes', 14, currentY);
-      currentY += 8;
-
-      habitsWithNotes.forEach(h => {
-        if (currentY > 265) {
-          doc.addPage();
-          currentY = 20;
-        }
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(124, 58, 237);
-        doc.text(`• ${h.name}:`, 14, currentY);
-        currentY += 6;
-
-        h.notes.slice(-5).reverse().forEach(n => {
-          if (currentY > 275) {
-            doc.addPage();
-            currentY = 20;
-          }
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(71, 85, 105);
-          doc.text(`[${n.date}] ${n.text}`, 20, currentY);
-          currentY += 5;
-        });
-        currentY += 4;
-      });
-    }
-
-    // ── Footer with Page Numbers ──
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Habitly Report · Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
-    }
-
-    const filename = `habitly-report-${dayKey()}.pdf`;
-    doc.save(filename);
+    const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+    statsPage.drawReport(doc, reportModel(allHabits, todayStr(), { frozen: userFrozenDates || [], name: currentUser?.displayName || '', catLabel: catLabelOf }));
+    doc.save(`habitly-report-${dayKey()}.pdf`);
     toast('Report downloaded', 'success');
+    track('export', { format: 'pdf' });
   } catch (err) {
     console.error('PDF Export failed:', err);
-    toast('Failed to export PDF: ' + err.message, 'error');
+    toast('Could not make the report. Try again.', 'error');
   }
 }
 

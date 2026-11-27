@@ -60,6 +60,7 @@
   <link rel="modulepreload" href="stats.js?v=1" />
   <link rel="modulepreload" href="stats-page.js?v=1" />
   <link rel="modulepreload" href="stats-review.js?v=1" />
+  <link rel="modulepreload" href="stats-export.js?v=1" />
   <link rel="modulepreload" href="sounds.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
@@ -1046,15 +1047,17 @@
 </div>
 
 <!-- Confirm export -->
-<div id="confirm-export-modal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Export PDF report">
+<div id="confirm-export-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="export-title">
   <div class="dialog dialog-narrow">
     <span class="sheet-handle" aria-hidden="true"></span>
-    <h2 class="dialog-title">Download report</h2>
-    <p class="dialog-text">Generate a PDF with your habits, streaks and completion history.</p>
-    <p id="export-habit-summary" class="dialog-note">Includes statistics and notes.</p>
+    <h2 class="dialog-title" id="export-title">Export your data</h2>
+    <p id="export-habit-summary" class="dialog-text">Everything is made on this device; nothing is sent anywhere.</p>
+    <div class="export-choices">
+      <button id="confirm-export-yes" class="export-choice" type="button"><strong>PDF report</strong><span>To read or print: your figures, twelve months, every habit, your records and latest notes.</span></button>
+      <button id="export-csv" class="export-choice" type="button"><strong>Spreadsheet (CSV)</strong><span>Every check-in as a row, for Excel, Numbers or Sheets.</span></button>
+    </div>
     <div class="dialog-actions">
       <button id="confirm-export-cancel" data-dismiss class="btn-secondary" type="button">Cancel</button>
-      <button id="confirm-export-yes" class="btn-primary" type="button">Download PDF</button>
     </div>
   </div>
 </div>

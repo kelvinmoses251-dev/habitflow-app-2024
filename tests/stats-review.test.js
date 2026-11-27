@@ -93,3 +93,63 @@ test('withReview: the new entry is added, the oldest dropped past twenty-six, ju
   const redo = withReview(many, '2026-01-05', { at: 9, focus: null });
   assert.deepEqual([Object.keys(redo).length, redo['2026-01-05'].at], [REVIEWS_KEPT, 9], 'redoing a week replaces it');
 });
+
+// ── The month and the year, told as a story ────────────────
+// October 2026 is 55 to 25 days before TODAY.
+const october = () => [H('Read', range(25, 55)), H('Run', range(25, 55).filter(n => n % 2 === 0)), H('Call', [30, 37], { frequency: 'weekly' })];
+
+test('story: the last finished month, slide by slide', async () => {
+  const { story } = await load();
+  const s = story(october(), 'month', TODAY);
+  assert.deepEqual([s.kind, s.title, s.from, s.to], ['month', 'October 2026', '2026-10-01', '2026-10-31']);
+  const by = Object.fromEntries(s.slides.map(x => [x.id, x]));
+  assert.deepEqual([by.days.big, by.days.line], ['31 of 31 days', 'You did at least one habit on every day of the month. 48 check-ins in all.']);
+  assert.deepEqual([by.rate.big, by.rate.line], ['74%', '46 of 62 due. Up 74 points on September.']);
+  assert.deepEqual([by.top.big, by.top.line], ['Read', 'Done on 31 of 31 days.']);
+  assert.deepEqual([by.perfect.big, by.perfect.line], ['15 perfect days', 'Days when everything due was done.']);
+  assert.deepEqual([by.busiest.big, by.busiest.line], ['3 check-ins', 'Your fullest day: Mon 26 Oct.']);
+  assert.equal(s.slides[0].id, 'days');
+  assert.equal(s.slides[s.slides.length - 1].id, 'sum');
+  assert.ok(s.slides.every(x => typeof x.kicker === 'string' && x.kicker && typeof x.big === 'string' && x.big && typeof x.line === 'string'));
+  assert.deepEqual(s.sum, { rate: 74, checkins: 48, active: 31, days: 31, perfect: 15 });
+});
+
+test('story: a run of perfect days is told as a run', async () => {
+  const { story } = await load();
+  const s = story([H('Read', range(25, 55)), H('Run', range(40, 48))], 'month', TODAY);
+  const run = s.slides.find(x => x.id === 'run');
+  assert.deepEqual([run.big, run.line], ['9 days', 'Everything due was done 9 days in a row, 8 Oct to 16 Oct.']);
+  assert.ok(!s.slides.some(x => x.id === 'perfect'));
+});
+
+test('story: the best and hardest day of the week, only when they really differ', async () => {
+  const { story } = await load();
+  // Every day of October except its Saturdays (3, 10, 17, 24, 31 Oct)
+  const noSaturdays = range(25, 55).filter(n => ![25, 32, 39, 46, 53].includes(n));
+  const s = story([H('Read', noSaturdays)], 'month', TODAY);
+  const w = s.slides.find(x => x.id === 'weekday');
+  assert.deepEqual([w.big, w.line], ['Mondays', '100% of what was due on Mondays. The hardest day: Saturdays, at 0%.']);
+  assert.ok(!story([H('Read', range(25, 55))], 'month', TODAY).slides.some(x => x.id === 'weekday'), 'an even month has no best day');
+});
+
+test('story: with nothing last month it tells this month so far; with nothing at all there is no story', async () => {
+  const { story } = await load();
+  const s = story([H('Read', range(0, 10), { createdAt: ago(10) + 'T08:00:00' })], 'month', TODAY);
+  assert.deepEqual([s.title, s.from, s.to], ['November 2026 so far', '2026-11-01', TODAY]);
+  assert.ok(!s.slides.find(x => x.id === 'rate').line.includes('October'), 'nothing to compare with');
+  assert.equal(story([], 'month', TODAY), null);
+  assert.equal(story([H('Idle')], 'year', TODAY), null);
+  assert.equal(story([null], 'month', TODAY), null);
+});
+
+test('story: the year so far, and in January the year just ended', async () => {
+  const { story } = await load();
+  const habits = [H('Read', range(0, 500))];
+  const y = story(habits, 'year', TODAY);
+  assert.deepEqual([y.title, y.from, y.to], ['2026 so far', '2026-01-01', TODAY]);
+  assert.equal(y.slides.find(x => x.id === 'days').big, '329 of 329 days');
+  assert.match(y.slides.find(x => x.id === 'rate').line, /^329 of 329 due\. Up 53 points on 2025\.$/);
+  assert.ok(y.slides.find(x => x.id === 'month'), 'a year names its best month');
+  const jan = story(habits, 'year', '2026-01-10');
+  assert.deepEqual([jan.title, jan.from, jan.to], ['2025', '2025-01-01', '2025-12-31']);
+});

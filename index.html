@@ -530,6 +530,7 @@
         <div class="card card-wide reviews-card" id="reviews-card">
           <h2 class="card-title">Look back</h2>
           <div id="review-week"></div>
+          <div id="review-stories" class="rv-stories"></div>
         </div>
         </div>
       </div>
@@ -1078,6 +1079,26 @@
     <div id="recap-body" class="level-body"></div>
     <div class="dialog-actions">
       <button id="recap-close" data-dismiss class="btn-secondary" type="button" autofocus>Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- A month or a year told as a few slides (Stats, Look back). One slide at a time; nothing moves by itself -->
+<div id="story-modal" class="modal hidden story-modal" role="dialog" aria-modal="true" aria-labelledby="story-kicker">
+  <div class="dialog">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <div class="story-marks" id="story-marks" aria-hidden="true"></div>
+    <div class="story-slide" id="story-slide" role="group" aria-roledescription="slide" tabindex="-1">
+      <p class="dialog-eyebrow" id="story-kicker"></p>
+      <p class="story-big" id="story-big"></p>
+      <p class="dialog-text" id="story-line"></p>
+    </div>
+    <canvas id="story-canvas" width="1080" height="1350" hidden></canvas>
+    <div class="dialog-actions">
+      <button id="story-close" data-dismiss class="btn-secondary" type="button">Close</button>
+      <button id="story-back" class="btn-secondary" type="button" hidden>Back</button>
+      <button id="story-save" class="btn-secondary" type="button" hidden>Save picture</button>
+      <button id="story-next" class="btn-primary" type="button">Next</button>
     </div>
   </div>
 </div>

@@ -311,3 +311,53 @@ export function renderReviewStep(el, step, s) {
       <div class="rv-pick" role="radiogroup" aria-label="Focus for this week">${opt('', 'No focus this week')}${s.choices.map(h => opt(h.id, h.name)).join('')}</div>`;
   }
 }
+
+// ── Looking back: the month and the year as a short story ──
+// The two rows on the Stats card. stories: { month, year }, each statsReview.story(...) or null.
+export function renderStoryRows(el, stories) {
+  el.innerHTML = ['month', 'year'].map(kind => {
+    const s = stories[kind], ready = !!s && s.enough;
+    return `<div class="rv-row"><div class="rv-text"><strong>${ready ? esc(s.title) : kind === 'month' ? 'Your month' : 'Your year'}</strong>
+      <p id="story-${kind}-status">${ready ? `Told in ${s.slides.length} short slides.` : 'Nothing to tell yet. It appears once there are a few days of check-ins.'}</p></div>
+      ${ready ? `<button type="button" class="btn-secondary" id="story-open-${kind}" data-story="${kind}">Open</button>` : ''}</div>`;
+  }).join('');
+}
+// One slide of the dialog. Everything is set as text, so a habit's name can never be read as markup.
+export function renderStorySlide(root, s, at) {
+  const slide = s.slides[at], n = s.slides.length;
+  root.querySelector('#story-marks').innerHTML = s.slides.map((_, i) => `<i class="${i <= at ? 'is-done' : ''}"></i>`).join('');
+  root.querySelector('#story-slide').setAttribute('aria-label', `Slide ${at + 1} of ${n}`);
+  root.querySelector('#story-kicker').textContent = slide.kicker;
+  root.querySelector('#story-big').textContent = slide.big;
+  root.querySelector('#story-line').textContent = slide.line;
+}
+// The summary as a picture (1080 by 1350, the same dark card as the other share pictures). url: where the app lives.
+export async function drawStoryCard(canvas, s, url) {
+  try { await Promise.all([document.fonts.load('600 40px Inter'), document.fonts.load('400 40px "Instrument Serif"')]); } catch (_) { /* system fonts will do */ }
+  const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height, M = 96;
+  const INK = '#111113', LINE = '#2C2C31', TEXT = '#F2F2F4', MUTED = '#9A9AA3', ACCENT = '#A79EF5', FONT = 'Inter, system-ui, sans-serif';
+  const fit = (text, max) => { let t = String(text); if (ctx.measureText(t).width <= max) return t; while (t.length > 1 && ctx.measureText(t + '\u2026').width > max) t = t.slice(0, -1); return t.trimEnd() + '\u2026'; };
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillStyle = TEXT; ctx.font = `600 44px ${FONT}`; ctx.fillText('Habitly', M, 140);
+  ctx.fillStyle = ACCENT; ctx.font = `600 60px ${FONT}`; ctx.fillText(fit(s.title, W - M * 2), M, 300);
+  const big = s.sum.rate === null ? String(s.sum.checkins) : s.sum.rate + '%';
+  ctx.fillStyle = TEXT; ctx.font = '400 300px "Instrument Serif", Georgia, serif'; ctx.fillText(big, M - 8, 610);
+  ctx.fillStyle = MUTED; ctx.font = `500 44px ${FONT}`; ctx.fillText(s.sum.rate === null ? 'check-ins' : 'of everything due, done', M, 690);
+  [['Check-ins', String(s.sum.checkins)], ['Days active', `${s.sum.active} of ${s.sum.days}`], ['Perfect days', String(s.sum.perfect)]].forEach(([label, value], i) => {
+    const x = M + i * ((W - M * 2) / 3);
+    ctx.fillStyle = MUTED; ctx.font = `400 32px ${FONT}`; ctx.fillText(label, x, 800);
+    ctx.fillStyle = TEXT; ctx.font = `600 56px ${FONT}`; ctx.fillText(value, x, 870);
+  });
+  ctx.fillStyle = LINE; ctx.fillRect(M, 930, W - M * 2, 2);
+  let y = 1010;
+  for (const id of ['top', 'run', 'month', 'weekday']) {
+    const slide = s.slides.find(x => x.id === id);
+    if (!slide || y > 1160) continue;
+    ctx.fillStyle = MUTED; ctx.font = `400 30px ${FONT}`; ctx.fillText(slide.kicker, M, y);
+    ctx.fillStyle = TEXT; ctx.font = `500 38px ${FONT}`; ctx.fillText(fit(slide.big, W - M * 2 - 380), M + 380, y);
+    y += 64;
+  }
+  ctx.fillStyle = LINE; ctx.fillRect(M, 1206, W - M * 2, 2);
+  ctx.fillStyle = MUTED; ctx.font = `400 34px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText(url, W / 2, 1272);
+}

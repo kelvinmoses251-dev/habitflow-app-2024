@@ -100,4 +100,68 @@ module.exports = (scenario, c) => {
     check('the page behind does not scroll sideways', await ev(`document.documentElement.scrollWidth <= innerWidth`));
     noExceptions();
   });
+  // ── 57: the month and the year as a short story ──────────
+  const dlSpy = `window.__dl = []; const _click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__dl.push({ name: this.download, size: (this.href || '').length, png: /^data:image\\/png/.test(this.href || '') }); return; } return _click.call(this); };
+    try { Object.defineProperty(Navigator.prototype, 'share', { configurable: true, value: undefined }); } catch (_) {}`;
+  const lastMonth = new Intl.DateTimeFormat('en', { timeZone: 'Africa/Lagos', month: 'long', year: 'numeric' }).format(new Date(new Date(day(0).slice(0, 8) + '01T12:00:00Z').getTime() - 864e5));
+  const thisYear = day(0).slice(0, 4);
+  const long = () => ({
+    a: H('Read <b>10</b> pages', { completedDates: run(0, 75) }),
+    b: H('Run', { order: 2, completedDates: run(0, 75).filter((_, i) => i % 2 === 0) }),
+  });
+  const slide = async () => ({ kicker: await trim('#story-kicker'), big: await trim('#story-big'), line: await trim('#story-line'), marks: await ev(`[...document.querySelectorAll('#story-marks i')].map(i => i.classList.contains('is-done') ? 1 : 0).join('')`), label: await ev(`document.getElementById('story-slide').getAttribute('aria-label')`) });
+
+  scenario('story: last month is told a slide at a time, and can be saved as a picture', async () => {
+    await boot({ seed: seed(long()), initScript: dlSpy }); await stats();
+    check('Stats offers last month by name', (await trim('#review-stories .rv-row strong')) === lastMonth && /^Told in \d+ short slides\.$/.test(await trim('#story-month-status')), await trim('#review-stories'));
+    await click('#story-open-month');
+    let s = await slide();
+    const n = s.marks.length;
+    check('it opens on the first slide: how many days you showed up', (await visible('#story-modal')) && s.kicker === 'You showed up' && /^\d+ of \d+ days$/.test(s.big) && /check-ins in all\.$/.test(s.line), JSON.stringify(s));
+    check('marks show where you are', n >= 4 && s.marks === '1' + '0'.repeat(n - 1) && s.label === 'Slide 1 of ' + n, JSON.stringify(s));
+    check('on the first slide there is Close and Next, no Back', (await visible('#story-close')) && !(await visible('#story-back')) && (await trim('#story-next')) === 'Next' && !(await visible('#story-save')));
+    await click('#story-next');
+    s = await slide();
+    check('Next moves to the rate, compared with the month before', s.kicker === 'Of everything due' && /^\d+%$/.test(s.big) && /due\. (Up|Down) \d+ points? on |due\. The same as /.test(s.line) && s.label === 'Slide 2 of ' + n, JSON.stringify(s));
+    check('the slide takes the focus, so it is read out', (await ev(`document.activeElement.id`)) === 'story-slide');
+    await sleep(2500);
+    check('nothing moves by itself', (await slide()).kicker === 'Of everything due');
+    await press('ArrowRight', 39);
+    s = await slide();
+    check('the Right arrow moves on, to the steadiest habit, its name shown as text', s.kicker === 'Your steadiest habit' && s.big === 'Read <b>10</b> pages' && !(await ev(`!!document.querySelector('#story-modal b')`)), JSON.stringify(s));
+    await press('ArrowLeft', 37);
+    check('the Left arrow moves back', (await slide()).kicker === 'Of everything due');
+    await click('#story-back');
+    check('and so does Back', (await slide()).kicker === 'You showed up');
+    for (let i = 1; i < n; i++) await click('#story-next');
+    s = await slide();
+    check('the last slide is the whole month in one', s.kicker === lastMonth && s.marks === '1'.repeat(n) && /check-ins on \d+ days/.test(s.line), JSON.stringify(s));
+    check('with Save picture and Done', (await visible('#story-save')) && (await trim('#story-next')) === 'Done');
+    await press('ArrowRight', 39);
+    check('the Right arrow does not close it by accident', await visible('#story-modal'));
+    await ev(`document.getElementById('story-save').click()`); await sleep(1500);
+    const dl = await ev(`window.__dl`);
+    check('Save picture makes a picture on the device', dl.length === 1 && dl[0].png && dl[0].size > 20000 && /^habitly-month-\d{4}-\d{2}\.png$/.test(dl[0].name), JSON.stringify(dl));
+    check('1080 by 1350, on the dark ink, with the big figure drawn', await ev(`(() => { const c = document.getElementById('story-canvas'), x = c.getContext('2d'); let lit = 0; const d = x.getImageData(96, 380, 600, 240).data; for (let i = 0; i < d.length; i += 4) if (d[i] > 200) lit++; return c.width === 1080 && c.height === 1350 && [...x.getImageData(5, 5, 1, 1).data].slice(0, 3).join(',') === '17,17,19' && lit > 2000; })()`));
+    await click('#story-next');
+    check('Done closes it', !(await visible('#story-modal')));
+    noExceptions();
+  });
+
+  scenario('story: the year so far, a new account, and a phone', async () => {
+    await boot({ seed: seed(long()) }); await stats();
+    check('the year is offered by name', new RegExp('^' + thisYear + '( so far)?$').test(await ev(`document.querySelectorAll('#review-stories .rv-row strong')[1].textContent.trim()`)) || /^\d{4}$/.test(await ev(`document.querySelectorAll('#review-stories .rv-row strong')[1].textContent.trim()`)));
+    await click('#story-open-year');
+    check('and opens the same way', (await visible('#story-modal')) && (await trim('#story-kicker')) === 'You showed up');
+    await press('Escape', 27);
+    check('Escape closes it', !(await visible('#story-modal')));
+    check('the dialog has a handle and a way out', await ev(`!!document.querySelector('#story-modal .dialog > .sheet-handle') && !!document.querySelector('#story-modal [data-dismiss]')`));
+    await boot({ seed: seed({ a: H('New', { createdAt: new Date().toISOString() }) }) }); await stats();
+    check('with nothing done yet there is no story to open, and it says so', !(await ev(`!!document.querySelector('#review-stories [data-story]')`)) && /Nothing to tell yet/.test(await trim('#story-month-status')) && /Nothing to tell yet/.test(await trim('#story-year-status')));
+    await size(375, 667);
+    await boot({ seed: seed(long()) }); await stats();
+    await click('#story-open-month');
+    check('on a phone the buttons are thumb-sized and the big line fits', await ev(`[...document.querySelectorAll('#story-modal button')].filter(b => b.getClientRects().length).every(b => b.getBoundingClientRect().height >= 44) && document.getElementById('story-big').scrollWidth <= document.getElementById('story-big').clientWidth + 1`));
+    noExceptions();
+  });
 };

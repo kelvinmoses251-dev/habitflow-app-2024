@@ -24,7 +24,7 @@ import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNo
 import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
-import { weekReview, focusChoices, focusProgress, withReview } from "./stats-review.js?v=1";
+import { weekReview, focusChoices, focusProgress, withReview, story } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -298,7 +298,7 @@ function resetUserState() {
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
   moments.hideMoment();
-  ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal', 'recap-modal', 'review-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal', 'recap-modal', 'review-modal', 'story-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
@@ -1054,7 +1054,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
-  ['review-modal', 'review-close'],
+  ['story-modal', 'story-close'], ['review-modal', 'review-close'],
   ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'], ['comeback-modal', 'comeback-cancel'], ['recap-modal', 'recap-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'],
@@ -3245,7 +3245,59 @@ function renderReviewCard() {
     review, saved, savedOn: saved && Number.isFinite(saved.at) ? longDay(dayKey(new Date(saved.at))) : '',
     focus: h ? { id: h.id, name: h.name || 'Habit', progress: focusProgress(h, today) } : null,
   });
+  statsPage.renderStoryRows(document.getElementById('review-stories'), { month: story(allHabits, 'month', today), year: story(allHabits, 'year', today) });
 }
+
+// ── Looking back: the month and the year as a story ───────
+// A few slides, one at a time, moved by the buttons or the arrow keys; nothing advances by itself. The last slide
+// is the whole period in one, and can be saved as a picture (made on the device; nothing is uploaded).
+let telling = null;                      // { story, at } while the dialog is open
+function drawStory(moved = false) {
+  const { story: s, at } = telling, last = at === s.slides.length - 1;
+  statsPage.renderStorySlide(document.getElementById('story-modal'), s, at);
+  document.getElementById('story-close').hidden = at > 0;
+  document.getElementById('story-back').hidden = at === 0;
+  document.getElementById('story-save').hidden = !last;
+  document.getElementById('story-next').textContent = last ? 'Done' : 'Next';
+  if (moved) document.getElementById('story-slide').focus();
+}
+function openStory(kind) {
+  const s = story(allHabits, kind, todayStr());
+  if (!s || !s.enough) return;
+  telling = { story: s, at: 0 };
+  drawStory();
+  document.getElementById('story-modal').classList.remove('hidden');
+  track('story_opened', { kind: s.kind });
+}
+function moveStory(by) {
+  if (!telling) return;
+  const to = telling.at + by;
+  if (to < 0) return;
+  if (to >= telling.story.slides.length) { document.getElementById('story-modal').classList.add('hidden'); telling = null; return; }
+  telling.at = to;
+  drawStory(true);
+}
+document.getElementById('review-stories')?.addEventListener('click', e => {
+  const b = e.target instanceof Element ? e.target.closest('[data-story]') : null;
+  if (b) openStory(b.dataset.story);
+});
+document.getElementById('story-close')?.addEventListener('click', () => { document.getElementById('story-modal').classList.add('hidden'); telling = null; });   // also what Escape presses
+document.getElementById('story-next')?.addEventListener('click', () => moveStory(1));
+document.getElementById('story-back')?.addEventListener('click', () => moveStory(-1));
+document.getElementById('story-modal')?.addEventListener('keydown', e => {
+  if (!telling || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); if (telling.at < telling.story.slides.length - 1) moveStory(1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); moveStory(-1); }
+});
+document.getElementById('story-save')?.addEventListener('click', async () => {
+  if (!telling) return;
+  const s = telling.story, canvas = document.getElementById('story-canvas');
+  await statsPage.drawStoryCard(canvas, s, location.host);
+  const how = await moments.shareCanvas(canvas, { filename: `habitly-${s.kind}-${s.to.slice(0, s.kind === 'year' ? 4 : 7)}.png`, title: `${s.title} on Habitly`, text: `${s.title}: ${s.slides[s.slides.length - 1].line}` });
+  if (how === 'saved') toast('Image saved', 'success');
+  else if (how === 'failed') toast('Could not share the picture. Try again.', 'error');
+  track('story_shared', { kind: s.kind });
+});
 let reviewing = null;                    // { review, step, pause: Set, focus } while the dialog is open
 function drawReview(moved = false) {
   const s = reviewing, last = statsPage.REVIEW_STEPS.length - 1;

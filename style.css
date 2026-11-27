@@ -1272,6 +1272,13 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .rv-pick { display: flex; flex-direction: column; }
 .rv-pick .rv-opt + .rv-opt { border-top: 1px solid var(--border); }
 #review-title { outline: none; }
+.rv-stories { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+.story-marks { display: flex; gap: 4px; margin-bottom: var(--sp-5); }
+.story-marks i { flex: 1; height: 3px; border-radius: var(--r-full); background: var(--border); }
+.story-marks i.is-done { background: var(--primary); }
+.story-slide { min-height: 13rem; display: flex; flex-direction: column; justify-content: center; gap: var(--sp-3); outline: none; }
+.story-big { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-4xl); line-height: 1.05; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.story-modal .dialog-actions > button { flex: 1; }
 
 /* Each habit over the period: a row is a link to the habit's page */
 .rate-list { display: flex; flex-direction: column; gap: var(--sp-1); }
@@ -1536,3 +1543,6 @@ a.rate-row:hover { background: var(--row-hover); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* A dialog button that is hidden stays hidden, whatever its button class says about display */
+.modal button[hidden] { display: none; }

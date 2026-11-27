@@ -95,4 +95,25 @@ module.exports = (scenario, c) => {
     check('nothing overflows at 320px', await ev(`document.documentElement.scrollWidth <= innerWidth`));
     noExceptions();
   });
+  // ── 67: a site footer and a "What's new" page ────────────
+  scenario('landing: a footer, and a page that says what has changed', async () => {
+    await boot(); await landing();
+    const links = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#site-footer a')].map(a => a.getAttribute('href')))`));
+    check('the landing page ends in a footer with the pages and a contact address', ['/whats-new.html', '/privacy.html', '/terms.html', 'mailto:info.habitly@gmail.com'].every(h => links.includes(h)), JSON.stringify(links));
+    check('the footer names Habitly and nobody else', /Habitly/.test(await trim('#site-footer')) && !/gmail\.com(?!")/.test((await trim('#site-footer')).replace('info.habitly@gmail.com', '')));
+    check('footer links are thumb-sized on a phone', await ev(`[...document.querySelectorAll('#site-footer a')].every(a => a.getBoundingClientRect().height >= 44)`));
+    await boot({ seed: signedIn(), hash: '#profile' }); await sleep(600);
+    check('Profile links to What\'s new', await ev(`(() => { const a = document.querySelector('#page-profile a[href="/whats-new.html"]'); return !!a && a.getClientRects().length > 0; })()`));
+    await size(320, 640);
+    await ev(`location.href = '/whats-new.html'`); await sleep(1200);
+    check('the page opens with its title', (await trim('h1')) === "What's new" && /What's new/.test(await ev(`document.title`)));
+    check('entries are dated, newest first', await ev(`(() => { const t = [...document.querySelectorAll('.wn-entry time')].map(x => x.getAttribute('datetime')); return t.length >= 5 && t.every((d, i) => /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d) && (!i || d <= t[i - 1])); })()`));
+    check('each entry has a heading and at least two changes', await ev(`[...document.querySelectorAll('.wn-entry')].every(e => e.querySelector('h2') && e.querySelectorAll('li').length >= 2)`));
+    check('it fits a 320px phone', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    check('it links back to the app, the policies and a contact address', await ev(`!!document.querySelector('a[href="/"]') && !!document.querySelector('a[href="/privacy.html"]') && !!document.querySelector('a[href="mailto:info.habitly@gmail.com"]')`));
+    const page = fs.readFileSync(path.join(ROOT, 'whats-new.html'), 'utf8');
+    check('no emoji, and the same stylesheet version as the app', !/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(page) && (page.match(/style\.css\?v=(\d+)/) || [])[1] === (fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').match(/style\.css\?v=(\d+)/) || [])[1]);
+    check('it is in the sitemap and is published', fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8').includes('/whats-new.html<') && /whats-new\.html/.test(require('child_process').execSync('node tools/deploy.js --dry', { cwd: ROOT }).toString()));
+    noExceptions();
+  });
 };

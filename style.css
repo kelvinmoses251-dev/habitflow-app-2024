@@ -527,6 +527,19 @@ html.dialog-open { overflow: hidden; }
   .how-n { grid-row: auto; margin-bottom: var(--sp-2); }
 }
 
+/* The site footer (landing page) and the What's new page */
+.site-footer { display: flex; flex-direction: column; gap: var(--sp-3); padding-top: var(--sp-6); border-top: 1px solid var(--border); }
+.sf-brand { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+.sf-line { color: var(--text-2); font-size: var(--fs-sm); margin-left: var(--sp-2); }
+.sf-links { display: flex; flex-wrap: wrap; gap: 0 var(--sp-5); }
+.sf-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text-2); font-size: var(--fs-ui); text-decoration: underline; text-underline-offset: 2px; }
+.sf-links a:hover { color: var(--primary-ink); }
+.sf-fine { font-size: var(--fs-xs); color: var(--muted); }
+.profile-legal { flex-wrap: wrap; }
+.wn-entry { padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border); }
+.wn-entry h2 { margin-bottom: 0; }
+.wn-entry .legal-updated { margin-bottom: var(--sp-2); }
+
 /* Real pictures of the app, in frames drawn with CSS. The light or the dark picture shows, to match the theme. */
 .showcase-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5) var(--sp-4); align-items: start; margin-top: var(--sp-3); }
 .device { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }

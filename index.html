@@ -326,6 +326,40 @@
           <figure class="device device-phone"><span class="device-screen"><img class="shot-light" src="shot-stats-light.webp" width="780" height="1688" loading="lazy" decoding="async" alt="The Statistics screen: completion for the last 30 days, check-ins and a chart" /><img class="shot-dark" src="shot-stats-dark.webp" width="780" height="1688" loading="lazy" decoding="async" alt="The Statistics screen: completion for the last 30 days, check-ins and a chart, in the dark theme" /></span><figcaption>Statistics that answer questions</figcaption></figure>
         </div>
       </section>
+
+      <section id="features" class="lm-section features" aria-labelledby="features-title">
+        <p class="lm-eyebrow">How it feels</p>
+        <h2 id="features-title" class="lm-title">Small things that keep you coming back</h2>
+
+        <div class="feature">
+          <div class="feature-text"><h3>One tap, and the day moves</h3><p>Tick a habit and the ring fills, your streak grows and the row settles out of the way. There is nothing to fill in and nothing to confirm; a slip is one tap on Undo.</p></div>
+          <div class="feature-demo f-tick" aria-hidden="true">
+            <svg class="f-ring" viewBox="0 0 40 40"><circle class="f-ring-bg" cx="20" cy="20" r="16"/><circle class="f-ring-fg" cx="20" cy="20" r="16"/></svg>
+            <div class="f-rows"><span class="f-row is-done"><i class="f-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>Drink water</span><span class="f-row f-row-now"><i class="f-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>Read 10 pages</span><span class="f-row"><i class="f-box"></i>Stretch</span></div>
+          </div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text"><h3>Streaks that forgive a bad day</h3><p>A streak counts the days you were due and showed up. Rest days do not break it, and a shield covers one missed day, so a single bad Thursday does not undo a month.</p></div>
+          <div class="feature-demo f-streak" aria-hidden="true">
+            <div class="f-days"><i style="--i:0">M</i><i style="--i:1">T</i><i style="--i:2">W</i><i class="is-shield" style="--i:3">T</i><i style="--i:4">F</i><i style="--i:5">S</i><i style="--i:6">S</i></div>
+            <p class="f-caption"><strong>7 days</strong> in a row, one covered by a shield</p>
+          </div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text"><h3>A year you can see</h3><p>Every day becomes a square, shaded by how much of what was due got done. The gap in August and the long run since are there at a glance, and any day opens to show what happened.</p></div>
+          <div class="feature-demo f-year" aria-hidden="true"><div class="f-heat"></div></div>
+        </div>
+
+        <div class="feature">
+          <div class="feature-text"><h3>A weekly review that asks what to change</h3><p>Once a week, four short steps: what went well, what slipped, whether to keep or pause it, and one habit to focus on next. Numbers are only useful if they change what you do.</p></div>
+          <div class="feature-demo f-review" aria-hidden="true">
+            <p class="f-step">Step 3 of 4</p><p class="f-q">What slipped</p>
+            <div class="f-slip"><span class="f-slip-name">Meditate<b>2 of 7</b></span><span class="f-opt"><i></i>Keep going</span><span class="f-opt f-opt-pick"><i></i>Pause for now</span></div>
+          </div>
+        </div>
+      </section>
     </div>
 
   </div><!-- /.auth-layout -->
@@ -1235,6 +1269,7 @@
 </div>
 
 <script type="module" src="landing-demo.js?v=7"></script>
+<script type="module" src="landing.js?v=1"></script>
 <script type="module" src="app.js?v=71"></script>
 </body>
 </html>

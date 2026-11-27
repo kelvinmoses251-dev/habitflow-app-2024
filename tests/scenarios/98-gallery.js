@@ -302,4 +302,7 @@ module.exports = (scenario, c) => {
     run('b7-demo-stats' + tag, opts, async () => { await b7land(); await ev(`document.querySelectorAll('#demo-list .demo-habit')[0].click()`); await settle(300); await ev(`document.querySelector('#demo-tabs [data-tab="stats"]').click()`); await settle(500); await ev(`document.getElementById('demo-card').scrollIntoView({ block: 'center' })`); await settle(400); });
     run('b7-showcase' + tag, opts, async () => { await b7land('#showcase'); });
   }
+  for (const [tag, opts] of [['', {}], ['-dark', { colorScheme: 'dark', seed: { theme: 'dark' } }], ['-desktop', { mobile: false }]]) {
+    run('b7-features' + tag, opts, async () => { await b7land('#features'); await ev(`document.querySelectorAll('#features .feature').forEach(f => f.classList.add('is-in'))`); await settle(1500); });
+  }
 };

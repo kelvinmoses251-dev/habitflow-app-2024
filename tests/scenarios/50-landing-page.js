@@ -39,4 +39,38 @@ module.exports = (scenario, c) => {
     check('a returning visitor sees only the sign-in card', !(await visible('#landing-more')) && (await visible('#auth-card')));
     noExceptions();
   });
+  // ── 62: feature sections that demonstrate themselves ─────
+  scenario('features: each section plays its small demonstration once, when scrolled to', async () => {
+    await size(1280, 800);
+    await boot({ mobile: false }); await landing();
+    check('four feature sections, each with a heading, a sentence and a built demonstration', await ev(`(() => { const f = [...document.querySelectorAll('#features .feature')]; return f.length === 4 && f.every(x => x.querySelector('h3') && x.querySelector('p').textContent.trim().length > 40 && x.querySelector('.feature-demo')); })()`));
+    check('the demonstrations are decoration: the words carry the meaning', await ev(`[...document.querySelectorAll('#features .feature-demo')].every(d => d.getAttribute('aria-hidden') === 'true')`));
+    check('before scrolling, nothing below the fold has played', await ev(`[...document.querySelectorAll('#features .feature')].every(f => !f.classList.contains('is-in'))`));
+    const ring = `getComputedStyle(document.querySelector('#features .f-ring-fg')).strokeDashoffset`;
+    const before = await ev(ring);
+    await into('#features .feature');
+    check('scrolled to, the first one plays: the ring fills and the habit is ticked', (await ev(`document.querySelector('#features .feature').classList.contains('is-in')`)) && (await ev(ring)) !== before && parseFloat(await ev(ring)) < parseFloat(before), before + ' -> ' + await ev(ring));
+    check('the others wait their turn', !(await ev(`document.querySelectorAll('#features .feature')[3].classList.contains('is-in')`)));
+    await ev(`scrollTo(0, 0)`); await sleep(500);
+    check('it plays once: scrolling away does not reset it', await ev(`document.querySelector('#features .feature').classList.contains('is-in')`));
+    await into('#features .feature:nth-of-type(3)');
+    check('the year grid is filled in', (await ev(`document.querySelectorAll('#features .f-heat i').length`)) >= 100 && await waitFor(`getComputedStyle(document.querySelector('#features .f-heat i:last-child')).opacity === '1'`, 4000));
+    check('nothing loops for ever', await ev(`[...document.querySelectorAll('#features *')].every(e => getComputedStyle(e).animationIterationCount !== 'infinite')`));
+    noExceptions();
+  });
+
+  scenario('features: with reduced motion everything is simply shown, and it fits a phone', async () => {
+    await size(360, 700);
+    await boot();
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    await ev(`location.reload()`); await sleep(1200); await landing();
+    check('every section is already in its final state, with no scrolling', await ev(`[...document.querySelectorAll('#features .feature')].every(f => f.classList.contains('is-in'))`));
+    check('and nothing is animated', await ev(`[...document.querySelectorAll('#features .feature-demo *')].every(e => parseFloat(getComputedStyle(e).transitionDuration) === 0)`));
+    await into('#features');
+    check('nothing overflows on a phone', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    await send('Emulation.setEmulatedMedia', { features: [] });
+    const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
+    check('the hidden starting states apply only once the script has said it will reveal them', !/^\.feature(?!s)[^{]*\{[^}]*opacity: 0/m.test(css) && /\.js-reveal /.test(css));
+    noExceptions();
+  });
 };

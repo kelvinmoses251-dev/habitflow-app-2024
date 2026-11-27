@@ -431,7 +431,29 @@ html.dialog-open { overflow: hidden; }
 .auth-screen.is-returning { align-items: center; padding-bottom: var(--sp-8); }
 .auth-screen.is-returning .auth-layout { max-width: 400px; }
 .auth-screen.is-returning .landing-bar, .auth-screen.is-returning .landing-copy, .auth-screen.is-returning .landing-hero,
-.auth-screen.is-returning .landing-proof, .auth-screen.is-returning .landing-sticky { display: none !important; }
+.auth-screen.is-returning .landing-proof, .auth-screen.is-returning .landing-sticky, .auth-screen.is-returning .landing-more { display: none !important; }
+
+/* Below the demo: sections for new visitors */
+.landing-more { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: var(--sp-12); margin-top: var(--sp-6); }
+.lm-section { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.lm-eyebrow { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--primary-ink); }
+.lm-title { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-3xl); letter-spacing: -.01em; line-height: 1.1; }
+.lm-lead { color: var(--text-2); font-size: var(--fs-md); line-height: 1.6; max-width: 40rem; }
+/* Real pictures of the app, in frames drawn with CSS. The light or the dark picture shows, to match the theme. */
+.showcase-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5) var(--sp-4); align-items: start; margin-top: var(--sp-3); }
+.device { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.device-screen { display: block; overflow: hidden; background: var(--surface-2); }
+.device img { display: block; width: 100%; height: auto; }
+.device img.shot-dark, [data-theme="dark"] .device img.shot-light { display: none; }
+[data-theme="dark"] .device img.shot-dark { display: block; }
+.device figcaption { font-size: var(--fs-sm); color: var(--text-2); text-align: center; }
+.device-phone .device-screen { border: 6px solid var(--n-900); border-radius: var(--r-2xl); box-shadow: var(--elev-2); }
+[data-theme="dark"] .device-phone .device-screen { border-color: var(--n-700); }
+.device-browser { grid-column: 1 / -1; order: 3; }
+.device-browser .device-screen { border: 1px solid var(--border-strong); border-top: 0; border-radius: 0 0 var(--r-lg) var(--r-lg); box-shadow: var(--elev-2); }
+.device-bar { display: flex; gap: 6px; padding: 9px var(--sp-3); background: var(--surface-2); border: 1px solid var(--border-strong); border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.device-bar i { width: 9px; height: 9px; border-radius: var(--r-full); background: var(--border-strong); }
+.device-browser .device-bar + .device-screen { margin-top: calc(var(--sp-2) * -1); }
 
 .brand-name { font-size: var(--fs-md); font-weight: 600; letter-spacing: -.01em; color: var(--text); }
 .landing-bar { width: 100%; max-width: 520px; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
@@ -1575,7 +1597,7 @@ a.rate-row:hover { background: var(--row-hover); }
   .auth-screen:not(.is-returning) { align-items: center; padding: var(--sp-6) var(--sp-8) var(--sp-8); }
   .auth-screen:not(.is-returning) .auth-layout {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-    grid-template-areas: "bar bar" "copy copy" "auth demo" "proof proof";
+    grid-template-areas: "bar bar" "copy copy" "auth demo" "proof proof" "more more";
     column-gap: 4rem; row-gap: var(--sp-6); align-items: stretch; justify-items: stretch;
   }
   .landing-bar { grid-area: bar; max-width: none; }
@@ -1588,6 +1610,10 @@ a.rate-row:hover { background: var(--row-hover); }
   .demo-stage .demo-card { width: 100%; max-width: 440px; }
   .landing-proof { grid-area: proof; max-width: none; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-6); padding-top: var(--sp-6); border-top: 1px solid var(--border); }
   .landing-sticky { display: none; }
+  .landing-more { grid-area: more; max-width: none; gap: var(--sp-16); margin-top: var(--sp-10); }
+  .lm-title { font-size: var(--fs-4xl); }
+  .showcase-row { grid-template-columns: minmax(0, 1fr) minmax(0, 3.1fr) minmax(0, 1fr); gap: var(--sp-8); align-items: center; }
+  .device-browser { grid-column: auto; order: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -282,4 +282,24 @@ module.exports = (scenario, c) => {
     for (let i = 0; i < 9; i++) { if (await ev(`document.getElementById('story-next').textContent.trim() === 'Done'`)) break; await ev(`document.getElementById('story-next').click()`); await settle(200); }
     await ev(`document.getElementById('story-save').click()`); await settle(1500);
     await ev(`(() => { const c = document.getElementById('story-canvas'); c.hidden = false; c.style.cssText = 'position:fixed;inset:0;margin:auto;height:100vh;width:auto;max-width:100vw;z-index:99999;background:#111113'; document.body.appendChild(c); })()`); await settle(300); });
+  // ── Batch 7: the product pictures used on the landing page and in the install dialog ──
+  // SHOTS_OUT=<project folder> GALLERY=1 node tests/smoke.js --only "gallery: shot-"   writes shot-*.webp and shot-*.png there
+  const shotOut = process.env.SHOTS_OUT;
+  const snap = async (name, png) => { if (!shotOut) return; const fs = require('fs'), path = require('path');
+    const r = await send('Page.captureScreenshot', png ? { format: 'png' } : { format: 'webp', quality: 82 });
+    fs.writeFileSync(path.join(shotOut, name + (png ? '.png' : '.webp')), Buffer.from(r.result.data, 'base64')); };
+  const metrics = (w, h, dpr, mobile) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: dpr, mobile });
+  const shotSeed = dark => ({ ...b6seed, ...(dark ? { theme: 'dark' } : {}) });
+  for (const [tag, dark] of [['light', false], ['dark', true]]) {
+    const opts = { seed: shotSeed(dark), ...(dark ? { colorScheme: 'dark' } : {}) };
+    run('shot-today-' + tag, opts, async () => { await metrics(390, 844, 2, true); await ready(); await settle(1200); await snap('shot-today-' + tag); if (!dark) { await metrics(540, 1170, 2, true); await settle(600); await snap('shot-install-today', true); } });
+    run('shot-stats-' + tag, opts, async () => { await metrics(390, 844, 2, true); await b6open('month'); await settle(600); await snap('shot-stats-' + tag); if (!dark) { await metrics(540, 1170, 2, true); await settle(600); await snap('shot-install-stats', true); } });
+    run('shot-habit-' + tag, { ...opts, mobile: false }, async () => { await metrics(1280, 800, 1.5, false); await ready(); await settle(800); await ev(`location.hash = '#habit/c'`); await settle(1200); await snap('shot-habit-' + tag); if (!dark) { await metrics(1280, 720, 1, false); await settle(600); await snap('shot-install-wide', true); } });
+  }
+  // ── Batch 7: the landing page ─────────────────────────────
+  const b7land = async sel => { await waitFor(`!document.getElementById('auth-screen').classList.contains('hidden')`); await settle(500); if (sel) { await ev(`document.querySelector(${JSON.stringify(sel)}).scrollIntoView({ block: 'start' }); window.scrollBy(0, -24)`); await settle(1500); } };
+  for (const [tag, opts] of [['', {}], ['-dark', { colorScheme: 'dark', seed: { theme: 'dark' } }], ['-desktop', { mobile: false }]]) {
+    run('b7-demo-stats' + tag, opts, async () => { await b7land(); await ev(`document.querySelectorAll('#demo-list .demo-habit')[0].click()`); await settle(300); await ev(`document.querySelector('#demo-tabs [data-tab="stats"]').click()`); await settle(500); await ev(`document.getElementById('demo-card').scrollIntoView({ block: 'center' })`); await settle(400); });
+    run('b7-showcase' + tag, opts, async () => { await b7land('#showcase'); });
+  }
 };

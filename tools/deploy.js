@@ -16,7 +16,7 @@ const { execSync, spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
-const WEB_EXT = /\.(html|js|css|png|svg|jpg|jpeg|webp|ico|json|webmanifest|woff2)$/i;
+const WEB_EXT = /\.(html|js|css|png|svg|jpg|jpeg|webp|ico|json|webmanifest|woff2|txt|xml)$/i;
 const NEVER = new Set(['firebase.json', 'package.json', 'package-lock.json', '.firebaserc']);
 
 const tracked = execSync('git ls-files', { cwd: ROOT }).toString().split('\n').filter(Boolean);

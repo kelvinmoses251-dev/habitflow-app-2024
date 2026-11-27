@@ -8,7 +8,7 @@ module.exports = (scenario, c) => {
     check('auth card invites visitors to create an account', (await text('#auth-heading')) === 'Create your account');
     await ev(`document.querySelector('.demo-habit').click()`);
     await sleep(400);
-    check('streak lights up after first tick', (await text('#demo-streak-n')) === '1');
+    check('the streak grows and lights up after the first tick', (await text('#demo-streak-n')) === '7');
     check('auth copy reacts to progress', (await text('#auth-heading')) === 'Save your progress');
     noExceptions();
   });

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://habit-tracker-demo-34c0a.web.app/sitemap.xml

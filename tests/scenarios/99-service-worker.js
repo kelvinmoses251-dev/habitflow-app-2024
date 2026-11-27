@@ -22,7 +22,7 @@ module.exports = (scenario, c) => {
       check('hero is visible', await visible('#landing-hero'));
       check('demo is interactive offline', (await ev(`document.querySelectorAll('.demo-habit').length`)) === 3);
       await ev(`document.querySelector('.demo-habit').click()`); await sleep(300);
-      check('ticking works offline', (await ev(`document.getElementById('demo-streak-n').textContent`)) === '1');
+      check('ticking works offline', (await ev(`document.getElementById('demo-streak-n').textContent`)) === '7');
     } finally {
       await net(false);
       await ev(`navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))).then(() => caches.keys()).then(ks => Promise.all(ks.map(k => caches.delete(k))))`).catch(() => {});

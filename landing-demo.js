@@ -4,6 +4,10 @@
 // Lives entirely on the auth screen. It never touches Firebase:
 //   • visitors tick / add habits in a sandbox and watch XP, streak,
 //     level-ups and confetti happen live;
+//   • the three starting habits come with six earlier days of SAMPLE history
+//     (clearly labelled), so the Stats tab and the streak have something to
+//     show. That sample never leaves this file: it is not stored and is never
+//     written to an account;
 //   • whatever they did is parked in localStorage under `habitly_demo`;
 //   • app.js reads that key after a brand-new account signs in and seeds
 //     those habits (and today's ticks) into Firestore, so the demo
@@ -25,11 +29,18 @@ const LEVELS = [   // titles mirror LEVEL_TITLES in app.js
 ];
 
 // `category` values are real keys of CATS in app.js so seeding is lossless.
+// `past`: the six days before today, oldest first (1 = done). Sample data, for the demo only.
 const DEFAULT_HABITS = [
-  { name: 'Drink water',      category: 'health'  },
-  { name: 'Read 10 pages',    category: 'reading' },
-  { name: '5-min stretch',    category: 'fitness' },
+  { name: 'Drink water',      category: 'health',  past: [1, 1, 1, 1, 1, 1] },
+  { name: 'Read 10 pages',    category: 'reading', past: [1, 0, 1, 1, 1, 1] },
+  { name: '5-min stretch',    category: 'fitness', past: [0, 1, 0, 0, 0, 1] },
 ];
+const SAMPLE = new Map(DEFAULT_HABITS.map(h => [h.name.toLowerCase(), h.past]));
+const NO_PAST = [0, 0, 0, 0, 0, 0];
+// The sample week behind a habit: only the three starting habits have one.
+const pastOf = h => SAMPLE.get(String(h.name).toLowerCase()) || NO_PAST;
+// How many days in a row, ending today if it is done, else yesterday (the run is still alive until the day ends).
+const runOf = h => { const p = pastOf(h); let n = 0; for (let i = p.length - 1; i >= 0 && p[i]; i--) n++; return n + (h.done ? 1 : 0); };
 const SUGGESTIONS = [
   { name: 'Meditate 5 min',      category: 'relaxation' },
   { name: 'Walk 20 minutes',     category: 'fitness'    },
@@ -56,6 +67,8 @@ function init() {
     streakN: $('demo-streak-n'), level: $('demo-level'), xpNow: $('demo-xp-now'),
     xpNext: $('demo-xp-next'), xpFill: $('demo-xp-fill'), hint: $('demo-hint'),
     list: $('demo-list'), suggest: $('demo-suggest'), addWrap: $('demo-add-wrap'),
+    tabs: $('demo-tabs'), today: $('demo-today'), stats: $('demo-stats'), week: $('demo-week'),
+    rate: $('demo-rate'), rateSub: $('demo-rate-sub'), habitsWeek: $('demo-habits-week'),
     addForm: $('demo-add-form'), addInput: $('demo-add-input'),
     authCard: $('auth-card'), heading: $('auth-heading'), sub: $('auth-sub'),
     fine: $('auth-fine'), sticky: $('landing-sticky'), stickyTitle: $('ls-title'),
@@ -92,7 +105,7 @@ function init() {
       }
     } catch (_) { /* private mode / bad JSON — fall through */ }
     return {
-      habits: DEFAULT_HABITS.map(h => ({ id: newId(), ...h, done: false })),
+      habits: DEFAULT_HABITS.map(({ name, category }) => ({ id: newId(), name, category, done: false })),
       bonus: false,
       touched: false,
     };
@@ -209,10 +222,11 @@ function init() {
       requestAnimationFrame(step);
     }
 
-    // Streak flame
+    // Streak flame: the longest run among the habits; lit once something is ticked today
     const d = doneCount();
-    el.streakN.textContent = d > 0 ? '1' : '0';
+    el.streakN.textContent = String(Math.max(0, ...state.habits.map(runOf)));
     el.streak.classList.toggle('lit', d > 0);
+    renderStats();
 
     // Hint copy follows progress
     if (d === 0) el.hint.textContent = 'Select a habit to mark it done.';
@@ -221,6 +235,51 @@ function init() {
 
     el.card.classList.toggle('engaged', state.touched);
     return lvl;
+  }
+
+  // ── The Stats tab: the sample week plus whatever is ticked today ─────────
+  const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const weekdayAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.getDay(); };
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  function renderStats() {
+    if (!el.week) return;
+    const n = state.habits.length;
+    // done per day, oldest first; the last is today
+    const perDay = [0, 1, 2, 3, 4, 5].map(i => state.habits.reduce((s, h) => s + (pastOf(h)[i] ? 1 : 0), 0)).concat(doneCount());
+    const total = perDay.reduce((a, b) => a + b, 0), due = n * 7;
+    el.rate.textContent = due ? Math.round((total / due) * 100) + '%' : '0%';
+    el.rateSub.textContent = `${total} of ${due} done in these seven days`;
+    el.week.textContent = '';
+    perDay.forEach((count, i) => {
+      const ago = 6 - i, col = mk('div', 'dw-day' + (ago === 0 ? ' is-today' : ''));
+      col.setAttribute('role', 'img');
+      col.setAttribute('aria-label', `${ago === 0 ? 'Today' : DAY_NAMES[weekdayAgo(ago)]}: ${count} of ${n} done`);
+      const bar = mk('span', 'dw-bar'), fill = mk('span', 'dw-fill');
+      fill.style.height = (n ? Math.round((count / n) * 100) : 0) + '%';
+      bar.appendChild(fill);
+      col.append(bar, mk('span', 'dw-lbl', DAY_LETTERS[weekdayAgo(ago)]));
+      el.week.appendChild(col);
+    });
+    el.habitsWeek.textContent = '';
+    state.habits.forEach(h => {
+      const row = mk('li', 'dh-row'), dots = mk('span', 'dh-dots'), run = runOf(h), fresh = !SAMPLE.has(h.name.toLowerCase());
+      dots.setAttribute('aria-hidden', 'true');
+      [...pastOf(h), h.done ? 1 : 0].forEach((on, i) => dots.appendChild(mk('i', 'dh-dot' + (on ? ' is-done' : '') + (i === 6 ? ' is-today' : ''))));
+      row.append(mk('span', 'dh-name', h.name), dots, mk('span', 'dh-run', fresh && !h.done ? 'New' : `${run} ${run === 1 ? 'day' : 'days'}`));
+      el.habitsWeek.appendChild(row);
+    });
+  }
+  function showTab(name, focus = false) {
+    const stats = name === 'stats';
+    el.tabs.querySelectorAll('[role="tab"]').forEach(t => {
+      const on = t.dataset.tab === (stats ? 'stats' : 'today');
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      if (on && focus) t.focus();
+    });
+    el.today.hidden = stats;
+    el.stats.hidden = !stats;
+    if (stats) emit('demo_stats_viewed');
   }
 
   function syncAuthCopy() {
@@ -354,6 +413,13 @@ function init() {
   el.list.addEventListener('click', e => {
     const b = e.target.closest('.demo-habit');
     if (b) toggle(b.dataset.id);
+  });
+  el.tabs?.addEventListener('click', e => { const t = e.target.closest('[role="tab"]'); if (t) showTab(t.dataset.tab); });
+  el.tabs?.addEventListener('keydown', e => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    const now = el.tabs.querySelector('[aria-selected="true"]').dataset.tab;
+    showTab(e.key === 'Home' ? 'today' : e.key === 'End' ? 'stats' : now === 'today' ? 'stats' : 'today', true);
   });
   el.addForm.addEventListener('submit', e => {
     e.preventDefault();

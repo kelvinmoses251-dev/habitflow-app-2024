@@ -38,6 +38,7 @@
 
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#4A3AB8" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Habitly","url":"https://habit-tracker-demo-34c0a.web.app/","description":"A habit tracker with streaks, levels and clear progress charts. Free, with a demo you can try without an account.","applicationCategory":"LifestyleApplication","operatingSystem":"Any","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
 
@@ -65,7 +66,7 @@
 
   <!-- jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). The charts are the app's own. -->
 
-  <link rel="stylesheet" href="style.css?v=68" />
+  <link rel="stylesheet" href="style.css?v=69" />
 </head>
 <body>
 
@@ -249,6 +250,21 @@
           <div class="demo-xp-track"><div id="demo-xp-fill" class="demo-xp-fill"></div></div>
         </div>
 
+        <div class="demo-tabs" id="demo-tabs" role="tablist" aria-label="Demo">
+          <button type="button" class="demo-tab" role="tab" id="demo-tab-today" data-tab="today" aria-selected="true" aria-controls="demo-today">Today</button>
+          <button type="button" class="demo-tab" role="tab" id="demo-tab-stats" data-tab="stats" aria-selected="false" aria-controls="demo-stats" tabindex="-1">Stats</button>
+        </div>
+
+        <div id="demo-stats" class="demo-stats" role="tabpanel" aria-labelledby="demo-tab-stats" hidden>
+          <div class="dw-head">
+            <div><strong id="demo-rate" class="dw-rate">0%</strong><span id="demo-rate-sub" class="dw-sub"></span></div>
+          </div>
+          <div id="demo-week" class="dw-week"></div>
+          <ul id="demo-habits-week" class="dh-list"></ul>
+          <p class="dw-note">The earlier days are sample history, so there is something to look at. Yours starts the day you sign up.</p>
+        </div>
+
+        <div id="demo-today" role="tabpanel" aria-labelledby="demo-tab-today">
         <p id="demo-hint" class="demo-hint">Select a habit to mark it done.</p>
         <ul id="demo-list" class="demo-list"></ul>
 
@@ -258,6 +274,7 @@
             <input id="demo-add-input" type="text" maxlength="48" placeholder="Add your own habit" aria-label="Add your own habit" />
             <button type="submit" class="demo-add-btn" aria-label="Add habit"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
           </form>
+        </div>
         </div>
       </div>
       </div>
@@ -1204,7 +1221,7 @@
   </div>
 </div>
 
-<script type="module" src="landing-demo.js?v=6"></script>
-<script type="module" src="app.js?v=70"></script>
+<script type="module" src="landing-demo.js?v=7"></script>
+<script type="module" src="app.js?v=71"></script>
 </body>
 </html>

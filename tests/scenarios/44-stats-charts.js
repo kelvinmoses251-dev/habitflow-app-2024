@@ -88,4 +88,36 @@ module.exports = (scenario, c) => {
     check('each is named, not only coloured', /Reading/.test(await text('#cat-list')) && /Fitness/.test(await text('#cat-list')));
     noExceptions();
   });
+  // ── 54: the rate as a line, against the period before ────
+  scenario('trend: the completion rate is drawn against the period before', async () => {
+    await boot({ seed: seed(three()) }); await stats();
+    check('the rate and the change are stated', (await trim('#trend-rate')) === '77%' && /27 points up/.test(await trim('#trend-delta')), await trim('#trend-rate') + ' ' + await trim('#trend-delta'));
+    check('the change has an icon as well as words', await ev(`!!document.querySelector('#trend-delta use[href="#i-trend-up"]')`));
+    check('and said in a sentence with both figures', /^77% done \(10 of 13\), up 27 points on the 7 days before \(50%\)\.$/.test(await trim('#trend .chart-detail')), await trim('#trend .chart-detail'));
+    check('this period is a solid line, the one before a dashed one', await ev(`(() => { const a = document.querySelector('#trend .trend-now'), b = document.querySelector('#trend .trend-before'); return !!a && !!b && getComputedStyle(a).strokeDasharray === 'none' && getComputedStyle(b).strokeDasharray !== 'none'; })()`));
+    check('a legend says which is which', /Last 7 days/.test(await text('#trend .chart-legend')) && /The 7 days before/.test(await text('#trend .chart-legend')));
+    await ev(`document.querySelectorAll('#trend .trend-pt')[4].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))`); await sleep(150);
+    check('a point gives that day and the same day a week earlier', new RegExp('^' + weekday(2) + ' .*: 100% \\(2 of 2\\)\\. ' + weekday(9) + ' .*: 50%\\.$').test(await trim('#trend .chart-detail')), await trim('#trend .chart-detail'));
+    await ev(`document.querySelector('#trend .chart-plot').focus()`); await press('End', 35); await press('ArrowLeft', 37);
+    check('arrow keys walk the points', await ev(`document.querySelectorAll('#trend .trend-pt')[5].classList.contains('is-on')`));
+    await pick('month');
+    check('a month has six points', (await ev(`document.querySelectorAll('#trend .trend-pt').length`)) === 6);
+    await pick('all');
+    check('all time has nothing to compare with, and says so', !(await ev(`!!document.querySelector('#trend .trend-before')`)) && !(await ev(`!!document.getElementById('trend-delta')`)) && /since the start/.test(await trim('#trend .chart-detail')), await trim('#trend .chart-detail'));
+    check('a table carries the same for screen readers', (await ev(`document.querySelectorAll('#trend .sr-only tbody tr').length`)) >= 22);
+    noExceptions();
+  });
+
+  scenario('trend: new accounts, rest days and weekly-only accounts are drawn honestly', async () => {
+    await boot({ seed: seed({ a: H('New', { createdAt: new Date(Date.now() - 2 * 864e5).toISOString(), completedDates: run(0, 2) }) }) }); await stats();
+    check('with no earlier days, there is no dashed line and no change figure', !(await ev(`!!document.querySelector('#trend .trend-before')`)) && !(await ev(`!!document.getElementById('trend-delta')`)));
+    check('and the sentence says why', /nothing to compare with yet/.test(await trim('#trend .chart-detail')), await trim('#trend .chart-detail'));
+    const dow = n => new Date(day(n) + 'T12:00:00Z').getUTCDay();
+    const offDay = dow(3);                                      // make three days ago a rest day
+    await boot({ seed: seed({ a: H('Most days', { schedule: { type: 'days', days: [0, 1, 2, 3, 4, 5, 6].filter(d => d !== offDay) }, completedDates: run(0, 6) }) }) }); await stats();
+    check('a rest day breaks the line instead of dropping it to zero', (await ev(`(document.querySelector('#trend .trend-now').getAttribute('d').match(/M/g) || []).length`)) === 2, await ev(`document.querySelector('#trend .trend-now').getAttribute('d')`));
+    await boot({ seed: seed({ w: H('Call home', { frequency: 'weekly', completedDates: [day(2)] }) }) }); await stats();
+    check('a weekly-only account gets a sentence, not an empty chart', !(await ev(`!!document.querySelector('#trend svg')`)) && /no rate to draw/.test(await trim('#trend')), await trim('#trend'));
+    noExceptions();
+  });
 };

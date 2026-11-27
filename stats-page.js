@@ -158,3 +158,48 @@ export function renderCategories(el, rows, look) {
     </div>`;
   }).join('');
 }
+
+// ── The rate as a line, against the period before ──────────
+// t: stats.trend(...). The solid line is this period, the dashed one the period before; each is broken where
+// nothing was due. The sentence under it carries the comparison in words.
+const linePath = (pts, x, y) => { let d = '', pen = false; pts.forEach((p, i) => { if (p.rate === null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.rate).toFixed(1)}`; pen = true; }); return d; };
+export function trendSentence(t, range) {
+  if (t.rate === null) return 'Nothing was due day by day in this period, so there is no rate to draw.';
+  const head = `${t.rate}% done (${t.doneOwed} of ${t.owed})`;
+  if (!range.prev) return `${head} since the start.`;
+  if (t.delta === null) return `${head}. Nothing was due in ${range.prevLabel}, so there is nothing to compare with yet.`;
+  if (t.delta === 0) return `${head}, the same as ${range.prevLabel}.`;
+  return `${head}, ${t.delta > 0 ? 'up' : 'down'} ${plural(Math.abs(t.delta), 'point')} on ${range.prevLabel} (${t.prevRate}%).`;
+}
+export function renderTrend(box, t, range) {
+  const rest = trendSentence(t, range);
+  if (t.rate === null) { draw(box, `<p class="empty-note chart-detail" id="trend-none">${esc(rest)}</p>`); picker(box, [], () => '', rest); return; }
+  const W = widthOf(box), H = 180, L = 38, R = 10, T = 12, B = 24;
+  const n = t.now.length, plotW = W - L - R, plotH = H - T - B;
+  const x = i => (n === 1 ? L + plotW / 2 : L + (i / (n - 1)) * plotW), y = v => T + plotH - (v / 100) * plotH;
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(plotW / 52))));
+  const grid = [0, 50, 100].map(v => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="y-label" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}%</text>`).join('');
+  const slotW = n === 1 ? plotW : plotW / (n - 1);
+  const pts = t.now.map((p, i) => {
+    const label = (n - 1 - i) % every === 0 ? `<text class="x-label" x="${x(i)}" y="${H - 6}" text-anchor="${n > 1 && i === n - 1 ? 'end' : n > 1 && i === 0 ? 'start' : 'middle'}">${esc(p.label)}</text>` : '';
+    const was = t.before && t.before[i] && t.before[i].rate !== null ? `<circle class="dot dot-before" cx="${x(i)}" cy="${y(t.before[i].rate)}" r="3"/>` : '';
+    return `<g class="trend-pt" data-i="${i}"><rect class="bar-hit" x="${x(i) - slotW / 2}" y="${T}" width="${slotW}" height="${plotH}"/><line class="pt-rule" x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${T + plotH}"/>${was}${p.rate === null ? '' : `<circle class="dot dot-now" cx="${x(i)}" cy="${y(p.rate)}" r="${n > 16 ? 2.5 : 3.5}"/>`}${label}</g>`;
+  }).join('');
+  const say = (p, i) => {
+    const was = t.before && t.before[i];
+    return `${p.long}: ${p.rate === null ? 'nothing was due' : `${p.rate}% (${p.doneOwed} of ${p.owed})`}.${was ? ` ${was.long}: ${was.rate === null ? 'nothing was due' : was.rate + '%'}.` : ''}`;
+  };
+  const mark = t.delta === null ? '' : `<span class="delta is-${t.delta > 0 ? 'up' : t.delta < 0 ? 'down' : 'flat'}" id="trend-delta"><svg class="icon" aria-hidden="true"><use href="#i-${t.delta > 0 ? 'trend-up' : t.delta < 0 ? 'trend-down' : 'minus'}"/></svg>${t.delta === 0 ? 'No change' : `${Math.abs(t.delta)} ${Math.abs(t.delta) === 1 ? 'point' : 'points'} ${t.delta > 0 ? 'up' : 'down'}`}</span>`;
+  draw(box, `
+    <div class="trend-head"><strong class="trend-rate" id="trend-rate">${t.rate}%</strong>${mark}</div>
+    <div class="chart-plot" tabindex="0" role="group" aria-label="Completion rate, ${esc(range.label.toLowerCase())}: ${n} points. Use the left and right arrow keys to read each one.">
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true" focusable="false">${grid}
+        ${t.before ? `<path class="trend-line trend-before" d="${linePath(t.before, x, y)}"/>` : ''}
+        <path class="trend-line trend-now" d="${linePath(t.now, x, y)}"/>${pts}</svg>
+    </div>
+    ${t.before ? `<ul class="chart-legend" aria-hidden="true"><li><i class="lg-line"></i>${esc(range.label)}</li><li><i class="lg-line is-before"></i>${esc(range.prevLabel[0].toUpperCase() + range.prevLabel.slice(1))}</li></ul>` : ''}
+    <p class="chart-detail" aria-live="polite">${esc(rest)}</p>
+    <div class="sr-only"><table><caption>Completion rate, ${esc(range.label.toLowerCase())}</caption><thead><tr><th scope="col">When</th><th scope="col">Rate</th>${t.before ? '<th scope="col">The period before</th>' : ''}</tr></thead>
+      <tbody>${t.now.map((p, i) => `<tr><th scope="row">${esc(p.long)}</th><td>${p.rate === null ? 'nothing due' : p.rate + '%'}</td>${t.before ? `<td>${t.before[i] && t.before[i].rate !== null ? t.before[i].rate + '%' : 'nothing due'}</td>` : ''}</tr>`).join('')}</tbody></table></div>`);
+  picker(box, t.now, say, rest);
+}

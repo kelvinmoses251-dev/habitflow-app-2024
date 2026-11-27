@@ -169,3 +169,44 @@ test('categoryCheckins: check-ins by category over the period, most first', asyn
   const habits = [H('Read', range(0, 6), { category: 'reading' }), H('Run', [1, 2], { category: 'fitness' }), H('Lift', [1], { category: 'fitness' }), H('Odd', [1, 2, 3, 4], { category: 'nonsense' }), H('Idle', [], { category: 'mind' })];
   assert.deepEqual(categoryCheckins(habits, periodRange('week', TODAY, habits)), [{ key: 'reading', checkins: 7 }, { key: 'nonsense', checkins: 4 }, { key: 'fitness', checkins: 3 }]);
 });
+
+// ── The trend ──────────────────────────────────────────────
+test('trend: this week against the week before, point by point', async () => {
+  const { periodRange, trend } = await load();
+  const habits = [H('Read', [...range(0, 6), 8, 10, 12])];
+  const t = trend(habits, periodRange('week', TODAY, habits));
+  assert.deepEqual(t.now.map(p => p.rate), [100, 100, 100, 100, 100, 100, 100]);
+  assert.deepEqual(t.before.map(p => p.rate), [0, 100, 0, 100, 0, 100, 0]);
+  assert.deepEqual([t.rate, t.prevRate, t.delta], [100, 43, 57]);
+  assert.equal(t.now[6].long, 'Wed 25 Nov');
+});
+
+test('trend: with nothing owed before, there is no earlier line and no delta', async () => {
+  const { periodRange, trend } = await load();
+  const young = [H('Read', range(0, 4), { createdAt: ago(4) + 'T08:00:00' })];
+  const t = trend(young, periodRange('week', TODAY, young));
+  assert.deepEqual([t.before, t.prevRate, t.delta, t.rate], [null, null, null, 100]);
+  assert.deepEqual(t.now.map(p => p.rate), [null, null, 100, 100, 100, 100, 100]);
+  const all = trend(young, periodRange('all', TODAY, young));
+  assert.deepEqual([all.before, all.delta, all.now.length], [null, null, 1]);
+});
+
+test('trend: a day when nothing was due has no rate, rather than zero', async () => {
+  const { periodRange, trend } = await load();
+  const weekdays = [H('Work out', range(0, 6), { schedule: { type: 'days', days: [1, 2, 3, 4, 5] } })];
+  const t = trend(weekdays, periodRange('week', TODAY, weekdays));
+  assert.deepEqual(t.now.map(p => p.rate), [100, 100, null, null, 100, 100, 100]);   // Thu Fri Sat Sun Mon Tue Wed
+});
+
+test('trend: a month is six stretches of five days; a year is its twelve months, each against a year earlier', async () => {
+  const { periodRange, trend } = await load();
+  const habits = [H('Read', range(0, 800).filter(n => n < 30 || n % 2))];
+  const m = trend(habits, periodRange('month', TODAY, habits));
+  assert.equal(m.now.length, 6);
+  assert.deepEqual([m.now[0].label, m.now[0].long, m.now[5].long], ['27 Oct', '27 Oct to 31 Oct', '21 Nov to 25 Nov']);
+  assert.equal(m.before.length, 6);
+  assert.equal(m.rate, 100);
+  const y = trend(habits, periodRange('year', TODAY, habits));
+  assert.deepEqual([y.now.length, y.before.length, y.now[11].label, y.before[11].long], [12, 12, 'Nov', 'November 2025']);
+  assert.ok(y.delta > 0);
+});

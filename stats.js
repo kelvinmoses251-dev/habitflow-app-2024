@@ -190,3 +190,30 @@ export function categoryCheckins(habits, range) {
   }
   return [...counts].map(([key, checkins]) => ({ key, checkins })).sort((a, b) => b.checkins - a.checkins || a.key.localeCompare(b.key));
 }
+
+// ── The rate over the period, against the period before ────
+// A week is seven days, a month six stretches of five days, a year its twelve months, all time its bars. The
+// period before is cut the same way, so point 3 of one sits over point 3 of the other. A point where nothing was
+// owed has no rate (the line breaks there; it does not dive to zero).
+function trendCuts(span, period) {
+  if (period !== 'month') return buckets({ ...span, period });
+  const out = [];
+  for (let from = span.from; from <= span.to; from = rules.shiftDay(from, 5)) {
+    const to = earlier(span.to, rules.shiftDay(from, 4));
+    out.push({ from, to, label: shortDay(from), long: `${shortDay(from)} to ${shortDay(to)}`, unit: 'days' });
+  }
+  return out;
+}
+export function trend(habits, range) {
+  const points = span => trendCuts(span, range.period).map(b => {
+    const t = spanTotals(habits, b.from, b.to, range.to);
+    return { label: b.label, long: b.long, from: b.from, to: b.to, owed: t.owed, doneOwed: t.doneOwed, rate: t.rate };
+  });
+  const now = points(range), sum = spanTotals(habits, range.from, range.to, range.to);
+  let before = null, prevRate = null;
+  if (range.prev) {
+    prevRate = spanTotals(habits, range.prev.from, range.prev.to, range.to).rate;
+    if (prevRate !== null) before = points(range.prev);
+  }
+  return { now, before, rate: sum.rate, owed: sum.owed, doneOwed: sum.doneOwed, prevRate, delta: sum.rate !== null && prevRate !== null ? sum.rate - prevRate : null };
+}

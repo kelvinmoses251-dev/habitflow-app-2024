@@ -22,8 +22,9 @@ import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achiev
 import * as moments from "./moments.js?v=1";
 import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
-import { PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail } from "./stats.js?v=1";
+import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
+import { weekReview, focusChoices, focusProgress, withReview } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -277,6 +278,7 @@ function getFirstName(user) {
 // ── Stats Helpers & Streak Shield ────────────────────────
 let userStreakShields = 1;
 let userFrozenDates = [];
+let userReviews = {};               // weekly reviews, by the Monday of the week: { at, focus }
 let userShieldUsedAt = 0;          // ms timestamp the last shield was consumed (drives the weekly recharge)
 let userAllDoneBonusDate = null;   // local day the +100 Daily Master bonus was last awarded (once per day)
 let userDocLoaded = false;         // true once users/{uid} has been read, so we never act on default values
@@ -296,7 +298,7 @@ function resetUserState() {
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
   moments.hideMoment();
-  ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal', 'recap-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal', 'recap-modal', 'review-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
   viewDay = null;
@@ -1052,6 +1054,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
+  ['review-modal', 'review-close'],
   ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'], ['comeback-modal', 'comeback-cancel'], ['recap-modal', 'recap-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'],
@@ -1386,6 +1389,8 @@ function updateAvatars(user) {
         userFrozenDates = uData.frozenDates;
       }
       if (typeof uData.shieldUsedAt === 'number') userShieldUsedAt = uData.shieldUsedAt;
+      userReviews = uData.reviews && typeof uData.reviews === 'object' && !Array.isArray(uData.reviews) ? uData.reviews : {};
+      if (location.hash === '#stats' && allHabits.length) renderReviewCard();
       if (typeof uData.allDoneBonusDate === 'string') userAllDoneBonusDate = uData.allDoneBonusDate;
       updateStreakShieldUI();
       if (userDocLoaded) refreshShieldOffer();        // answered on another device: the question here goes too
@@ -3226,7 +3231,72 @@ function renderStats() {
   statsPage.renderBalance(document.getElementById('cat-list'), categoryBalance(allHabits, range, Object.keys(CATS)), key => { const cat = CATS[key] || CATS.health; return { label: cat.label, color: catColor(cat) }; });
   statsPage.renderHeat(document.getElementById('heat'), heatYear(allHabits, today), day => dayDetail(allHabits, day, today));
   renderInsights();
+  renderReviewCard();
 }
+
+// ── Looking back: the weekly review ───────────────────────
+// A card on Stats offers a review of the last finished week. The dialog walks through four steps (the week, what
+// went well, what slipped, one focus). Nothing is paused or saved until Finish; leaving half way changes nothing.
+// The review is kept on the profile as reviews.<Monday> = { at, focus }: a date and a habit, no typed text.
+function renderReviewCard() {
+  const today = todayStr(), review = weekReview(allHabits, today), saved = userReviews[review.key] && typeof userReviews[review.key] === 'object' ? userReviews[review.key] : null;
+  const h = saved && saved.focus ? allHabits.find(x => x.id === saved.focus && !x.archivedAt) : null;
+  statsPage.renderReviewCard(document.getElementById('review-week'), {
+    review, saved, savedOn: saved && Number.isFinite(saved.at) ? longDay(dayKey(new Date(saved.at))) : '',
+    focus: h ? { id: h.id, name: h.name || 'Habit', progress: focusProgress(h, today) } : null,
+  });
+}
+let reviewing = null;                    // { review, step, pause: Set, focus } while the dialog is open
+function drawReview(moved = false) {
+  const s = reviewing, last = statsPage.REVIEW_STEPS.length - 1;
+  document.getElementById('review-step').textContent = `Step ${s.step + 1} of ${last + 1}`;
+  document.getElementById('review-title').textContent = statsPage.REVIEW_STEPS[s.step];
+  statsPage.renderReviewStep(document.getElementById('review-body'), s.step, { ...s, choices: focusChoices(allHabits, todayStr(), [...s.pause]) });
+  document.getElementById('review-close').hidden = s.step > 0;
+  document.getElementById('review-back').hidden = s.step === 0;
+  document.getElementById('review-next').textContent = s.step === last ? 'Finish' : 'Next';
+  if (moved) { document.querySelector('#review-modal .dialog').scrollTop = 0; document.getElementById('review-title').focus(); }
+}
+function openReview() {
+  const review = weekReview(allHabits, todayStr());
+  if (!review.any) return;
+  reviewing = { review, step: 0, pause: new Set(), focus: '' };
+  drawReview();
+  document.getElementById('review-modal').classList.remove('hidden');
+  track('weekly_review_opened');
+}
+function finishReview() {
+  const s = reviewing, today = todayStr();
+  const pausing = [...s.pause].map(id => allHabits.find(h => h.id === id)).filter(h => h && !rules.isPausedOn(h, today));
+  pausing.forEach(h => backgroundWrite(updateDoc(doc(db, 'habits', h.id), { pauses: rules.withPause(h, today) }), 'pause the habit'));
+  const focus = s.focus && !s.pause.has(s.focus) && allHabits.some(h => h.id === s.focus) ? s.focus : null;
+  userReviews = withReview(userReviews, s.review.key, { at: Date.now(), focus });
+  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { reviews: userReviews }, { mergeFields: ['reviews'] }), 'save your review');
+  document.getElementById('review-modal').classList.add('hidden');
+  reviewing = null;
+  const name = focus ? (allHabits.find(h => h.id === focus).name || 'Habit') : '';
+  toast(`Review saved.${pausing.length ? ` ${pausing.length} habit${pausing.length === 1 ? '' : 's'} paused.` : ''}${name ? ` This week\u2019s focus: ${name}.` : ''}`, 'success', 5000);
+  track('weekly_review_done', { paused: pausing.length, focus: focus ? 1 : 0 });
+  renderReviewCard();
+}
+document.getElementById('reviews-card')?.addEventListener('click', e => {
+  if (e.target instanceof Element && e.target.closest('#review-open')) openReview();
+});
+document.getElementById('review-next')?.addEventListener('click', () => {
+  if (!reviewing) return;
+  if (reviewing.step === statsPage.REVIEW_STEPS.length - 1) { finishReview(); return; }
+  reviewing.step++;
+  if (reviewing.step === 3 && reviewing.pause.has(reviewing.focus)) reviewing.focus = '';   // a habit being paused cannot be the focus
+  drawReview(true);
+});
+document.getElementById('review-close')?.addEventListener('click', () => { document.getElementById('review-modal').classList.add('hidden'); reviewing = null; });   // also what Escape presses
+document.getElementById('review-back')?.addEventListener('click', () => { if (reviewing && reviewing.step > 0) { reviewing.step--; drawReview(true); } });
+document.getElementById('review-body')?.addEventListener('change', e => {
+  const t = e.target;
+  if (!reviewing || !(t instanceof HTMLInputElement) || !t.checked) return;
+  if (t.name === 'focus') reviewing.focus = t.value;
+  else if (t.name.startsWith('slip-')) { const id = t.name.slice(5); if (t.value === 'pause') reviewing.pause.add(id); else reviewing.pause.delete(id); }
+});
 // The charts are drawn at the pixel width of the page, so they are drawn again when that width changes.
 let statsDrawnAt = 0;
 if (window.ResizeObserver) new ResizeObserver(entries => {

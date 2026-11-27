@@ -125,7 +125,8 @@ export async function addDoc(c, data) {
 }
 export async function setDoc(ref, data, opts) {
   const c = col(ref.name);
-  if (opts && opts.merge && c[ref.id]) applyUpdate(c[ref.id], data);
+  if (opts && Array.isArray(opts.mergeFields)) { c[ref.id] = c[ref.id] || {}; opts.mergeFields.forEach(f => { c[ref.id][f] = clone(data[f]); }); }
+  else if (opts && opts.merge && c[ref.id]) applyUpdate(c[ref.id], data);
   else { c[ref.id] = {}; applyUpdate(c[ref.id], data); }
   writes.push({ op: 'set', col: ref.name, id: ref.id, data: clone(data) });
   notify(ref.name);

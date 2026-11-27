@@ -59,6 +59,7 @@
   <link rel="modulepreload" href="moments.js?v=1" />
   <link rel="modulepreload" href="stats.js?v=1" />
   <link rel="modulepreload" href="stats-page.js?v=1" />
+  <link rel="modulepreload" href="stats-review.js?v=1" />
   <link rel="modulepreload" href="sounds.js?v=1" />
 
   <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
@@ -524,6 +525,11 @@
         <div class="card by-habit-card">
           <h2 class="card-title">By habit <span class="card-subtitle" id="by-habit-sub"></span></h2>
           <div id="by-habit-list" class="rate-list"></div>
+        </div>
+
+        <div class="card card-wide reviews-card" id="reviews-card">
+          <h2 class="card-title">Look back</h2>
+          <div id="review-week"></div>
         </div>
         </div>
       </div>
@@ -1072,6 +1078,21 @@
     <div id="recap-body" class="level-body"></div>
     <div class="dialog-actions">
       <button id="recap-close" data-dismiss class="btn-secondary" type="button" autofocus>Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- The weekly review (Stats, Look back): four steps, nothing saved until Finish -->
+<div id="review-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="review-title">
+  <div class="dialog dialog-scroll">
+    <span class="sheet-handle" aria-hidden="true"></span>
+    <p class="dialog-eyebrow" id="review-step">Step 1 of 4</p>
+    <h2 class="dialog-title" id="review-title" tabindex="-1">Your week</h2>
+    <div id="review-body" class="review-body"></div>
+    <div class="dialog-actions">
+      <button id="review-close" data-dismiss class="btn-secondary" type="button">Close</button>
+      <button id="review-back" class="btn-secondary" type="button" hidden>Back</button>
+      <button id="review-next" class="btn-primary" type="button">Next</button>
     </div>
   </div>
 </div>

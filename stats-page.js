@@ -256,3 +256,58 @@ export function renderHeat(box, year, detailFor) {
   scroller.scrollLeft = was === null ? scroller.scrollWidth : was;   // start at today; a redraw stays where the person scrolled to
   picker(box, past, say, rest, moveBy);
 }
+
+// ── Looking back: the weekly review ────────────────────────
+// The card on the Stats page. m: { review (statsReview.weekReview), saved (the stored review of that week, if any),
+// savedOn (its day, in words), focus: { id, name, progress } | null }.
+export function renderReviewCard(el, m) {
+  const r = m.review;
+  if (!r.any) {
+    el.innerHTML = '<div class="rv-row"><div class="rv-text"><strong>Weekly review</strong><p id="review-status">Your first full week is not over yet. Come back on Monday to look at it.</p></div></div>';
+    return;
+  }
+  const p = m.focus && m.focus.progress;
+  const sofar = !p ? '' : p.kind === 'daily' ? (p.owed ? `${p.done} of ${plural(p.owed, 'day')} so far this week` : 'nothing due yet this week') : `done ${plural(p.done, 'time')} so far this ${p.kind === 'weekly' ? 'week' : 'month'}`;
+  el.innerHTML = `<div class="rv-row">
+    <div class="rv-text"><strong>Weekly review</strong>
+      <p id="review-status">${m.saved ? `Reviewed on ${esc(m.savedOn)}. ` : ''}Week of ${esc(r.label)}.${m.saved ? '' : ' Not reviewed yet.'}</p>
+      ${m.focus ? `<p class="rv-focus" id="review-focus">This week\u2019s focus: <a href="#habit/${encodeURIComponent(m.focus.id)}">${esc(m.focus.name)}</a>, ${sofar}.</p>` : ''}
+    </div>
+    <button type="button" class="${m.saved ? 'btn-secondary' : 'btn-primary'}" id="review-open">${m.saved ? 'Review it again' : 'Review last week'}</button>
+  </div>`;
+}
+
+// One step of the review dialog. s: { review, pause: Set of habit ids, focus: habit id or '', choices }.
+export const REVIEW_STEPS = ['Your week', 'What went well', 'What slipped', 'One focus for this week'];
+const rvCount = w => (w.kind === 'daily' ? `${w.done} of ${w.owed}` : w.done === 1 ? 'done once' : `done ${w.done} times`);
+const rvList = rows => `<ul class="rv-list">${rows.map(w => `<li><span class="rv-name">${esc(w.name)}</span><span class="rv-fig">${rvCount(w)}</span></li>`).join('')}</ul>`;
+export function renderReviewStep(el, step, s) {
+  const r = s.review;
+  if (step === 0) {
+    const versus = r.now.rate === null ? '' : r.delta === null ? 'There is no earlier week to compare it with yet.'
+      : r.delta === 0 ? `That is the same as the week before (${r.before.rate}%).`
+      : `That is ${r.delta > 0 ? 'up' : 'down'} ${plural(Math.abs(r.delta), 'point')} on the week before (${r.before.rate}%).`;
+    el.innerHTML = `<p class="dialog-text">The week of <strong>${esc(r.label)}</strong>.</p>
+      <div class="rv-figs">
+        <div class="rv-fig-box"><strong>${r.now.rate === null ? '\u2013' : r.now.rate + '%'}</strong><span>${r.now.rate === null ? 'no daily habits were due' : `done: ${r.now.doneOwed} of ${r.now.owed} due`}</span></div>
+        <div class="rv-fig-box"><strong>${r.now.checkins}</strong><span>${plural(r.now.checkins, 'check-in')}</span></div>
+        <div class="rv-fig-box"><strong>${r.now.perfect}</strong><span>${r.now.perfect === 1 ? 'perfect day' : 'perfect days'}</span></div>
+      </div>
+      ${versus ? `<p class="dialog-text">${versus}</p>` : ''}`;
+  } else if (step === 1) {
+    el.innerHTML = (r.wins.length ? `<p class="dialog-text">These held up well. Worth noticing what made them easy.</p>${rvList(r.wins)}`
+      : '<p class="dialog-text">No habit reached 80% last week. That happens. The next step looks at what got in the way.</p>')
+      + (r.steady.length ? `<p class="sheet-note">${plural(r.steady.length, 'other')} held somewhere in between.</p>` : '');
+  } else if (step === 2) {
+    el.innerHTML = (r.slipped.length ? `<p class="dialog-text">These were done less than half the time. Keep each one, or pause it: a pause keeps its history and its streak safe until you resume.</p>
+      ${r.slipped.map(w => `<fieldset class="rv-slip"><legend><span class="rv-name">${esc(w.name)}</span><span class="rv-fig">${rvCount(w)}</span></legend>
+        <label class="rv-opt"><input type="radio" name="slip-${esc(w.id)}" value="keep"${s.pause.has(w.id) ? '' : ' checked'}><span>Keep going</span></label>
+        <label class="rv-opt"><input type="radio" name="slip-${esc(w.id)}" value="pause"${s.pause.has(w.id) ? ' checked' : ''}><span>Pause for now</span></label></fieldset>`).join('')}`
+      : '<p class="dialog-text">Nothing slipped below half last week. Nicely held.</p>')
+      + (r.quiet.length ? `<p class="sheet-note">Not touched last week: ${esc(r.quiet.map(q => q.name).join(', '))}.</p>` : '');
+  } else {
+    const opt = (id, name) => `<label class="rv-opt"><input type="radio" name="focus" value="${esc(id)}"${s.focus === id ? ' checked' : ''}><span>${esc(name)}</span></label>`;
+    el.innerHTML = `<p class="dialog-text">Pick one habit to give your attention to this week. It is shown on the Stats page with how it is going.</p>
+      <div class="rv-pick" role="radiogroup" aria-label="Focus for this week">${opt('', 'No focus this week')}${s.choices.map(h => opt(h.id, h.name)).join('')}</div>`;
+  }
+}

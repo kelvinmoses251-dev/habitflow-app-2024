@@ -8,7 +8,7 @@ import { periodRange, periodSummary, barSeries, records, habitRates, longDay } f
 const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 const real = habits => (Array.isArray(habits) ? habits.filter(h => h && typeof h === 'object') : []);
 const nameOf = h => String(h.name == null || h.name === '' ? 'Habit' : h.name);
-const DASH = '–';
+const DASH = '-';                                              // a plain hyphen: the PDF's built-in font has no en dash
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // A schedule in words: "Every day", "Mon, Wed, Fri", "3 times a week", "Once a month".

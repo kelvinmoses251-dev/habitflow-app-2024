@@ -63,7 +63,7 @@
   <link rel="modulepreload" href="stats-export.js?v=1" />
   <link rel="modulepreload" href="sounds.js?v=1" />
 
-  <!-- Chart.js, jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). -->
+  <!-- jsPDF (+AutoTable) and Cropper.js are loaded on demand by app.js (ensureLib). The charts are the app's own. -->
 
   <link rel="stylesheet" href="style.css?v=68" />
 </head>
@@ -1101,7 +1101,7 @@
   <div class="dialog">
     <span class="sheet-handle" aria-hidden="true"></span>
     <div class="story-marks" id="story-marks" aria-hidden="true"></div>
-    <div class="story-slide" id="story-slide" role="group" aria-roledescription="slide" tabindex="-1">
+    <div class="story-slide" id="story-slide" role="group" aria-roledescription="slide" aria-live="polite" tabindex="-1">
       <p class="dialog-eyebrow" id="story-kicker"></p>
       <p class="story-big" id="story-big"></p>
       <p class="dialog-text" id="story-line"></p>
@@ -1117,7 +1117,7 @@
 </div>
 
 <!-- The weekly review (Stats, Look back): four steps, nothing saved until Finish -->
-<div id="review-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="review-title">
+<div id="review-modal" class="modal hidden" data-sticky role="dialog" aria-modal="true" aria-labelledby="review-title">
   <div class="dialog dialog-scroll">
     <span class="sheet-handle" aria-hidden="true"></span>
     <p class="dialog-eyebrow" id="review-step">Step 1 of 4</p>

@@ -1228,7 +1228,7 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 /* The year: a square a day. --cell is set by the page from the width of the card */
 .heat { display: flex; gap: var(--sp-2); }
 .heat-days { flex: none; display: grid; grid-template-rows: repeat(7, var(--cell)); row-gap: 3px; margin-top: 19px; font-size: var(--fs-2xs); line-height: var(--cell); color: var(--muted); }
-.heat-scroll { flex: 1; min-width: 0; overflow-x: auto; padding: 0 2px var(--sp-2); }
+.heat-scroll { touch-action: auto; flex: 1; min-width: 0; overflow-x: auto; padding: 0 2px var(--sp-2); }
 .heat-inner { display: inline-grid; gap: 3px; padding: 2px 0; }
 .heat-months { display: grid; grid-template-columns: repeat(53, var(--cell)); column-gap: 3px; height: 14px; font-size: var(--fs-2xs); line-height: 14px; color: var(--muted); }
 .heat-months span { white-space: nowrap; }

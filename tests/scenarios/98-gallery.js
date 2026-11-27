@@ -269,4 +269,17 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }]]) {
     run('b6-export' + tag, opts, async () => { await ready(); await ev(`location.hash = '#profile'`); await settle(400); await ev(`document.getElementById('export-data-btn').click()`); await settle(500); });
   }
+  const b6id = id => ev(`document.getElementById('${id}').scrollIntoView({ block: 'start' }); window.scrollBy(0, -70)`);
+  for (const [tag, opts] of [['', { seed: b6seed }], ['-dark', { seed: b6seed, colorScheme: 'dark' }], ['-desktop', { seed: b6seed, mobile: false }]]) {
+    run('b6-suggestions' + tag, opts, async () => { await b6open('month'); await b6id('suggest-card'); await settle(400); });
+    run('b6-lookback' + tag, opts, async () => { await b6open('month'); await b6id('reviews-card'); await settle(400); });
+    run('b6-records' + tag, opts, async () => { await b6open('month'); await b6id('records-card'); await settle(400); });
+    run('b6-review' + tag, opts, async () => { await b6open(); await ev(`document.getElementById('review-open').click()`); await settle(500); await ev(`document.getElementById('review-next').click()`); await settle(300); await ev(`document.getElementById('review-next').click()`); await settle(500); });
+    run('b6-review-start' + tag, opts, async () => { await b6open(); await ev(`document.getElementById('review-open').click()`); await settle(600); });
+    run('b6-story' + tag, opts, async () => { await b6open(); await ev(`document.getElementById('story-open-month').click()`); await settle(500); await ev(`document.getElementById('story-next').click()`); await settle(500); });
+  }
+  run('b6-story-card', { seed: b6seed }, async () => { await b6open(); await ev(`HTMLAnchorElement.prototype.click = function () {}`); await ev(`document.getElementById('story-open-month').click()`); await settle(400);
+    for (let i = 0; i < 9; i++) { if (await ev(`document.getElementById('story-next').textContent.trim() === 'Done'`)) break; await ev(`document.getElementById('story-next').click()`); await settle(200); }
+    await ev(`document.getElementById('story-save').click()`); await settle(1500);
+    await ev(`(() => { const c = document.getElementById('story-canvas'); c.hidden = false; c.style.cssText = 'position:fixed;inset:0;margin:auto;height:100vh;width:auto;max-width:100vw;z-index:99999;background:#111113'; document.body.appendChild(c); })()`); await settle(300); });
 };

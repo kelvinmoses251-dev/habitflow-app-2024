@@ -4,7 +4,7 @@
 // Pure: everything is worked out from the list of habits and a day. Nothing is stored here and nothing touches
 // the page. Unit tests: node --test tests/stats-review.test.js
 import * as rules from './habit-rules.js?v=7';
-import { spanTotals, wasOwed, wasDone, eachDay, shortDay } from './stats.js?v=1';
+import { spanTotals, wasOwed, wasDone, eachDay, shortDay, firstDay } from './stats.js?v=1';
 
 const real = habits => (Array.isArray(habits) ? habits.filter(h => h && typeof h === 'object') : []);
 const nameOf = h => String(h.name == null ? '' : h.name);
@@ -53,7 +53,7 @@ export function weekReview(habits, today) {
   return {
     key: from, from, to, label: `${shortDay(from)} to ${shortDay(to)}`,
     now, before, delta: now.rate !== null && before.rate !== null ? now.rate - before.rate : null,
-    wins, slipped, steady, quiet, any: now.owed > 0 || now.checkins > 0,
+    wins, slipped, steady, quiet, any: now.owed > 0 || now.checkins > 0, began: list.length > 0 && firstDay(list, today) <= to,
   };
 }
 
@@ -99,7 +99,7 @@ const pad2 = n => String(n).padStart(2, '0');
 const monthStart = (y, m) => `${y}-${pad2(m)}-01`;                                  // m: 1 to 12
 const monthEnd = (y, m) => rules.shiftDay(m === 12 ? monthStart(y + 1, 1) : monthStart(y, m + 1), -1);
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
-const STORY_MIN_SLIDES = 3;
+const STORY_MIN_SLIDES = 3, STORY_MIN_DAYS = 3;                // fewer active days than this is not yet a story
 export const WEEKDAY_SPREAD = 25;                             // points between the best and hardest weekday before it is worth saying
 
 function storySpan(kind, today) {
@@ -120,6 +120,8 @@ export function story(habits, kind, today) {
   const list = real(habits), k = kind === 'year' ? 'year' : 'month';
   let span = storySpan(k, today);
   if (k === 'month') span = spanTotals(list, span.last.from, span.last.to, today).checkins ? span.last : span.current;
+  const began = firstDay(list, today);
+  if (began > span.from && began <= span.to) span = { ...span, from: began };
   const sum = spanTotals(list, span.from, span.to, today);
   if (!sum.checkins) return null;
   const slides = [], unit = k === 'year' ? 'year' : 'month';
@@ -152,7 +154,8 @@ export function story(habits, kind, today) {
     const t = spanTotals(list, day, day, today), w = byWeekday[rules.weekdayOf(day)];
     w.owed += t.owed; w.done += t.doneOwed;
     if (t.checkins >= fullest.n && t.checkins > 0) fullest = { n: t.checkins, day };
-    if (t.perfect) { if (!len) start = day; len++; if (len > best.len) best = { len, from: start, to: day }; } else len = 0;
+    if (t.perfect) { if (!len) start = day; len++; if (len > best.len) best = { len, from: start, to: day }; }
+    else if (t.owed > 0) len = 0;                              // a miss ends the run; a day with nothing due does not
   });
   if (best.len >= 2) add('run', 'Your best run', plural(best.len, 'day'), `Everything due was done ${best.len} days in a row, ${shortDay(best.from)} to ${shortDay(best.to)}.`);
   else if (sum.perfect) add('perfect', 'Nothing left undone', plural(sum.perfect, 'perfect day'), 'Days when everything due was done.');
@@ -184,7 +187,7 @@ export function story(habits, kind, today) {
   add('sum', span.title, sum.rate === null ? plural(sum.checkins, 'check-in') : `${sum.rate}%`,
     `${plural(sum.checkins, 'check-in')} on ${plural(sum.active, 'day')}${sum.perfect ? `, ${plural(sum.perfect, 'perfect day')}` : ''}.`);
 
-  return { kind: k, title: span.title, from: span.from, to: span.to, enough: slides.length >= STORY_MIN_SLIDES,
+  return { kind: k, title: span.title, from: span.from, to: span.to, enough: slides.length >= STORY_MIN_SLIDES && sum.active >= STORY_MIN_DAYS,
     sum: { rate: sum.rate, checkins: sum.checkins, active: sum.active, days: sum.days, perfect: sum.perfect }, slides };
 }
 
@@ -217,7 +220,7 @@ function usualTime(h, from, to) {
   return morning / n >= SUGGEST.timeShare ? 'morning' : evening / n >= SUGGEST.timeShare ? 'evening' : null;
 }
 
-export function suggestions(habits, today) {
+export function suggestions(habits, today, dismissed = null) {
   const list = real(habits).filter(h => inPlay(h, today) && !rules.isPausedOn(h, today));
   const out = [], used = new Set();
   const yesterday = rules.shiftDay(today, -1);                 // today is still open, so every window ends yesterday
@@ -270,7 +273,7 @@ export function suggestions(habits, today) {
       text: `Done on all ${s.owed} of the last ${s.owed} days it was due. Ready to make it a little bigger?`, action: { label: 'Edit habit', go: 'edit' } });
     used.add(h.id);
   }
-  return out.slice(0, SUGGEST.max);
+  return undismissed(out, dismissed, today).slice(0, SUGGEST.max);
 }
 
 // Suggestions that have not been dismissed in the last four weeks. dismissed: { [id]: day it was dismissed }.

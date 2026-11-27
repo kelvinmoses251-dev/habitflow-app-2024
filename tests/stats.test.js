@@ -313,3 +313,30 @@ test('records: nothing done means no records; junk is ignored; a counter keeps f
   const counted = records([H('Deep', [1], { sessions: [{ at: 1e12, minutes: 25 }], focusCount: 80, focusMinutes: 2000 })], TODAY).find(r => r.id === 'focus');
   assert.deepEqual([counted.value, counted.detail], ['33 h 20 min', '80 sessions']);
 });
+
+// ── From the independent review of batch 6 ─────────────────
+test('review: a habit with no creation date is owed only from the first day it was done', async () => {
+  const { periodRange, periodSummary, trend } = await load();
+  const old = [H('Legacy', range(0, 19), { createdAt: undefined })];
+  const year = periodRange('year', TODAY, old), s = periodSummary(old, year);
+  assert.deepEqual([s.owed, s.doneOwed, s.rate], [20, 20, 100]);
+  assert.deepEqual([trend(old, year).prevRate, trend(old, year).delta], [null, null], 'nothing before it to compare with');
+  assert.equal(periodSummary([H('Never', [], { createdAt: undefined })], year).owed, 0);
+});
+
+test('review: a run of perfect days is not broken by a day when nothing was due', async () => {
+  const { records } = await load();
+  const weekdays = range(0, 59).filter(n => ![0, 6].includes(new Date(Date.UTC(2026, 10, 25) - n * 864e5).getUTCDay()));
+  const by = Object.fromEntries(records([H('Work out', weekdays, { schedule: { type: 'days', days: [1, 2, 3, 4, 5] }, createdAt: ago(59) + 'T08:00:00' })], TODAY).map(r => [r.id, r]));
+  assert.equal(by.perfect.value, String(weekdays.length), 'every weekday of sixty days, weekends skipped');
+  assert.equal(by.perfect.fresh, true);
+});
+
+test('review: records for a long history are worked out once per set of habits', async () => {
+  const { records } = await load();
+  const habits = Array.from({ length: 30 }, (_, i) => H('H' + i, range(0, 1800).filter(n => (n + i) % 3), { createdAt: '2021-06-01T08:00:00' }));
+  records(habits, TODAY);
+  const t = performance.now(); const again = records(habits, TODAY); const ms = performance.now() - t;
+  assert.ok(again.length >= 6);
+  assert.ok(ms < 40, 'second call took ' + Math.round(ms) + ' ms');
+});

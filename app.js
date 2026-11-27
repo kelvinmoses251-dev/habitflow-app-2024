@@ -25,7 +25,7 @@ import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail, records } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
 import { toCsv, reportModel } from "./stats-export.js?v=1";
-import { weekReview, focusChoices, focusProgress, withReview, story, suggestions, undismissed } from "./stats-review.js?v=1";
+import { weekReview, focusChoices, focusProgress, withReview, story, suggestions } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
 
@@ -299,6 +299,8 @@ function resetUserState() {
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
   moments.hideMoment();
+  userReviews = {}; reviewing = null; telling = null;
+  statsLasting = { habits: null, today: '', year: null };
   ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal', 'recap-modal', 'review-modal', 'story-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
   homeFilter = { category: 'all', text: '' };
   { const box = document.getElementById('habit-search'); if (box) box.value = ''; }
@@ -1391,7 +1393,8 @@ function updateAvatars(user) {
       }
       if (typeof uData.shieldUsedAt === 'number') userShieldUsedAt = uData.shieldUsedAt;
       userReviews = uData.reviews && typeof uData.reviews === 'object' && !Array.isArray(uData.reviews) ? uData.reviews : {};
-      if (location.hash === '#stats' && allHabits.length) renderReviewCard();
+      statsLasting = { habits: null, today: '', year: null };
+      if (location.hash === '#stats' && allHabits.length) renderStats();
       if (typeof uData.allDoneBonusDate === 'string') userAllDoneBonusDate = uData.allDoneBonusDate;
       updateStreakShieldUI();
       if (userDocLoaded) refreshShieldOffer();        // answered on another device: the question here goes too
@@ -3224,18 +3227,35 @@ function renderStats() {
   statsPage.renderHeadline(root, periodSummary(allHabits, range), range, calcStreak(allHabits));
   document.getElementById('by-habit-sub').textContent = range.label;
   statsPage.renderByHabit(document.getElementById('by-habit-list'), habitRates(allHabits, range));
-
   for (const id of ['bars-sub', 'cat-sub', 'trend-sub']) document.getElementById(id).textContent = range.label;
-  statsDrawnAt = document.getElementById('stats-body').clientWidth;
-  statsPage.renderBars(document.getElementById('bars'), barSeries(allHabits, range), range);
-  statsPage.renderTrend(document.getElementById('trend'), trend(allHabits, range), range);
   statsPage.renderBalance(document.getElementById('cat-list'), categoryBalance(allHabits, range, Object.keys(CATS)), key => { const cat = CATS[key] || CATS.health; return { label: cat.label, color: catColor(cat) }; });
-  statsPage.renderHeat(document.getElementById('heat'), heatYear(allHabits, today), day => dayDetail(allHabits, day, today));
+
+  // What does not depend on the period (the year, the insights, the suggestions, looking back, the records) is
+  // worked out and drawn once per set of data, not on every switch of period, theme or width.
+  const fresh = statsLasting.habits !== allHabits || statsLasting.today !== today;
+  if (fresh) statsLasting = { habits: allHabits, today, year: heatYear(allHabits, today) };
+  statsShown = { range, bars: barSeries(allHabits, range), trend: trend(allHabits, range) };
+  drawStatsCharts(fresh);
+  if (!fresh) return;
   renderInsights();
   renderSuggestions();
   renderReviewCard();
   statsPage.renderRecords(document.getElementById('records'), records(allHabits, today, userFrozenDates || []));
 }
+// The charts are drawn at the pixel width of the page, so they alone are drawn again when that width changes.
+let statsLasting = { habits: null, today: '', year: null }, statsShown = null, statsDrawnAt = 0;
+function drawStatsCharts(withYear = true) {
+  if (!statsShown || !statsLasting.year) return;
+  const today = statsLasting.today;
+  statsDrawnAt = document.getElementById('stats-body').clientWidth;
+  statsPage.renderBars(document.getElementById('bars'), statsShown.bars, statsShown.range);
+  statsPage.renderTrend(document.getElementById('trend'), statsShown.trend, statsShown.range);
+  if (withYear) statsPage.renderHeat(document.getElementById('heat'), statsLasting.year, day => dayDetail(allHabits, day, today));
+}
+if (window.ResizeObserver) new ResizeObserver(entries => {
+  const w = Math.round(entries[0].contentRect.width);
+  if (w && Math.abs(w - statsDrawnAt) > 1 && location.hash === '#stats' && allHabits.length) drawStatsCharts(true);
+}).observe(document.getElementById('stats-body'));
 
 // ── Suggestions drawn from the data ───────────────────────
 // Up to three, each with its numbers. "Not now" puts one away for four weeks on this device.
@@ -3244,7 +3264,7 @@ function dismissedSuggestions() {
   try { const v = JSON.parse(localStorage.getItem(suggestKey()) || '{}'); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch (_) { return {}; }
 }
 function renderSuggestions() {
-  const today = todayStr(), items = undismissed(suggestions(allHabits, today), dismissedSuggestions(), today);
+  const today = todayStr(), items = suggestions(allHabits, today, dismissedSuggestions());
   document.getElementById('suggest-card').hidden = items.length === 0;
   statsPage.renderSuggestions(document.getElementById('suggest-list'), items);
 }
@@ -3354,8 +3374,12 @@ function finishReview() {
   const pausing = [...s.pause].map(id => allHabits.find(h => h.id === id)).filter(h => h && !rules.isPausedOn(h, today));
   pausing.forEach(h => backgroundWrite(updateDoc(doc(db, 'habits', h.id), { pauses: rules.withPause(h, today) }), 'pause the habit'));
   const focus = s.focus && !s.pause.has(s.focus) && allHabits.some(h => h.id === s.focus) ? s.focus : null;
-  userReviews = withReview(userReviews, s.review.key, { at: Date.now(), focus });
-  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { reviews: userReviews }, { mergeFields: ['reviews'] }), 'save your review');
+  // Only this week's entry is written (merged into the map), so a review saved on another device is never
+  // overwritten; entries past the newest twenty-six are removed in the same write.
+  const before = Object.keys(userReviews), entry = { at: Date.now(), focus };
+  userReviews = withReview(userReviews, s.review.key, entry);
+  const gone = Object.fromEntries(before.filter(k => !(k in userReviews)).map(k => [k, deleteField()]));
+  backgroundWrite(setDoc(doc(db, 'users', currentUser.uid), { reviews: { ...gone, [s.review.key]: userReviews[s.review.key] } }, { merge: true }), 'save your review');
   document.getElementById('review-modal').classList.add('hidden');
   reviewing = null;
   const name = focus ? (allHabits.find(h => h.id === focus).name || 'Habit') : '';
@@ -3381,16 +3405,10 @@ document.getElementById('review-body')?.addEventListener('change', e => {
   if (t.name === 'focus') reviewing.focus = t.value;
   else if (t.name.startsWith('slip-')) { const id = t.name.slice(5); if (t.value === 'pause') reviewing.pause.add(id); else reviewing.pause.delete(id); }
 });
-// The charts are drawn at the pixel width of the page, so they are drawn again when that width changes.
-let statsDrawnAt = 0;
-if (window.ResizeObserver) new ResizeObserver(entries => {
-  const w = Math.round(entries[0].contentRect.width);
-  if (w && Math.abs(w - statsDrawnAt) > 1 && location.hash === '#stats') renderStats();
-}).observe(document.getElementById('stats-body'));
 function setStatsPeriod(period, focus = false) {
   if (!PERIODS.includes(period)) return;
   statsPeriod = period;
-  localStorage.setItem('habitly_stats_period', period);
+  try { localStorage.setItem('habitly_stats_period', period); } catch (_) { /* storage blocked: the choice lasts for this visit */ }
   renderStats();
   if (focus) document.querySelector(`#stats-period [data-period="${period}"]`)?.focus();
   track('stats_period', { period });

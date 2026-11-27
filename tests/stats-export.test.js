@@ -84,8 +84,8 @@ test('reportModel: the figures the PDF is drawn from', async () => {
   assert.deepEqual(m.rows, [
     ['Read', 'Reading', 'Every day', '41 days', '41 days', '100%', '41'],
     ['Run', 'Health', 'Every day', '10 days', '10 days', '34%', '10'],
-    ['Call', 'Health', 'Once a week', '2 weeks', '2 weeks', '–', '2'],
-    ['Gone (archived)', 'Health', 'Every day', '–', '1 day', '0%', '1'],
+    ['Call', 'Health', 'Once a week', '2 weeks', '2 weeks', '-', '2'],
+    ['Gone (archived)', 'Health', 'Every day', '-', '1 day', '0%', '1'],
   ]);
   assert.ok(m.records.length >= 5 && m.records.every(r => r.length === 3));
   assert.deepEqual(m.notes, [{ when: ago(3), habit: 'Read', text: 'Finished the chapter.' }, { when: ago(50), habit: 'Read', text: 'Started.' }]);
@@ -96,5 +96,6 @@ test('reportModel: an empty account still makes a report, and nothing reads NaN'
   const m = reportModel([], TODAY, {});
   assert.deepEqual([m.name, m.rows, m.records, m.notes], ['', [], [], []]);
   assert.ok(!/NaN|undefined|null/.test(JSON.stringify(m.figures)));
-  assert.equal(m.figures[0].value, '–');
+  assert.equal(m.figures[0].value, '-');
+  assert.ok(!/[^\x00-\xff]/.test(JSON.stringify(reportModel([H('Call', [3], { frequency: 'weekly' })], TODAY, {}))), 'nothing outside Latin-1 is put into the PDF by the app itself');
 });

@@ -33,7 +33,7 @@ export function renderHeadline(root, sum, range, streak) {
   const set = (id, value) => { const el = root.querySelector('#' + id); if (el) el.textContent = value; };
   set('stats-range', `${range.label} · ${range.span}`);
   set('stat-rate', sum.rate === null ? DASH : sum.rate + '%');
-  set('stat-rate-sub', sum.rate === null ? (sum.checkins ? 'Weekly and monthly habits have no daily rate' : 'Nothing was due yet') : `${sum.doneOwed} of ${sum.owed} due`);
+  set('stat-rate-sub', sum.rate === null ? (sum.checkins ? 'No day-by-day habit was due (weekly and monthly habits have no daily rate)' : 'Nothing was due yet') : `${sum.doneOwed} of ${sum.owed} due`);
   set('stat-done', String(sum.checkins));
   set('stat-done-sub', sum.checkins ? `on ${sum.active} of ${plural(sum.days, 'day')}` : 'none yet');
   set('stat-perfect', String(sum.perfect));
@@ -49,7 +49,7 @@ export function renderByHabit(el, rows) {
   el.innerHTML = rows.map(r => {
     const daily = r.kind === 'daily';
     const figure = daily ? (r.rate === null ? DASH : r.rate + '%') : plural(r.done, 'time');
-    const meta = daily ? `${r.done} of ${plural(r.owed, 'day')}${r.extra ? `, and ${r.extra} extra` : ''}` : r.kind === 'weekly' ? 'Weekly habit' : 'Monthly habit';
+    const meta = daily ? (r.owed ? `${r.done} of ${plural(r.owed, 'day')}${r.extra ? `, and ${r.extra} extra` : ''}` : `Done ${plural(r.extra, 'time')} when it was not due`) : r.kind === 'weekly' ? 'Weekly habit' : 'Monthly habit';
     const tone = r.rate === null ? 'none' : r.rate >= 70 ? 'high' : r.rate >= 40 ? 'mid' : 'low';
     const tag = r.archived ? 'div' : 'a';                    // an archived habit has no page to open
     return `<${tag} class="rate-row"${r.archived ? '' : ` href="#habit/${encodeURIComponent(r.id)}"`} data-id="${esc(r.id)}">
@@ -263,7 +263,7 @@ export function renderHeat(box, year, detailFor) {
 export function renderReviewCard(el, m) {
   const r = m.review;
   if (!r.any) {
-    el.innerHTML = '<div class="rv-row"><div class="rv-text"><strong>Weekly review</strong><p id="review-status">Your first full week is not over yet. Come back on Monday to look at it.</p></div></div>';
+    el.innerHTML = `<div class="rv-row"><div class="rv-text"><strong>Weekly review</strong><p id="review-status">${r.began ? 'Nothing was due or done last week, so there is nothing to review.' : 'Your first full week is not over yet. Come back on Monday to look at it.'}</p></div></div>`;
     return;
   }
   const p = m.focus && m.focus.progress;

@@ -123,10 +123,18 @@ export async function addDoc(c, data) {
   notify(c.name);
   return ack({ id });
 }
+function mergeDeep(target, data) {
+  Object.entries(data).forEach(([key, val]) => {
+    if (val && typeof val === 'object' && Object.getPrototypeOf(val) === Object.prototype && !val.__op) {
+      if (typeof target[key] !== 'object' || target[key] === null || Array.isArray(target[key])) target[key] = {};
+      mergeDeep(target[key], val);
+    } else applyOp(target, key, val);
+  });
+}
 export async function setDoc(ref, data, opts) {
   const c = col(ref.name);
   if (opts && Array.isArray(opts.mergeFields)) { c[ref.id] = c[ref.id] || {}; opts.mergeFields.forEach(f => { c[ref.id][f] = clone(data[f]); }); }
-  else if (opts && opts.merge && c[ref.id]) applyUpdate(c[ref.id], data);
+  else if (opts && opts.merge) { c[ref.id] = c[ref.id] || {}; mergeDeep(c[ref.id], data); }
   else { c[ref.id] = {}; applyUpdate(c[ref.id], data); }
   writes.push({ op: 'set', col: ref.name, id: ref.id, data: clone(data) });
   notify(ref.name);

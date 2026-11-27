@@ -135,7 +135,7 @@ test('story: the best and hardest day of the week, only when they really differ'
 test('story: with nothing last month it tells this month so far; with nothing at all there is no story', async () => {
   const { story } = await load();
   const s = story([H('Read', range(0, 10), { createdAt: ago(10) + 'T08:00:00' })], 'month', TODAY);
-  assert.deepEqual([s.title, s.from, s.to], ['November 2026 so far', '2026-11-01', TODAY]);
+  assert.deepEqual([s.title, s.from, s.to], ['November 2026 so far', ago(10), TODAY], 'counted from the day the account began');
   assert.ok(!s.slides.find(x => x.id === 'rate').line.includes('October'), 'nothing to compare with');
   assert.equal(story([], 'month', TODAY), null);
   assert.equal(story([H('Idle')], 'year', TODAY), null);
@@ -227,4 +227,35 @@ test('undismissed: a dismissed suggestion stays away for four weeks, then may re
   assert.deepEqual(undismissed(items, { 'slipping:a': ago(28) }, TODAY).map(x => x.id), ['slipping:a', 'raise:b']);
   assert.deepEqual(undismissed(items, { 'slipping:a': 'junk', 'raise:b': ago(-3) }, TODAY).length, 2, 'junk and future dates dismiss nothing');
   assert.deepEqual(undismissed(items, null, TODAY).length, 2);
+});
+
+// ── From the independent review of batch 6 ─────────────────
+test('review: the best run in a story skips days when nothing was due', async () => {
+  const { story } = await load();
+  const weekdays = range(25, 55).filter(n => ![0, 6].includes(new Date(Date.UTC(2026, 10, 25) - n * 864e5).getUTCDay()));
+  const s = story([H('Work out', weekdays, { schedule: { type: 'days', days: [1, 2, 3, 4, 5] } })], 'month', TODAY);
+  assert.equal(s.slides.find(x => x.id === 'run').big, weekdays.length + ' days');
+});
+
+test('review: a story never counts days before the account began, and needs a few days to tell', async () => {
+  const { story } = await load();
+  const s = story([H('Read', [0], { createdAt: ago(0) + 'T08:00:00' })], 'year', TODAY);
+  assert.equal(s.slides.find(x => x.id === 'days').big, '1 of 1 day');
+  assert.equal(s.enough, false, 'one day is not a story');
+  const week = story([H('Read', range(0, 6), { createdAt: ago(6) + 'T08:00:00' })], 'year', TODAY);
+  assert.deepEqual([week.slides.find(x => x.id === 'days').big, week.enough], ['7 of 7 days', true]);
+});
+
+test('review: a dismissed suggestion makes room for the next one', async () => {
+  const { suggestions } = await load();
+  const before = range(15, 28), four = ['A', 'B', 'C', 'D'].map((n, i) => H(n, [...range(1, i), ...before]));
+  assert.deepEqual(suggestions(four, TODAY, { 'slipping:a': ago(2) }).map(x => x.id), ['slipping:b', 'slipping:c', 'slipping:d']);
+  assert.deepEqual(suggestions(four, TODAY).map(x => x.id), ['slipping:a', 'slipping:b', 'slipping:c']);
+});
+
+test('review: a quiet week on an established account is not called a first week', async () => {
+  const { weekReview } = await load();
+  const quiet = weekReview([H('Call', [40], { frequency: 'weekly' })], TODAY);
+  assert.deepEqual([quiet.any, quiet.began], [false, true]);
+  assert.deepEqual([weekReview([H('New', [0], { createdAt: ago(1) + 'T09:00:00' })], TODAY).began, weekReview([], TODAY).began], [false, false]);
 });

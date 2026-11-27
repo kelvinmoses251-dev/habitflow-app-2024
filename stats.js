@@ -75,6 +75,18 @@ export function periodRange(period, today, habits = []) {
 // Whether a habit was owed and done on a day is worked out once per habit object (the app makes fresh objects
 // whenever the data changes), so switching period, and every chart on the page, reuses the same answers.
 const OWED = 1, DONE = 2;
+// The day a habit began: when it was made or, for an old habit with no date, the first day it was done (one never
+// done began "never": nothing was ever owed).
+const born = new WeakMap();
+function bornDay(h) {
+  let day = born.get(h);
+  if (day === undefined) {
+    day = createdDay(h);
+    if (!isDay(day)) { day = ''; for (const d of doneSet(h)) if (!day || d < day) day = d; if (!day) day = '9999-12-31'; }
+    born.set(h, day);
+  }
+  return day;
+}
 const marks = new WeakMap();
 function markOn(h, day) {
   let kept = marks.get(h);
@@ -82,7 +94,7 @@ function markOn(h, day) {
   let m = kept.get(day);
   if (m === undefined) {
     m = 0;
-    try { if (owedOn(h, day)) m |= OWED; } catch (_) { /* junk dates: not owed */ }
+    try { if (day >= bornDay(h) && owedOn(h, day)) m |= OWED; } catch (_) { /* junk dates: not owed */ }
     if (doneSet(h).has(day)) m |= DONE;
     kept.set(day, m);
   }
@@ -282,9 +294,26 @@ export function dayDetail(habits, day, today) {
 // The bests of the whole history, each with when (or which habit) it was. `fresh` marks a record set or still
 // being extended in the last seven days. With no check-ins at all there are no records (the page says how to
 // start instead of showing a wall of zeros). Ties go to the most recent.
+const streakKept = new WeakMap(), recordsKept = new WeakMap();
+function streaksFor(h, today, shields) {
+  const key = today + '|' + shields.join(','), kept = streakKept.get(h);
+  if (kept && kept.key === key) return kept;
+  let longest = 0, current = 0;
+  try { longest = rules.habitLongestStreak(h, today, shields); current = rules.habitStreak(h, today, shields); } catch (_) { /* junk dates: no streak */ }
+  const fresh = { key, longest, current };
+  streakKept.set(h, fresh);
+  return fresh;
+}
 export function records(habits, today, frozen = []) {
+  const shields = Array.isArray(frozen) ? frozen.filter(isDay) : [], key = today + '|' + shields.join(',');
+  const kept = Array.isArray(habits) ? recordsKept.get(habits) : null;
+  if (kept && kept.key === key) return kept.out;               // the app makes a new list whenever the data changes
+  const out = recordsOf(habits, today, shields);
+  if (Array.isArray(habits)) recordsKept.set(habits, { key, out });
+  return out;
+}
+function recordsOf(habits, today, shields) {
   const list = real(habits), from = firstDay(list, today);
-  const shields = Array.isArray(frozen) ? frozen.filter(isDay) : [];
   const recent = day => isDay(day) && rules.dayNumber(today) - rules.dayNumber(day) < 7;
   let total = 0, active = 0, days = 0;
   let bestDay = { n: 0, day: '' }, run = 0, runStart = '', bestRun = { n: 0, from: '', to: '' };
@@ -295,7 +324,7 @@ export function records(habits, today, frozen = []) {
     if (t.done && t.done >= bestDay.n) bestDay = { n: t.done, day };
     const perfect = t.owed > 0 && t.doneOwed === t.owed && t.open === 0;
     if (perfect) { if (!run) runStart = day; run++; if (run >= bestRun.n) bestRun = { n: run, from: runStart, to: day }; }
-    else if (!(day === today && t.open > 0 && t.doneOwed === t.owed)) run = 0;      // an open today neither extends a run nor ends it
+    else if (t.owed > 0) run = 0;                              // a miss ends it; a rest day, a paused day or an open today does not
     if (t.done) {
       const w = rules.shiftDay(day, -((rules.weekdayOf(day) + 6) % 7)), m = day.slice(0, 7);
       weeks.set(w, (weeks.get(w) || 0) + t.done); months.set(m, (months.get(m) || 0) + t.done);
@@ -308,8 +337,7 @@ export function records(habits, today, frozen = []) {
   let streak = null;
   for (const h of list) {
     if (rules.baseFreq(h) !== 'daily') continue;
-    let longest = 0, current = 0;
-    try { longest = rules.habitLongestStreak(h, today, shields); current = rules.habitStreak(h, today, shields); } catch (_) { /* junk dates: no streak */ }
+    const { longest, current } = streaksFor(h, today, shields);
     if (longest > 0 && (!streak || longest > streak.n || (longest === streak.n && current === longest && !streak.going))) streak = { n: longest, name: String(h.name == null ? '' : h.name), going: current === longest };
   }
   if (streak && streak.n >= 2) out.push({ id: 'streak', value: String(streak.n), unit: 'days', label: 'Longest streak', detail: streak.going ? `${streak.name}, and still going` : streak.name, fresh: streak.going });

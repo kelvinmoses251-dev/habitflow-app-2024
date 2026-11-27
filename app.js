@@ -22,7 +22,7 @@ import { LEVELS, levelInfo, xpHistory, milestoneCrossed, MILESTONE_LINES, achiev
 import * as moments from "./moments.js?v=1";
 import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNotes, habitInsights, sessionTotals, withSession } from "./habit-history.js?v=1";
 import * as habitPage from "./habit-page.js?v=1";
-import { PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryCheckins, trend } from "./stats.js?v=1";
+import { PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryCheckins, trend, heatYear, dayDetail } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
 watchDialogs();   // one behaviour for every dialog: focus, scroll lock, backdrop and drag dismissal
@@ -3224,8 +3224,7 @@ function renderStats() {
   statsPage.renderBars(document.getElementById('bars'), barSeries(allHabits, range), range);
   statsPage.renderTrend(document.getElementById('trend'), trend(allHabits, range), range);
   statsPage.renderCategories(document.getElementById('cat-list'), categoryCheckins(allHabits, range), key => { const cat = CATS[key] || CATS.health; return { label: cat.label, color: catColor(cat) }; });
-
-  renderHeatmap();
+  statsPage.renderHeat(document.getElementById('heat'), heatYear(allHabits, today), day => dayDetail(allHabits, day, today));
   renderInsights();
 }
 // The charts are drawn at the pixel width of the page, so they are drawn again when that width changes.
@@ -3250,93 +3249,6 @@ document.getElementById('stats-period')?.addEventListener('keydown', e => {
   const next = statsPage.periodForKey(e.key, PERIODS, statsPeriod);
   if (next) { e.preventDefault(); setStatsPeriod(next, true); }
 });
-
-function renderHeatmap() {
-  const container = document.getElementById('heatmap');
-  const monthLabelsEl = document.getElementById('heatmap-month-labels');
-  if (!container) return;
-  container.innerHTML = '';
-  if (monthLabelsEl) monthLabelsEl.innerHTML = '';
-
-  // Build last 16 weeks (112 days), starting from the most recent Monday
-  const today = new Date(); today.setHours(0,0,0,0);
-  // Find the start of this week (Monday)
-  const dayOfWeek = (today.getDay() + 6) % 7; // 0=Mon, 6=Sun
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - dayOfWeek);
-  // Go back 15 more weeks for 16 total
-  const gridStart = new Date(weekStart);
-  gridStart.setDate(weekStart.getDate() - 15 * 7);
-
-  // Build all days from gridStart to today
-  const days = [];
-  const d = new Date(gridStart);
-  while (d <= today) {
-    const ds = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
-    days.push({ ds, date: new Date(d) });
-    d.setDate(d.getDate() + 1);
-  }
-
-  // Count completions per day
-  const counts = {};
-  days.forEach(({ ds }) => counts[ds] = 0);
-  allHabits.forEach(h => {
-    (h.completedDates || []).forEach(ds => {
-      if (counts[ds] !== undefined) counts[ds]++;
-    });
-  });
-
-  // Build month labels (one per column-week where month changes)
-  if (monthLabelsEl) {
-    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    let lastMonth = -1;
-    let colIndex = 0;
-    const totalCols = Math.ceil(days.length / 7);
-    const labels = [];
-    for (let col = 0; col < totalCols; col++) {
-      const dayIndex = col * 7;
-      if (dayIndex < days.length) {
-        const month = days[dayIndex].date.getMonth();
-        if (month !== lastMonth) {
-          labels.push({ col, label: MONTHS[month] });
-          lastMonth = month;
-        } else {
-          labels.push({ col, label: '' });
-        }
-      }
-    }
-    // Render month label spans with dynamic widths
-    let i = 0;
-    while (i < labels.length) {
-      const span = document.createElement('span');
-      span.className = 'heatmap-month-label';
-      span.textContent = labels[i].label;
-      // width = number of columns until next label * (14px cell + 4px gap)
-      const nextIdx = labels.findIndex((l, idx) => idx > i && l.label !== '');
-      const spanCols = (nextIdx === -1 ? labels.length : nextIdx) - i;
-      span.style.width = (spanCols * 18) + 'px';
-      span.style.flexShrink = '0';
-      monthLabelsEl.appendChild(span);
-      i = nextIdx === -1 ? labels.length : nextIdx;
-    }
-  }
-
-  // Render heatmap cells
-  days.forEach(({ ds, date }) => {
-    const count = counts[ds];
-    const cell = document.createElement('div');
-    cell.className = 'heatmap-cell';
-    const displayDate = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-    cell.title = `${displayDate}: ${count} habit${count !== 1 ? 's' : ''} completed`;
-    if (count > 0) {
-      const intensity = Math.min(Math.ceil(count / Math.max(allHabits.length / 4, 1)), 4);
-      cell.setAttribute('data-count', intensity);
-    }
-    // Dim future placeholder cells
-    if (date > today) cell.style.opacity = '0';
-    container.appendChild(cell);
-  });
-}
 
 // ── Insights: turn raw check-ins into plain-language observations ──
 function buildInsights(habits, today = new Date()) {

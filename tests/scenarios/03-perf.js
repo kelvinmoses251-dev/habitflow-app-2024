@@ -21,7 +21,7 @@ module.exports = (scenario, c) => {
     check('the categories are listed', await waitFor(`!!document.querySelector('#cat-list .cat-row')`, 3000));
     await sleep(1500);
     check('Chart.js is not loaded', (await ev(`typeof window.Chart`)) === 'undefined');
-    check('the heatmap renders', (await ev(`document.querySelectorAll('#heatmap .heatmap-cell').length`)) > 50);
+    check('the year renders', (await ev(`document.querySelectorAll('#heat .hc[data-day]').length`)) > 360);
     noExceptions();
   });
 

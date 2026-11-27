@@ -217,3 +217,42 @@ export function trend(habits, range) {
   }
   return { now, before, rate: sum.rate, owed: sum.owed, doneOwed: sum.doneOwed, prevRate, delta: sum.rate !== null && prevRate !== null ? sum.rate - prevRate : null };
 }
+
+// ── The year, a square a day ───────────────────────────────
+// Fifty-three weeks, Monday to Sunday, the last one holding today. A day's level says how much of what was due
+// got done: 0 nothing, 1 under a third, 2 under two thirds, 3 not quite all, 4 all of it (or something done on a
+// day nothing was due). Today is judged against everything due today, done or not.
+export function heatYear(habits, today) {
+  const list = real(habits);
+  const start = rules.shiftDay(today, -((rules.weekdayOf(today) + 6) % 7) - 52 * 7);
+  const weeks = [], months = [];
+  let active = 0, perfect = 0, days = 0, lastMonth = '';
+  for (let w = 0; w < 53; w++) {
+    const col = [];
+    for (let d = 0; d < 7; d++) {
+      const day = rules.shiftDay(start, w * 7 + d);
+      if (day > today) { col.push({ day, future: true, today: false, level: 0, owed: 0, doneOwed: 0, done: 0 }); continue; }
+      const t = dayTotals(list, day, today), due = t.owed + t.open, share = due ? t.doneOwed / due : 1;
+      const level = !t.done ? 0 : !due || share >= 1 ? 4 : share < 1 / 3 ? 1 : share < 2 / 3 ? 2 : 3;
+      days++; if (t.done) active++; if (due && t.doneOwed === due) perfect++;
+      col.push({ day, future: false, today: day === today, level, owed: due, doneOwed: t.doneOwed, done: t.done });
+    }
+    const month = col[6].day.slice(0, 7);                       // a column is labelled by the month its Sunday falls in
+    if (month !== lastMonth) { months.push({ col: w, label: MONTHS[Number(month.slice(5)) - 1] }); lastMonth = month; }
+    weeks.push(col);
+  }
+  if (months.length > 1 && months[1].col - months[0].col < 3) months.shift();   // no room for a sliver of a month
+  return { weeks, months, active, perfect, days, from: start, to: today };
+}
+
+// One day, by name: what was done, what was missed, and (today) what is still open.
+export function dayDetail(habits, day, today) {
+  const doneNames = [], missedNames = [], openNames = [];
+  for (const h of real(habits)) {
+    const name = String(h.name == null ? '' : h.name);
+    if (wasDone(h, day)) doneNames.push(name);
+    else if (wasOwed(h, day)) (day === today ? openNames : missedNames).push(name);
+  }
+  const t = dayTotals(habits, day, today);
+  return { day, long: `${longDay(day)} ${day.slice(0, 4)}`, owed: t.owed + t.open, doneOwed: t.doneOwed, done: t.done, doneNames, missedNames, openNames };
+}

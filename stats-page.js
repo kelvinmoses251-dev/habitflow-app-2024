@@ -94,6 +94,7 @@ function picker(box, items, say, rest, moveBy = null) {
     if (to === null || to === undefined) return;
     e.preventDefault(); e.stopPropagation();
     box._show(to);
+    box.querySelector('.is-on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
 }
 // Redraw a chart's box, keeping the keyboard where it was if it was on the plot.
@@ -202,4 +203,44 @@ export function renderTrend(box, t, range) {
     <div class="sr-only"><table><caption>Completion rate, ${esc(range.label.toLowerCase())}</caption><thead><tr><th scope="col">When</th><th scope="col">Rate</th>${t.before ? '<th scope="col">The period before</th>' : ''}</tr></thead>
       <tbody>${t.now.map((p, i) => `<tr><th scope="row">${esc(p.long)}</th><td>${p.rate === null ? 'nothing due' : p.rate + '%'}</td>${t.before ? `<td>${t.before[i] && t.before[i].rate !== null ? t.before[i].rate + '%' : 'nothing due'}</td>` : ''}</tr>`).join('')}</tbody></table></div>`);
   picker(box, t.now, say, rest);
+}
+
+// ── The year, a square a day ───────────────────────────────
+// year: stats.heatYear(...). detailFor(day): stats.dayDetail(...), asked for only when a day is picked. The grid
+// fills the card on a wide screen; on a narrow one it scrolls sideways inside its own box, starting at today.
+const someNames = list => (list.length > 5 ? `${list.slice(0, 5).join(', ')} and ${list.length - 5} more` : list.join(', '));
+export function renderHeat(box, year, detailFor) {
+  const all = year.weeks.flat(), past = all.filter(c => !c.future);
+  const was = box.querySelector('.heat-scroll') ? box.querySelector('.heat-scroll').scrollLeft : null;
+  const cell = Math.max(13, Math.min(16, Math.floor((widthOf(box) - 36 - 52 * 3) / 53)));
+  const rest = `Active on ${past.filter(c => c.done).length} of the last ${plural(past.length, 'day')}${year.perfect ? `, with everything done on ${year.perfect}` : ''}.`;
+  const say = c => {
+    const d = detailFor(c.day);
+    const head = d.owed ? `${d.doneOwed} of ${d.owed} due done` : d.done ? plural(d.done, 'check-in') : 'nothing was due';
+    return `${d.long}: ${head}.${d.doneNames.length ? ` Done: ${someNames(d.doneNames)}.` : ''}${d.missedNames.length ? ` Missed: ${someNames(d.missedNames)}.` : ''}${d.openNames.length ? ` Still open: ${someNames(d.openNames)}.` : ''}`;
+  };
+  // Left and right move a week, up and down a day; the first key lands on today.
+  const moveBy = (at, key) => {
+    const step = { ArrowLeft: -7, ArrowRight: 7, ArrowUp: -1, ArrowDown: 1 }[key];
+    if (!step) return null;
+    if (at < 0) return past.length - 1;
+    const to = at + step;
+    return to < 0 || to > past.length - 1 ? at : to;
+  };
+  let i = 0;
+  draw(box, `
+    <div class="heat" style="--cell:${cell}px">
+      <div class="heat-days" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>
+      <div class="chart-plot heat-scroll" tabindex="0" role="group" aria-label="The last year, a square a day. ${esc(rest)} Use the arrow keys to read each day.">
+        <div class="heat-inner">
+          <div class="heat-months" aria-hidden="true">${year.months.map(m => `<span style="grid-column:${m.col + 1}">${m.label}</span>`).join('')}</div>
+          <div class="heat-grid" aria-hidden="true">${all.map(c => (c.future ? '<i class="hc is-future"></i>' : `<i class="hc l-${c.level}${c.today ? ' is-today' : ''}" data-i="${i++}" data-day="${c.day}"></i>`)).join('')}</div>
+        </div>
+      </div>
+    </div>
+    <div class="heat-legend" aria-hidden="true"><span>Less</span><i class="hc l-0"></i><i class="hc l-1"></i><i class="hc l-2"></i><i class="hc l-3"></i><i class="hc l-4"></i><span>More of what was due</span></div>
+    <p class="chart-detail" aria-live="polite">${esc(rest)}</p>`);
+  const scroller = box.querySelector('.heat-scroll');
+  scroller.scrollLeft = was === null ? scroller.scrollWidth : was;   // start at today; a redraw stays where the person scrolled to
+  picker(box, past, say, rest, moveBy);
 }

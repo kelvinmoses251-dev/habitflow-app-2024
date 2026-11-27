@@ -120,4 +120,47 @@ module.exports = (scenario, c) => {
     check('a weekly-only account gets a sentence, not an empty chart', !(await ev(`!!document.querySelector('#trend svg')`)) && /no rate to draw/.test(await trim('#trend')), await trim('#trend'));
     noExceptions();
   });
+  // ── 53: the year, a square a day ─────────────────────────
+  const cellOf = n => `document.querySelector('#heat .hc[data-day="${day(n)}"]')`;
+  scenario('year: a full-width heatmap with month labels and day detail', async () => {
+    await size(1280, 800);
+    await boot({ seed: seed(three()), mobile: false }); await stats();
+    check('fifty-three weeks of squares, the first a Monday', await ev(`(() => { const all = document.querySelectorAll('#heat .heat-grid .hc'); const first = document.querySelector('#heat .hc[data-day]').dataset.day; return all.length === 371 && new Date(first + 'T12:00:00Z').getUTCDay() === 1; })()`));
+    check('today is the last square, and marked', await ev(`(() => { const d = [...document.querySelectorAll('#heat .hc[data-day]')]; const last = d[d.length - 1]; return last.dataset.day === ${JSON.stringify(day(0))} && last.classList.contains('is-today'); })()`));
+    check('a day with everything done is the darkest, half done is in between, nothing is blank', await ev(`${cellOf(2)}.classList.contains('l-4') && ${cellOf(5)}.classList.contains('l-2') && ${cellOf(25)}.classList.contains('l-0')`));
+    check('the darkest and the blank really differ in colour', await ev(`getComputedStyle(${cellOf(2)}).backgroundColor !== getComputedStyle(${cellOf(25)}).backgroundColor`));
+    check('month labels are there and do not overlap', await ev(`(() => { const t = [...document.querySelectorAll('#heat .heat-months span')].map(x => x.getBoundingClientRect()); return t.length >= 11 && t.every((r, i) => !i || r.left >= t[i - 1].right); })()`));
+    check('on a desktop it fills the card without scrolling', await ev(`(() => { const s = document.querySelector('#heat .heat-scroll'), g = document.querySelector('#heat .heat-grid').getBoundingClientRect(), card = document.querySelector('.heat-card').getBoundingClientRect(); return s.scrollWidth <= s.clientWidth + 1 && g.width > card.width * 0.8; })()`));
+    check('it says the year in a sentence', /^Active on 21 of the last 3\d\d days, with everything done on 3\.$/.test(await trim('#heat .chart-detail')), await trim('#heat .chart-detail'));
+    check('a legend explains the shades', (await ev(`document.querySelectorAll('#heat .heat-legend .hc').length`)) === 5 && /Less/.test(await text('#heat .heat-legend')));
+    await ev(`${cellOf(2)}.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))`); await sleep(150);
+    check('tapping a day names what was done', / \d{4}: 2 of 2 due done\. Done: Read 10 pages, Run <b>far<\/b>, Call home\.$/.test(await trim('#heat .chart-detail')), await trim('#heat .chart-detail'));
+    check('names are shown as text', !(await ev(`!!document.querySelector('#heat .chart-detail b')`)));
+    await ev(`${cellOf(5)}.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))`); await sleep(150);
+    check('and what was missed', /1 of 2 due done\. Done: Read 10 pages\. Missed: Run <b>far<\/b>\.$/.test(await trim('#heat .chart-detail')), await trim('#heat .chart-detail'));
+    check('the old sixteen-week grid is gone', !(await ev(`!!document.getElementById('heatmap')`)));
+    noExceptions();
+  });
+
+  scenario('year: the heatmap works from the keyboard and on a phone', async () => {
+    await size(375, 667);
+    await boot({ seed: seed(three()) }); await stats();
+    check('on a phone it scrolls inside its own box, starting at today', await ev(`(() => { const s = document.querySelector('#heat .heat-scroll'); return s.scrollWidth > s.clientWidth + 50 && s.scrollLeft + s.clientWidth >= s.scrollWidth - 2; })()`));
+    check('and the page does not scroll sideways', await ev(`document.documentElement.scrollWidth <= innerWidth`));
+    check('squares are big enough to tap', await ev(`document.querySelector('#heat .hc[data-day]').getBoundingClientRect().width >= 13`));
+    await ev(`document.querySelector('#heat .heat-scroll').focus()`);
+    await press('ArrowLeft', 37);
+    check('the first arrow key lands on today, and says what is still open', (await ev(`${cellOf(0)}.classList.contains('is-on')`)) && /1 of 2 due done\. Done: Read 10 pages\. Still open: Run/.test(await trim('#heat .chart-detail')), await trim('#heat .chart-detail'));
+    await press('ArrowUp', 38);
+    check('Up is the day before', await ev(`${cellOf(1)}.classList.contains('is-on')`));
+    await press('ArrowLeft', 37);
+    check('Left is a week before', await ev(`${cellOf(8)}.classList.contains('is-on')`));
+    await press('ArrowRight', 39); await press('ArrowDown', 40); await press('ArrowDown', 40);
+    check('it never walks into the future', await ev(`${cellOf(0)}.classList.contains('is-on')`));
+    await press('Home', 36);
+    check('Home goes to the first day, scrolled into view', await ev(`(() => { const c = document.querySelector('#heat .hc[data-i="0"]'), s = document.querySelector('#heat .heat-scroll').getBoundingClientRect(), r = c.getBoundingClientRect(); return c.classList.contains('is-on') && r.left >= s.left - 1 && r.right <= s.right + 1; })()`));
+    await press('Escape', 27);
+    check('Escape returns to the summary', /^Active on/.test(await trim('#heat .chart-detail')));
+    noExceptions();
+  });
 };

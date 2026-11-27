@@ -210,3 +210,41 @@ test('trend: a month is six stretches of five days; a year is its twelve months,
   assert.deepEqual([y.now.length, y.before.length, y.now[11].label, y.before[11].long], [12, 12, 'Nov', 'November 2025']);
   assert.ok(y.delta > 0);
 });
+
+// ── The year ───────────────────────────────────────────────
+test('heatYear: fifty-three weeks from a Monday, the last one holding today', async () => {
+  const { heatYear } = await load();
+  const y = heatYear([H('Read', range(0, 20)), H('Run', [1, 2, 3]), H('Call', [2], { frequency: 'weekly' })], TODAY);
+  assert.equal(y.weeks.length, 53);
+  assert.ok(y.weeks.every(w => w.length === 7));
+  assert.equal(y.weeks[0][0].day, '2025-11-24');
+  assert.deepEqual(y.weeks[52].map(c => [c.day.slice(8), c.future, c.today]), [['23', false, false], ['24', false, false], ['25', false, true], ['26', true, false], ['27', true, false], ['28', true, false], ['29', true, false]]);
+  assert.equal(y.days, 367);
+  assert.equal(y.active, 21);
+  assert.equal(y.perfect, 3);
+});
+
+test('heatYear: the level of a day is the share of what was due that got done', async () => {
+  const { heatYear } = await load();
+  const habits = [H('A', [1, 2, 3, 4]), H('B', [1, 2, 3]), H('C', [1, 2]), H('D', [1, 6], {}), H('W', [8], { frequency: 'weekly' })];
+  const y = heatYear(habits, TODAY), at = n => y.weeks.flat().find(c => c.day === ago(n));
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 8].map(n => at(n).level), [4, 3, 2, 1, 0, 1, 1]);
+  assert.deepEqual([at(0).level, at(0).owed], [0, 4], 'today, nothing done yet');
+  const rest = heatYear([H('Weekends', [3], { schedule: { type: 'days', days: [1, 2, 3, 4, 5] } })], TODAY).weeks.flat().find(c => c.day === ago(3));
+  assert.deepEqual([rest.level, rest.owed, rest.done], [4, 0, 1], 'something done on a day nothing was due');
+});
+
+test('heatYear: month labels sit over the week their month begins in, with no sliver at the start', async () => {
+  const { heatYear } = await load();
+  const y = heatYear([], TODAY);
+  assert.deepEqual(y.months.map(m => m.label), ['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov']);
+  assert.ok(y.months.every((m, i) => !i || m.col - y.months[i - 1].col >= 3));
+});
+
+test('dayDetail: a day by name', async () => {
+  const { dayDetail } = await load();
+  const habits = [H('Read', [0, 1]), H('Run', [1]), H('Swim', []), H('Call', [1], { frequency: 'weekly' })];
+  assert.deepEqual(dayDetail(habits, ago(1), TODAY), { day: ago(1), long: 'Tue 24 Nov 2026', owed: 3, doneOwed: 2, done: 3, doneNames: ['Read', 'Run', 'Call'], missedNames: ['Swim'], openNames: [] });
+  const now = dayDetail(habits, TODAY, TODAY);
+  assert.deepEqual([now.owed, now.doneOwed, now.doneNames, now.missedNames, now.openNames], [3, 1, ['Read'], [], ['Run', 'Swim']]);
+});

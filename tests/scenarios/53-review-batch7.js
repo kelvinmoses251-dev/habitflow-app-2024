@@ -11,7 +11,7 @@ module.exports = (scenario, c) => {
   const click = async sel => { await ev(`document.querySelector(${JSON.stringify(sel)}).click()`); await sleep(400); };
   const toasts = () => ev(`[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ')`);
   const enter = async () => { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r' }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 }); await sleep(500); };
-  const openLink = async (code = 'good') => { await ev(`location.href = '/?apiKey=x&mode=signIn&oobCode=${code}&lang=en'`); await sleep(1500); };
+  const openLink = async (code = 'good') => { await ev(`location.href = '/?apiKey=x&mode=signIn&oobCode=${code}&lang=en'`); await sleep(400); await waitFor(`document.readyState === 'complete' && (!document.getElementById('auth-screen').classList.contains('hidden') || !document.getElementById('app').classList.contains('hidden'))`, 10000); await sleep(900); };   // the page has loaded and decided what to show
   const mode = () => ev(`[...document.querySelectorAll('#auth-mode [data-mode]')].filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.mode).join()`);
 
   scenario('review: a real Enter key on the sign-up form creates the account', async () => {

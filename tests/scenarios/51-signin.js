@@ -12,7 +12,7 @@ module.exports = (scenario, c) => {
   const click = async sel => { await ev(`document.querySelector(${JSON.stringify(sel)}).click()`); await sleep(400); };
   const toasts = () => ev(`[...document.querySelectorAll('.toast')].map(t => t.textContent).join(' | ')`);
   const linkSeed = email => ({ habitly_link_email: JSON.stringify({ email, at: Date.now() }) });
-  const openLink = async (code = 'good') => { await ev(`location.href = '/?apiKey=x&mode=signIn&oobCode=${code}&lang=en'`); await sleep(1500); };
+  const openLink = async (code = 'good') => { await ev(`location.href = '/?apiKey=x&mode=signIn&oobCode=${code}&lang=en'`); await sleep(400); await waitFor(`document.readyState === 'complete' && (!document.getElementById('auth-screen').classList.contains('hidden') || !document.getElementById('app').classList.contains('hidden'))`, 10000); await sleep(900); };   // the page has loaded and decided what to show
 
   // ── 65: a redesigned sign-in card, with a link by email ──
   scenario('sign-in: one card with two clear modes', async () => {

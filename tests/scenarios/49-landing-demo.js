@@ -50,8 +50,7 @@ module.exports = (scenario, c) => {
   });
 
   scenario('demo: it fits a small phone, and the page tells search engines what it is', async () => {
-    await size(320, 640);
-    await boot(); await landing(); await tab('stats');
+    await boot(); await landing(); await size(320, 640); await sleep(400); await tab('stats');
     check('nothing overflows at 320px', await ev(`document.documentElement.scrollWidth <= innerWidth`));
     check('tabs are thumb-sized', await ev(`[...document.querySelectorAll('#demo-tabs [role="tab"]')].every(b => b.getBoundingClientRect().height >= 44)`));
     const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');

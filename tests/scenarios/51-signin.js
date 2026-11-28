@@ -88,4 +88,46 @@ module.exports = (scenario, c) => {
     check('the privacy page says the address is kept on the device until the link is opened', /sign-in link/i.test(privacy) && /on (this|your) device/i.test(privacy));
     noExceptions();
   });
+  // ── 66: email verification, with a friendly banner ───────
+  const signUp = async email => { await type('auth-email', email); await type('auth-password', 'secret1'); await click('#auth-mode [data-mode="signup"]'); await ev(`document.getElementById('email-auth-form').requestSubmit()`); await inApp(); await sleep(500); };
+  const mails = () => ev(`JSON.stringify((window.__mockEmails || []).map(m => m.type + ':' + m.email))`).then(JSON.parse);
+  scenario('verify: a new password account is asked to confirm its email, without being blocked', async () => {
+    await boot(); await landing();
+    await signUp('new@example.com');
+    check('a verification email goes to the new address', (await mails()).join() === 'verify:new@example.com', (await mails()).join());
+    check('a slim banner says where it went', (await visible('#verify-bar')) && /new@example\.com/.test(await trim('#verify-bar')) && /confirm/i.test(await trim('#verify-bar')), await trim('#verify-bar'));
+    check('the banner sits in the page, it does not cover it', await ev(`(() => { const s = getComputedStyle(document.getElementById('verify-bar')); return s.position !== 'fixed' && s.position !== 'absolute'; })()`));
+    check('nothing is locked: the app works as usual', (await visible('#page-home')) && await ev(`!document.documentElement.classList.contains('dialog-open')`));
+    await click('#verify-check');
+    check('"I have confirmed" checks, and says so when it is not done yet', (await visible('#verify-bar')) && /not confirmed yet/i.test(await toasts()), await toasts());
+    await click('#verify-resend');
+    check('Send again sends another, then rests for a minute', (await mails()).length === 2 && await ev(`document.getElementById('verify-resend').disabled`), (await mails()).join());
+    await ev(`window.__mockVerified = true`);
+    await click('#verify-check');
+    check('once the link has been opened, the banner goes with a thank-you', !(await visible('#verify-bar')) && /confirmed/i.test(await toasts()), await toasts());
+    await ev(`location.reload()`); await sleep(1500); await inApp();
+    check('and it stays gone', !(await visible('#verify-bar')));
+    noExceptions();
+  });
+
+  scenario('verify: the banner clears itself, can be put away, and is never shown to verified accounts', async () => {
+    await boot(); await landing();
+    await signUp('new@example.com');
+    await ev(`window.__mockVerified = true; document.dispatchEvent(new Event('visibilitychange'))`); await sleep(700);
+    check('coming back to the tab after confirming clears it without a tap', !(await visible('#verify-bar')));
+    await boot(); await landing();
+    await signUp('other@example.com');
+    await click('#verify-hide');
+    check('it can be put away for this visit', !(await visible('#verify-bar')) && (await ev(`Object.keys(sessionStorage).some(k => k.startsWith('habitly_verify_hidden_'))`)));
+    await boot(); await landing(); await ev(`sessionStorage.clear()`);
+    await signUp('small@example.com');
+    await size(320, 640); await sleep(400);
+    check('on a 320px phone it fits, with thumb-sized buttons', (await ev(`document.documentElement.scrollWidth <= innerWidth`)) && await ev(`[...document.querySelectorAll('#verify-bar button')].every(b => b.getBoundingClientRect().height >= 44)`));
+    await boot({ seed: signedIn() }); await inApp(); await sleep(400);
+    check('a Google account never sees it', !(await visible('#verify-bar')));
+    await boot({ seed: { habitly_link_email: JSON.stringify({ email: 'ada@example.com', at: Date.now() }) } }); await landing();
+    await openLink(); await inApp(); await sleep(400);
+    check('nor does someone who came in by an emailed link', !(await visible('#verify-bar')));
+    noExceptions();
+  });
 };

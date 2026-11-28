@@ -31,8 +31,7 @@ module.exports = (scenario, c) => {
   });
 
   scenario('landing: the showcase fits a small phone and is not shown to someone coming back', async () => {
-    await size(320, 640);
-    await boot(); await landing(); await into('#showcase');
+    await boot(); await landing(); await size(320, 640); await sleep(400); await into('#showcase');
     check('nothing overflows at 320px', await ev(`document.documentElement.scrollWidth <= innerWidth`));
     check('the frames stay inside the page', await ev(`[...document.querySelectorAll('#showcase .device')].every(d => { const r = d.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1; })`));
     await boot({ seed: { habitly_returning: '1' } }); await landing();

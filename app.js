@@ -4,7 +4,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, updateProfile,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo, sendPasswordResetEmail,
-  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink
+  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, sendEmailVerification, reload
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
@@ -1158,7 +1158,7 @@ const signinBtn = document.getElementById('email-signin-btn');
 
 emailForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (authMode === 'signup') { signupBtn.click(); return; }
+  if (authMode === 'signup' && e.submitter !== signinBtn) { signupBtn.click(); return; }   // Enter creates the account; the Sign in button always signs in
   const email = emailInput.value.trim();
   const pass = passInput.value;
   if (!email || !pass) return;
@@ -1192,6 +1192,7 @@ signupBtn.addEventListener('click', async () => {
     // Optionally set a default display name from the email prefix
     const name = email.split('@')[0];
     await updateProfile(cred.user, { displayName: name });
+    sendEmailVerification(cred.user).then(() => track('verify_email_sent', { when: 'signup' })).catch(err => console.warn('Verification email not sent:', err && err.code));
     emailForm.reset();
     toast('Account created', 'success');
     track('sign_up', { method: 'email' });
@@ -1201,6 +1202,55 @@ signupBtn.addEventListener('click', async () => {
     setBusy(signupBtn, null);
   }
 });
+
+// ── Email verification: a banner, never a lock ────────────
+// A password account that has not confirmed its address sees one slim line saying where the link went, with
+// "I have confirmed", "Send again" (once a minute) and a way to put it away for this visit. Nothing in the app
+// waits on it. Google and emailed-link accounts are verified by how they signed in, so they never see it.
+const needsVerifying = user => !!user && user.emailVerified === false && Array.isArray(user.providerData) && user.providerData.some(p => p && p.providerId === 'password');
+const verifyHiddenKey = () => `habitly_verify_hidden_${currentUser ? currentUser.uid : ''}`;
+function syncVerifyBar() {
+  const bar = document.getElementById('verify-bar');
+  let put = false;
+  try { put = sessionStorage.getItem(verifyHiddenKey()) === '1'; } catch (_) { /* ignore */ }
+  const show = needsVerifying(currentUser) && !put;
+  bar.hidden = !show;
+  if (show) document.getElementById('verify-to').textContent = currentUser.email || 'your address';
+}
+// Ask Firebase again whether the address is confirmed. quiet: no message when it is not (used on returning to the tab).
+let verifyChecking = false;
+async function checkVerified(quiet) {
+  if (!currentUser || !needsVerifying(currentUser) || verifyChecking) return;
+  verifyChecking = true;
+  try {
+    await reload(currentUser);
+    if (!needsVerifying(currentUser)) { syncVerifyBar(); toast('Thank you. Your email is confirmed.', 'success'); track('email_verified'); }
+    else if (!quiet) toast('Not confirmed yet. Open the link in the email we sent, then try again.', 'info', 6000);
+  } catch (err) {
+    if (!quiet) toast(err && err.code === 'auth/network-request-failed' ? 'You seem to be offline. Try again when you are connected.' : 'Could not check just now. Please try again.', 'error');
+  } finally { verifyChecking = false; }
+}
+let verifyRest = 0;
+document.getElementById('verify-check').addEventListener('click', () => checkVerified(false));
+document.getElementById('verify-resend').addEventListener('click', async e => {
+  const btn = e.currentTarget;
+  if (!currentUser || btn.disabled) return;
+  btn.disabled = true;
+  try {
+    await sendEmailVerification(currentUser);
+    toast(`Sent again to ${currentUser.email}. Look in spam too.`, 'success', 6000);
+    track('verify_email_sent', { when: 'again' });
+  } catch (err) {
+    toast(err && err.code === 'auth/too-many-requests' ? 'Too many emails just now. Please wait a few minutes.' : 'Could not send it. Please try again.', 'error');
+  }
+  clearTimeout(verifyRest);
+  verifyRest = setTimeout(() => { btn.disabled = false; }, 60000);   // once a minute
+});
+document.getElementById('verify-hide').addEventListener('click', () => {
+  try { sessionStorage.setItem(verifyHiddenKey(), '1'); } catch (_) { /* ignore */ }
+  document.getElementById('verify-bar').hidden = true;
+});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkVerified(true); });
 
 // ── The card's two modes ──────────────────────────────────
 // "Create account" and "Sign in" are one card. The mode decides which button shows, what Enter does, what the
@@ -1370,6 +1420,7 @@ onAuthStateChanged(auth, async user => {
     currentUser = user;
     try { localStorage.setItem('habitly_returning', '1'); } catch (_) {}
     showApp();
+    syncVerifyBar();
     updateAvatars(user);
     subscribeToHabits();
     initNotifications();

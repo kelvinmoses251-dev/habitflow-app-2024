@@ -678,6 +678,14 @@ html.dialog-open { overflow: hidden; }
 .avatar-initials { display: flex; align-items: center; justify-content: center; background: var(--primary); color: var(--on-primary); font-weight: 600; font-size: var(--fs-xs); }
 .offline-bar { position: sticky; top: var(--topnav-h); z-index: 90; display: flex; align-items: center; justify-content: center; gap: var(--sp-2); font-size: var(--fs-sm); font-weight: 500; padding: 7px 14px; background: var(--warning-soft); color: var(--warning); border-bottom: 1px solid var(--warning-line); text-align: center; }
 .offline-bar.hidden { display: none !important; }
+/* Email not confirmed yet: one slim line under the top bar. In the page flow, never over it. */
+.verify-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--sp-1) var(--sp-4); padding: var(--sp-2) var(--sp-4); background: var(--primary-soft); border-bottom: 1px solid var(--primary-line); font-size: var(--fs-sm); color: var(--text-2); }
+.verify-bar[hidden] { display: none; }
+.verify-text { min-width: 0; overflow-wrap: anywhere; }
+.verify-text strong, .verify-text b { color: var(--text); font-weight: 600; }
+.verify-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 var(--sp-2); min-width: 0; }
+.verify-actions button { min-height: 44px; }
+.verify-actions .btn-icon { min-width: 44px; }
 
 .page-container { flex: 1; padding-bottom: var(--bottomnav-h); }
 .page { display: none; }

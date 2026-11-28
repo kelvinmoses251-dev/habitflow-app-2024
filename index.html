@@ -480,6 +480,16 @@
   <!-- Offline notice (shown only while the device has no connection) -->
   <div id="offline-bar" class="offline-bar hidden" role="status"><svg class="icon" aria-hidden="true"><use href="#i-wifi-off"/></svg> You are offline. Changes are saved on this device and will sync automatically.</div>
 
+  <!-- Email not confirmed yet (password accounts only). It informs; it never blocks anything. -->
+  <div id="verify-bar" class="verify-bar" role="status" hidden>
+    <p class="verify-text"><strong>Confirm your email.</strong> <span>We sent a link to <b id="verify-to"></b>. It keeps your account recoverable.</span></p>
+    <div class="verify-actions">
+      <button type="button" id="verify-check" class="btn-secondary">I have confirmed</button>
+      <button type="button" id="verify-resend" class="btn-link">Send again</button>
+      <button type="button" id="verify-hide" class="btn-icon" aria-label="Hide this for now"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+  </div>
+
   <main class="page-container">
 
     <!-- Home -->

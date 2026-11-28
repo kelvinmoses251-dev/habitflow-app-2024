@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Regenerates the brand assets from code, so they stay consistent and reproducible:
 //   favicon.png, icon-192.png, icon-512.png, icon-maskable-512.png, icon-*.svg, og-image.png
-// Needs a Chromium-based browser (Edge/Chrome). Run:  node tools/make-assets.js
+// Needs a Chromium-based browser (Edge/Chrome). Run:  node tools/make-assets.js   (add --og for the link preview only)
 //
 // Design: flat accent square, plain white check mark. No gradients.
 
@@ -43,6 +43,8 @@ const iconSvg = (size, { rounded = true, inset = 0 } = {}) => {
 };
 const iconPage = svg => `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent}svg{display:block}</style>${svg}`;
 
+const ONLY_OG = process.argv.includes('--og');
+if (!ONLY_OG) {
 fs.writeFileSync(path.join(ROOT, 'icon-192.svg'), iconSvg(192));
 fs.writeFileSync(path.join(ROOT, 'icon-512.svg'), iconSvg(512));
 fs.writeFileSync(path.join(ROOT, 'icon-maskable-512.svg'), iconSvg(512, { rounded: false, inset: 0.14 }));
@@ -52,35 +54,42 @@ shot(iconPage(iconSvg(512)), path.join(ROOT, 'icon-192.png'), 512, 512, 192 / 51
 shot(iconPage(iconSvg(512)), path.join(ROOT, 'favicon.png'), 512, 512, 64 / 512, true);
 shot(iconPage(iconSvg(512, { rounded: false, inset: 0.14 })), path.join(ROOT, 'icon-maskable-512.png'), 512, 512, 1, false);
 
-// ── Open Graph preview (1200x630) ─────────────────────────
+}
+
+// ── Open Graph preview (1200x630), dark ───────────────────
+const FONT_DIR = 'file:///' + path.join(ROOT, 'fonts').split(String.fromCharCode(92)).join('/');
+const FONT_FACES = `@font-face{font-family:Inter;font-weight:100 900;src:url("${FONT_DIR}/inter-var-latin.woff2") format("woff2")}
+  @font-face{font-family:'Instrument Serif';font-style:normal;src:url("${FONT_DIR}/instrument-serif-latin.woff2") format("woff2")}
+  @font-face{font-family:'Instrument Serif';font-style:italic;src:url("${FONT_DIR}/instrument-serif-italic-latin.woff2") format("woff2")}`;
+const OG_ACCENT = '#6657DB', OG_INK = '#A79EF5';
 const check = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>';
 const row = (name, done, cat) => `
   <div class="row ${done ? 'done' : ''}"><span class="box">${done ? check : ''}</span><span class="nm">${name}</span><span class="cat">${cat}</span></div>`;
 const og = `<!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
+  ${FONT_FACES}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{width:1200px;height:630px;overflow:hidden}
-  body{font-family:Inter,system-ui,sans-serif;background:#F6F6F3;color:#1A1A1E;display:flex;align-items:center;padding:0 88px;gap:72px}
+  body{font-family:Inter,system-ui,sans-serif;background:#111113;color:#EDEDF0;display:flex;align-items:center;padding:0 88px;gap:72px}
   .left{flex:1.1}
   .brand{display:flex;align-items:center;gap:14px;margin-bottom:44px}
-  .logo{width:44px;height:44px;border-radius:10px;background:${ACCENT};display:grid;place-items:center}
+  .logo{width:44px;height:44px;border-radius:10px;background:${OG_ACCENT};display:grid;place-items:center}
   .brand b{font-size:30px;font-weight:600;letter-spacing:-.01em}
   h1{font-family:'Instrument Serif',Georgia,serif;font-size:112px;line-height:.98;font-weight:400;letter-spacing:-.02em;margin-bottom:28px}
-  h1 em{font-style:italic;color:${ACCENT}}
-  p{font-size:28px;line-height:1.45;color:#51515A;max-width:560px}
-  .note{margin-top:34px;font-size:22px;color:#6B6B74}
-  .card{flex:.9;background:#fff;border:1px solid #E2E2DC;border-radius:18px;padding:30px;box-shadow:0 1px 2px rgba(26,26,30,.05),0 24px 48px rgba(26,26,30,.08)}
+  h1 em{font-style:italic;color:${OG_INK}}
+  p{font-size:28px;line-height:1.45;color:#ABABB4;max-width:560px}
+  .note{margin-top:34px;font-size:22px;color:#8C8C96}
+  .card{flex:.9;background:#1C1C20;border:1px solid #2E2E34;border-radius:18px;padding:30px}
   .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
-  .top b{font-size:22px;font-weight:600}.top span{font-size:18px;color:#6B6B74}
-  .bar{height:8px;background:#F0F0EC;border-radius:99px;margin-bottom:22px;overflow:hidden}.bar i{display:block;width:50%;height:100%;background:${ACCENT}}
-  .row{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #E2E2DC;border-radius:10px;margin-bottom:10px;font-size:20px;font-weight:500}
-  .row .box{width:24px;height:24px;border-radius:7px;border:2px solid #C9C9C1;display:grid;place-items:center;flex:none}
-  .row.done{background:#F0F0EC;color:#6B6B74}.row.done .nm{text-decoration:line-through;text-decoration-color:#C9C9C1}.row.done .box{background:${ACCENT};border-color:${ACCENT}}
-  .row .nm{flex:1}.row .cat{font-size:15px;color:#6B6B74;font-weight:400}
-  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #E2E2DC;border-radius:10px;margin-top:20px}
-  .stats div{padding:14px 16px}.stats div+div{border-left:1px solid #E2E2DC}
-  .stats small{display:block;font-size:14px;color:#6B6B74}.stats strong{font-family:'Instrument Serif',Georgia,serif;font-size:36px;font-weight:400}
+  .top b{font-size:22px;font-weight:600}.top span{font-size:18px;color:#8C8C96}
+  .bar{height:8px;background:#28282D;border-radius:99px;margin-bottom:22px;overflow:hidden}.bar i{display:block;width:50%;height:100%;background:${OG_ACCENT}}
+  .row{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid #2E2E34;border-radius:10px;margin-bottom:10px;font-size:20px;font-weight:500}
+  .row .box{width:24px;height:24px;border-radius:7px;border:2px solid #3D3D44;display:grid;place-items:center;flex:none}
+  .row.done{background:#17171A;color:#8C8C96}.row.done .nm{text-decoration:line-through;text-decoration-color:#3D3D44}.row.done .box{background:${OG_ACCENT};border-color:${OG_ACCENT}}
+  .row .nm{flex:1}.row .cat{font-size:15px;color:#8C8C96;font-weight:400}
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #2E2E34;border-radius:10px;margin-top:20px}
+  .stats div{padding:14px 16px}.stats div+div{border-left:1px solid #2E2E34}
+  .stats small{display:block;font-size:14px;color:#8C8C96}.stats strong{font-family:'Instrument Serif',Georgia,serif;font-size:36px;font-weight:400}
 </style></head><body>
   <div class="left">
     <div class="brand"><div class="logo"><svg viewBox="0 0 32 32" width="26" height="26"><path d="M9 16.5l5 5 9-10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div><b>Habitly</b></div>

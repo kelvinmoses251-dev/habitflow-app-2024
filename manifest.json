@@ -17,6 +17,11 @@
     { "name": "My stats", "short_name": "Stats", "description": "See streaks, heatmap and insights", "url": "/index.html#stats",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
   ],
+  "screenshots": [
+    { "src": "/shot-install-today.png", "sizes": "1080x2340", "type": "image/png", "form_factor": "narrow", "label": "Today: your habits for the day, each with its streak" },
+    { "src": "/shot-install-stats.png", "sizes": "1080x2340", "type": "image/png", "form_factor": "narrow", "label": "Statistics: completion, check-ins and a chart for the period you choose" },
+    { "src": "/shot-install-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "A habit's own page, with its calendar and charts" }
+  ],
   "icons": [
     {
       "src": "/icon-192.png",

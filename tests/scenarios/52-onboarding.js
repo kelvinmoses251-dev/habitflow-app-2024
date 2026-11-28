@@ -99,4 +99,23 @@ module.exports = (scenario, c) => {
     check('the landing page footer opens the same guide', await visible('#install-modal'));
     noExceptions();
   });
+  // ── 70: screenshots in the install dialog, and a dark link preview ──
+  scenario('install: the browser\'s own install dialog gets real screenshots, and links preview in dark', async () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+    const shots = manifest.screenshots || [];
+    const dims = f => { const b = fs.readFileSync(path.join(ROOT, f)); return b.readUInt32BE(16) + 'x' + b.readUInt32BE(20); };
+    check('the manifest lists screenshots for phones and for wide screens', shots.filter(s => s.form_factor === 'narrow').length >= 2 && shots.filter(s => s.form_factor === 'wide').length >= 1, JSON.stringify(shots.map(s => s.form_factor)));
+    check('each is a real file of the size it claims, with a label', shots.every(s => s.type === 'image/png' && fs.existsSync(path.join(ROOT, s.src)) && dims(s.src.replace(/^\//, '')) === s.sizes && s.label && s.label.length > 10), JSON.stringify(shots.map(s => [s.src, s.sizes])));
+    check('they are small enough to ship', shots.every(s => fs.statSync(path.join(ROOT, s.src)).size < 250000));
+    const staged = require('child_process').execSync('node tools/deploy.js --dry', { cwd: ROOT }).toString();
+    check('and are published with the site', shots.every(s => staged.includes(s.src.replace(/^\//, ''))));
+    check('the link-preview picture is 1200 by 630', dims('og-image.png') === '1200x630');
+    await boot(); await sleep(400);
+    const px = JSON.parse(await ev(`(async () => { const img = new Image(); img.src = '/og-image.png?' + Date.now(); await img.decode(); const c = document.createElement('canvas'); c.width = 1200; c.height = 630; const x = c.getContext('2d'); x.drawImage(img, 0, 0); const at = (a, b) => [...x.getImageData(a, b, 1, 1).data].slice(0, 3); let light = 0; const d = x.getImageData(80, 150, 600, 300).data; for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 200) light++; return JSON.stringify({ corner: at(6, 6), right: at(1190, 620), light }); })()`));
+    check('it is dark, edge to edge', px.corner.every(v => v < 40) && px.right.every(v => v < 40), JSON.stringify(px));
+    check('with the headline drawn in light type', px.light > 3000, String(px.light));
+    const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    check('the page still points previews at it, with a description', /og:image" content="https:\/\/habit-tracker-demo-34c0a\.web\.app\/og-image\.png/.test(html) && /og:image:alt" content="[^"]{20,}"/.test(html));
+    noExceptions();
+  });
 };

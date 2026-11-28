@@ -412,6 +412,19 @@ html.dialog-open { overflow: hidden; }
 .auth-divider { display: flex; align-items: center; color: var(--muted); margin: var(--sp-4) 0; font-size: var(--fs-sm); }
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--border); }
 .auth-divider span { padding: 0 var(--sp-3); }
+/* The card's two modes, the link option and the two link panels */
+.auth-mode { display: flex; gap: 2px; padding: 3px; margin-bottom: var(--sp-4); background: var(--surface-2); border-radius: var(--r-lg); }
+.auth-mode[hidden], #auth-main[hidden], .link-panel[hidden] { display: none; }
+.auth-tab { flex: 1; min-height: 44px; font-family: inherit; font-size: var(--fs-ui); font-weight: 500; color: var(--text-2); background: none; border: 0; border-radius: var(--r-md); cursor: pointer; }
+.auth-tab[aria-pressed="true"] { background: var(--seg-active); color: var(--text); box-shadow: 0 0 0 1px var(--border), var(--elev-1); }
+.auth-buttons > button { flex: 1; }
+.auth-buttons > button[hidden], .forgot-link[hidden], .auth-link-btn[hidden] { display: none; }
+.forgot-link { min-height: 44px; }
+.auth-link-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; margin-top: var(--sp-2); }
+.link-panel { display: flex; flex-direction: column; gap: var(--sp-3); }
+.link-panel h3 { font-size: var(--fs-md); font-weight: 600; }
+.link-panel p { color: var(--text-2); line-height: 1.55; overflow-wrap: anywhere; }
+.link-panel strong { color: var(--text); }
 .email-auth-form { display: flex; flex-direction: column; gap: var(--sp-3); }
 .pw-wrap { position: relative; display: flex; }
 .pw-wrap input { padding-right: 4rem; }

@@ -184,6 +184,19 @@ export async function sendPasswordResetEmail(_a, email) { (W.__mockResets ||= []
 export async function signInWithEmailAndPassword(_a, email) { if (email.startsWith('wrong@')) fail('auth/invalid-credential'); const u = mkUser({ email, displayName: email.split('@')[0] }); setUser(u); return { user: u }; }
 export async function createUserWithEmailAndPassword(_a, email) { if (email.startsWith('taken@')) fail('auth/email-already-in-use'); const u = mkUser({ email, displayName: null }); setUser(u); return { user: u, __new: true }; }
 export async function updateProfile(u, p) { Object.assign(u, p); setUser(u); }
+export async function sendSignInLinkToEmail(_a, email, settings) {
+  if (W.__mockLinkOff) fail('auth/operation-not-allowed');
+  if (email.startsWith('bad@')) fail('auth/invalid-email');
+  (W.__mockEmails ||= []).push({ type: 'link', email, settings });
+}
+export const isSignInWithEmailLink = (_a, href) => /[?&]mode=signIn(&|$)/.test(String(href)) && /[?&]oobCode=/.test(String(href));
+export async function signInWithEmailLink(_a, email, href) {
+  if (/oobCode=expired/.test(String(href))) fail('auth/invalid-action-code');
+  if (email !== (W.__mockLinkFor || 'ada@example.com')) fail('auth/invalid-email');
+  const u = mkUser({ email, displayName: null, emailVerified: true });
+  setUser(u);
+  return { user: u, __new: !localStorage.getItem('mock_seen_link') };
+}
 export async function signOut() { setUser(null); }
 // Like real Firebase, deleting an account needs a sign-in from the last 5 minutes (window.__mockAuthAgeMs = age).
 export async function deleteUser() {

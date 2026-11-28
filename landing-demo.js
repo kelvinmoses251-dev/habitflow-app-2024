@@ -442,6 +442,8 @@ function init() {
     }, { threshold: 0.35 }).observe(el.authCard);
   }
 
+  // app.js asks for the heading to be put back when the card returns to "Create account"
+  window.addEventListener('habitly:auth-copy', syncAuthCopy);
   // app.js fires this whenever the auth screen is shown (e.g. after sign-out)
   window.addEventListener('habitly:auth-shown', () => { state = load(); lastLevel = levelFor(deriveXP(state)).level; renderList(); renderSuggestions(); renderMeter(false); applyMode(); });
 

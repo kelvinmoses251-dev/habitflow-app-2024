@@ -3,7 +3,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, updateProfile,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo, sendPasswordResetEmail
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, deleteUser, getAdditionalUserInfo, sendPasswordResetEmail,
+  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
@@ -24,6 +25,7 @@ import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNo
 import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail, records } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
+import { isEmail, rememberLinkEmail, takeLinkEmail, linkProblem } from "./onboarding.js?v=1";
 import { toCsv, reportModel } from "./stats-export.js?v=1";
 import { weekReview, focusChoices, focusProgress, withReview, story, suggestions } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
@@ -1156,6 +1158,7 @@ const signinBtn = document.getElementById('email-signin-btn');
 
 emailForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (authMode === 'signup') { signupBtn.click(); return; }
   const email = emailInput.value.trim();
   const pass = passInput.value;
   if (!email || !pass) return;
@@ -1198,6 +1201,124 @@ signupBtn.addEventListener('click', async () => {
     setBusy(signupBtn, null);
   }
 });
+
+// ── The card's two modes ──────────────────────────────────
+// "Create account" and "Sign in" are one card. The mode decides which button shows, what Enter does, what the
+// password field tells a password manager, and whether "Forgot password?" is offered. Someone who has signed in
+// on this device before starts on Sign in.
+let authMode = 'signin';
+function setAuthMode(mode) {
+  authMode = mode === 'signup' ? 'signup' : 'signin';
+  document.querySelectorAll('#auth-mode [data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === authMode)));
+  signupBtn.hidden = authMode !== 'signup';
+  signinBtn.hidden = authMode !== 'signin';
+  document.getElementById('forgot-btn').hidden = authMode !== 'signin';
+  passInput.autocomplete = authMode === 'signup' ? 'new-password' : 'current-password';
+  if (authMode === 'signin') {
+    document.getElementById('auth-heading').textContent = 'Sign in';
+    document.getElementById('auth-sub').textContent = 'Pick up where you left off.';
+  } else window.dispatchEvent(new Event('habitly:auth-copy'));     // landing-demo.js writes the sign-up heading
+  clearAuthErrors();
+}
+const hasSignedInHere = () => { try { return !!localStorage.getItem('habitly_returning'); } catch (_) { return false; } };
+document.getElementById('auth-mode').addEventListener('click', e => {
+  const b = e.target instanceof Element ? e.target.closest('[data-mode]') : null;
+  if (b) setAuthMode(b.dataset.mode);
+});
+window.addEventListener('habitly:auth-shown', () => { if (authPanel !== 'confirm') showAuthPanel('main'); setAuthMode(hasSignedInHere() ? 'signin' : 'signup'); });   // a link waiting for its address stays up
+setAuthMode(hasSignedInHere() ? 'signin' : 'signup');
+
+// ── Sign-in by emailed link ───────────────────────────────
+// No password: we email a one-time link back to this page. The address is remembered on this device until the
+// link is opened, because Firebase asks for it again; opened anywhere else, the person types it once more. If
+// the owner has not switched this sign-in method on, the person is told and the option is put away.
+const linkBtn = document.getElementById('email-link-btn');
+let authPanel = 'main';
+function showAuthPanel(which) {
+  authPanel = which;
+  document.getElementById('auth-main').hidden = which !== 'main';
+  document.getElementById('auth-mode').hidden = which !== 'main';
+  document.getElementById('link-sent').hidden = which !== 'sent';
+  document.getElementById('link-confirm').hidden = which !== 'confirm';
+}
+let resendTimer = 0;
+async function sendLink(email, button) {
+  setBusy(button, 'Sending');
+  try {
+    await sendSignInLinkToEmail(auth, email, { url: location.origin + '/', handleCodeInApp: true });
+    rememberLinkEmail(localStorage, email);
+    document.getElementById('link-sent-to').textContent = email;
+    showAuthPanel('sent');
+    const again = document.getElementById('link-resend');           // a pause before another can be sent
+    setBusy(button, null);
+    again.disabled = true;
+    clearTimeout(resendTimer);
+    resendTimer = setTimeout(() => { again.disabled = false; }, 30000);
+    track('signin_link_requested');
+  } catch (err) {
+    setBusy(button, null);
+    if (err && err.code === 'auth/operation-not-allowed') { linkBtn.hidden = true; showAuthPanel('main'); }
+    if (err && err.code === 'auth/invalid-email') setFieldError(emailInput, linkProblem(err.code));
+    toast(linkProblem(err && err.code), err && err.code === 'auth/operation-not-allowed' ? 'warning' : 'error', 7000);
+  }
+}
+linkBtn.addEventListener('click', () => {
+  const email = emailInput.value.trim();
+  clearAuthErrors();
+  if (!isEmail(email)) { setFieldError(emailInput, 'Type your email address first, then ask for the link.'); emailInput.focus(); return; }
+  sendLink(email, linkBtn);
+});
+document.getElementById('link-resend').addEventListener('click', e => { const to = document.getElementById('link-sent-to').textContent; if (isEmail(to)) sendLink(to, e.currentTarget); });
+document.getElementById('link-other').addEventListener('click', () => { showAuthPanel('main'); emailInput.focus(); });
+
+// Opening the link: finish signing in, then take the one-time code out of the address bar.
+const cleanLinkFromAddress = () => { try { history.replaceState(null, '', location.pathname); } catch (_) { /* ignore */ } };
+async function finishLinkSignIn(email, href) {
+  try {
+    const cred = await signInWithEmailLink(auth, email, href);
+    const details = getAdditionalUserInfo(cred);
+    track(details && details.isNewUser ? 'sign_up' : 'login', { method: 'link' });
+    cleanLinkFromAddress();
+    showAuthPanel('main');
+    return true;
+  } catch (err) {
+    const code = err && err.code;
+    if (code === 'auth/invalid-email') {                             // the wrong address: ask again, keep the link
+      showAuthPanel('confirm');
+      setFieldError(document.getElementById('link-confirm-email'), linkProblem(code));
+      return false;
+    }
+    cleanLinkFromAddress();                                          // a dead link is of no further use
+    showAuthPanel('main');
+    toast(linkProblem(code), 'error', 7000);
+    return false;
+  }
+}
+const linkHref = location.href;
+if (isSignInWithEmailLink(auth, linkHref)) {
+  (async () => {
+    try { if (typeof auth.authStateReady === 'function') await auth.authStateReady(); } catch (_) { /* carry on */ }
+    if (auth.currentUser) {                                          // never switch accounts behind someone's back
+      cleanLinkFromAddress();
+      toast('You are already signed in. Sign out first if you want to use that link.', 'info', 7000);
+      return;
+    }
+    const email = takeLinkEmail(localStorage);
+    if (email) { finishLinkSignIn(email, linkHref); return; }
+    showAuthPanel('confirm');                                        // opened on another device or browser
+    document.getElementById('auth-card').scrollIntoView({ block: 'center' });
+  })();
+}
+document.getElementById('link-confirm-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const box = document.getElementById('link-confirm-email'), email = box.value.trim(), go = document.getElementById('link-confirm-go');
+  clearFieldError(box);
+  if (!isEmail(email)) { setFieldError(box, 'Type the email address the link was sent to.'); box.focus(); return; }
+  setBusy(go, 'Signing in');
+  await finishLinkSignIn(email, linkHref);
+  setBusy(go, null);
+});
+document.getElementById('link-cancel').addEventListener('click', () => { cleanLinkFromAddress(); showAuthPanel('main'); });
 
 // Password reset: previously there was no way back in after forgetting a password.
 document.getElementById('forgot-btn').addEventListener('click', async e => {

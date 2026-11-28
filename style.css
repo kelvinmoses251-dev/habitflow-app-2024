@@ -1308,6 +1308,22 @@ html.is-reordering, html.is-reordering * { cursor: grabbing; user-select: none; 
 .empty-state { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-2) 0; }
 .empty-title { font-weight: 600; font-size: var(--fs-base); }
 .empty-text, .empty-or { font-size: var(--fs-ui); color: var(--muted); }
+/* The goal picker (empty Home): goals as chips, then the suggested first habits to tick or untick */
+.goal-picker { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; padding-bottom: var(--sp-4); margin-bottom: var(--sp-2); border-bottom: 1px solid var(--border); }
+.goal-picker[hidden], .goal-suggest[hidden] { display: none; }
+.goal-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.goal-chip { min-height: 44px; padding: 0 var(--sp-4); }
+.goal-suggest { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); }
+.goal-sub { font-size: var(--fs-sm); font-weight: 600; color: var(--text-2); }
+.goal-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-md); }
+.goal-list li + li { border-top: 1px solid var(--border); }
+.goal-row { display: flex; align-items: center; gap: var(--sp-3); min-height: 52px; padding: var(--sp-2) var(--sp-3); cursor: pointer; }
+.goal-text { display: flex; flex-direction: column; min-width: 0; }
+.goal-name { font-weight: 500; overflow-wrap: anywhere; }
+.goal-how { font-size: var(--fs-xs); color: var(--muted); }
+.goal-row:has(input:not(:checked)) .goal-name { color: var(--muted); }
+#goal-add { align-self: flex-start; min-height: 44px; margin-top: var(--sp-1); }
+.empty-next { margin-top: var(--sp-2); }
 .pack-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); width: 100%; margin: var(--sp-2) 0; }
 .pack-card { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; font: inherit; color: var(--text); text-align: left; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); transition: border-color var(--t-fast), background var(--t-fast); }
 .pack-card:hover { border-color: var(--primary); background: var(--surface-2); }

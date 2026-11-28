@@ -597,7 +597,18 @@
           <ul id="habits-paused" class="habits-list hidden"></ul>
           <button type="button" id="focus-open" class="btn-secondary btn-full focus-open hidden"><svg class="icon" aria-hidden="true"><use href="#i-target"/></svg>Focus: one habit at a time</button>
           <div id="empty-state" class="empty-state hidden">
-            <p class="empty-title">Start with a ready-made set</p>
+            <!-- First habits from a goal (shown only while the account has no habits) -->
+            <div id="goal-picker" class="goal-picker">
+              <p class="empty-title">What do you want more of?</p>
+              <span class="empty-text">Pick one or two. Habitly suggests first habits, and you choose which to keep.</span>
+              <div id="goal-chips" class="goal-chips" role="group" aria-label="What you want more of"></div>
+              <div id="goal-suggest" class="goal-suggest" hidden>
+                <p class="goal-sub" id="goal-sub">Suggested first habits</p>
+                <ul id="goal-list" class="goal-list" aria-labelledby="goal-sub"></ul>
+                <button type="button" id="goal-add" class="btn-primary">Add habits</button>
+              </div>
+            </div>
+            <p class="empty-title empty-next">Or start with a ready-made set</p>
             <span class="empty-text">Each one adds three habits. You can edit or delete them later.</span>
             <div id="starter-packs" class="pack-grid"></div>
             <button type="button" id="empty-browse" class="btn-secondary empty-create"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Browse habit ideas</button>

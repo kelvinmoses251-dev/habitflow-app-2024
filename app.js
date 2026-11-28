@@ -25,7 +25,7 @@ import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNo
 import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail, records } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
-import { isEmail, rememberLinkEmail, takeLinkEmail, linkProblem } from "./onboarding.js?v=1";
+import { isEmail, rememberLinkEmail, takeLinkEmail, linkProblem, habitsForGoals } from "./onboarding.js?v=1";
 import { toCsv, reportModel } from "./stats-export.js?v=1";
 import { weekReview, focusChoices, focusProgress, withReview, story, suggestions } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
@@ -1856,6 +1856,7 @@ function renderHabits() {
     document.getElementById('focus-open')?.classList.add('hidden');
     empty.classList.remove('hidden');
     renderStarterPacks();
+    renderGoalPicker();
     updateProgress(0, 0);
     updateStreakRisk();
     return;
@@ -2156,6 +2157,59 @@ document.getElementById('streak-risk')?.addEventListener('click', e => {
   cb.scrollIntoView({ behavior: 'smooth', block: 'center' });
   cb.classList.add('nudge');
   setTimeout(() => cb.classList.remove('nudge'), 4000);
+});
+
+// ── The goal picker ───────────────────────────────────────
+// An account with no habits is asked what it wants more of. From the goals picked, onboarding.js suggests three
+// to five first habits out of the library; the person unticks any they do not want and adds the rest in one go.
+// It lives in the empty Home, so it can never appear for (or add to) an account that already has habits.
+const goalsPicked = new Set(), goalsUnticked = new Set();
+async function renderGoalPicker() {
+  const chips = document.getElementById('goal-chips');
+  if (!chips) return;
+  if (!tpl) { try { tpl = await import('./templates.js?v=1'); } catch (_) { document.getElementById('goal-picker').hidden = true; return; } }
+  if (allHabits.length) return;                                       // habits arrived while the library was loading
+  if (!chips.childElementCount) {
+    chips.innerHTML = tpl.TEMPLATE_GOALS.map(g => `<button type="button" class="chip goal-chip" data-goal="${escHtml(g)}" aria-pressed="false">${escHtml(g)}</button>`).join('');
+  }
+  chips.querySelectorAll('[data-goal]').forEach(b => b.setAttribute('aria-pressed', String(goalsPicked.has(b.dataset.goal))));
+  const picks = habitsForGoals(tpl.TEMPLATES, tpl.TEMPLATE_GOALS.filter(g => goalsPicked.has(g)));
+  document.getElementById('goal-suggest').hidden = picks.length === 0;
+  document.getElementById('goal-list').innerHTML = picks.map(t => {
+    const i = tpl.TEMPLATES.indexOf(t);
+    return `<li><label class="goal-row"><input type="checkbox" class="pick-check" data-i="${i}" ${goalsUnticked.has(t.name) ? '' : 'checked'}><span class="goal-text"><span class="goal-name">${escHtml(t.name)}</span><span class="goal-how">${escHtml(templateSummary(t))}</span></span></label></li>`;
+  }).join('');
+  syncGoalAdd();
+}
+function syncGoalAdd() {
+  const n = document.querySelectorAll('#goal-list input:checked').length, btn = document.getElementById('goal-add');
+  btn.disabled = n === 0;
+  btn.textContent = n === 0 ? 'Tick at least one' : `Add ${n} habit${n === 1 ? '' : 's'}`;
+}
+document.getElementById('goal-chips')?.addEventListener('click', e => {
+  const b = e.target instanceof Element ? e.target.closest('[data-goal]') : null;
+  if (!b) return;
+  if (goalsPicked.has(b.dataset.goal)) goalsPicked.delete(b.dataset.goal); else goalsPicked.add(b.dataset.goal);
+  renderGoalPicker().then(() => document.querySelector(`#goal-chips [data-goal="${CSS.escape(b.dataset.goal)}"]`)?.focus());
+});
+document.getElementById('goal-list')?.addEventListener('change', e => {
+  const box = e.target;
+  if (!(box instanceof HTMLInputElement) || !tpl) return;
+  const t = tpl.TEMPLATES[+box.dataset.i];
+  if (t) { if (box.checked) goalsUnticked.delete(t.name); else goalsUnticked.add(t.name); }
+  syncGoalAdd();
+});
+document.getElementById('goal-add')?.addEventListener('click', () => {
+  if (!tpl || !currentUser || allHabits.length) return;
+  const chosen = [...document.querySelectorAll('#goal-list input:checked')].map(i => tpl.TEMPLATES[+i.dataset.i]).filter(Boolean);
+  if (!chosen.length) return;
+  document.getElementById('goal-add').disabled = true;               // no double-adds
+  chosen.forEach(t => backgroundWrite(addHabit(t.name, t.category, tpl.templateFrequency(t), { timeOfDay: t.timeOfDay || 'any', cue: t.cue || '', schedule: t.schedule || '', target: t.target || '', icon: t.icon || '' }), 'add the habit'));
+  nudgeFirstHabit = true;
+  track('goals_picked', { goals: goalsPicked.size, habits: chosen.length });
+  toast(`${chosen.length} habit${chosen.length === 1 ? '' : 's'} added. Complete your first one to start a streak.`, 'success', 5000);
+  goalsPicked.clear(); goalsUnticked.clear();
+  buzz(25);
 });
 
 function renderStarterPacks() {

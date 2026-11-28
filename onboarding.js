@@ -37,3 +37,24 @@ export function linkProblem(code) {
     'auth/user-disabled': 'This account has been disabled.',
   })[code] || 'Something went wrong. Please try again.';
 }
+
+// ── First habits for a goal ────────────────────────────────
+// The goal picker shown to an account with no habits: from the goals someone picks, a short list of first habits
+// out of the library (templates.js). One goal gives three, two give four, more give five; the goals take turns so
+// each is represented, no habit appears twice, and names the person already has are skipped.
+export function habitsForGoals(templates, goals, have = []) {
+  const list = Array.isArray(templates) ? templates.filter(t => t && typeof t.name === 'string' && Array.isArray(t.goals)) : [];
+  const picked = Array.isArray(goals) ? goals.filter(g => list.some(t => t.goals.includes(g))) : [];
+  if (!picked.length) return [];
+  const want = picked.length === 1 ? 3 : picked.length === 2 ? 4 : 5;
+  const used = new Set((Array.isArray(have) ? have : []).map(n => String(n).toLowerCase()));
+  const queues = picked.map(g => list.filter(t => t.goals.includes(g)));
+  const out = [];
+  for (let turn = 0, idle = 0; out.length < want && idle < queues.length; turn++) {
+    const q = queues[turn % queues.length];
+    let next = null;
+    while (q.length && !next) { const t = q.shift(); if (!used.has(t.name.toLowerCase())) next = t; }
+    if (next) { out.push(next); used.add(next.name.toLowerCase()); idle = 0; } else idle++;
+  }
+  return out;
+}

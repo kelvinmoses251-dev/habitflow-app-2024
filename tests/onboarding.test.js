@@ -47,3 +47,37 @@ test('linkProblem: each way a link can fail is said in plain words', async () =>
   assert.match(linkProblem('auth/too-many-requests'), /Too many/);
   assert.match(linkProblem('something-else'), /Something went wrong/);
 });
+
+// ── First habits for a goal ────────────────────────────────
+const T = (name, goals) => ({ name, category: 'health', goals });
+const LIST = [T('Water', ['Energy']), T('Sleep', ['Energy', 'Calm']), T('Sun', ['Energy']), T('Breakfast', ['Energy']), T('Walk', ['Fitness', 'Energy']), T('Lift', ['Fitness']), T('Run', ['Fitness']), T('Stretch', ['Fitness', 'Calm']), T('Breathe', ['Calm']), T('Read', ['Learning'])];
+
+test('habitsForGoals: one goal suggests its first three habits', async () => {
+  const { habitsForGoals } = await load();
+  assert.deepEqual(habitsForGoals(LIST, ['Fitness']).map(t => t.name), ['Walk', 'Lift', 'Run']);
+  assert.deepEqual(habitsForGoals(LIST, ['Learning']).map(t => t.name), ['Read'], 'a goal with one habit suggests one');
+});
+
+test('habitsForGoals: several goals take turns, with no habit twice, up to five', async () => {
+  const { habitsForGoals } = await load();
+  assert.deepEqual(habitsForGoals(LIST, ['Energy', 'Calm']).map(t => t.name), ['Water', 'Sleep', 'Sun', 'Stretch']);
+  assert.deepEqual(habitsForGoals(LIST, ['Energy', 'Fitness', 'Calm', 'Learning']).map(t => t.name), ['Water', 'Walk', 'Sleep', 'Read', 'Sun']);
+  assert.equal(new Set(habitsForGoals(LIST, ['Energy', 'Fitness', 'Calm']).map(t => t.name)).size, 5);
+});
+
+test('habitsForGoals: nothing picked suggests nothing; names already in use are skipped; junk is ignored', async () => {
+  const { habitsForGoals } = await load();
+  assert.deepEqual(habitsForGoals(LIST, []), []);
+  assert.deepEqual(habitsForGoals(LIST, ['Nonsense']), []);
+  assert.deepEqual(habitsForGoals(LIST, ['Fitness'], ['walk', 'LIFT']).map(t => t.name), ['Run', 'Stretch']);
+  assert.deepEqual(habitsForGoals(null, ['Fitness']), []);
+  assert.deepEqual(habitsForGoals([null, { name: 'x' }, T('Lift', ['Fitness'])], ['Fitness']).map(t => t.name), ['Lift']);
+});
+
+test('habitsForGoals: the real library gives three to five for any choice of goals', async () => {
+  const { habitsForGoals } = await load();
+  const tpl = await import(pathToFileURL(path.join(__dirname, '..', 'templates.js')).href);
+  for (const g of tpl.TEMPLATE_GOALS) assert.equal(habitsForGoals(tpl.TEMPLATES, [g]).length, 3, g);
+  assert.equal(habitsForGoals(tpl.TEMPLATES, tpl.TEMPLATE_GOALS.slice(0, 2)).length, 4);
+  assert.equal(habitsForGoals(tpl.TEMPLATES, tpl.TEMPLATE_GOALS).length, 5);
+});

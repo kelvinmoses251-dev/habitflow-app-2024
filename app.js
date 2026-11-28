@@ -25,7 +25,7 @@ import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNo
 import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail, records } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
-import { isEmail, rememberLinkEmail, takeLinkEmail, linkProblem, habitsForGoals, installPlatform } from "./onboarding.js?v=1";
+import { isEmail, rememberLinkEmail, takeLinkEmail, linkProblem, habitsForGoals, installPlatform, dropStaleLinkEmail, forgetLinkEmail } from "./onboarding.js?v=1";
 import { toCsv, reportModel } from "./stats-export.js?v=1";
 import { weekReview, focusChoices, focusProgress, withReview, story, suggestions } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
@@ -301,6 +301,7 @@ function resetUserState() {
   pendingUncomplete.forEach(clearTimeout); pendingUncomplete.clear();
   moments.resetCelebrations();
   moments.hideMoment();
+  goalsPicked.clear(); goalsUnticked.clear();
   userReviews = {}; reviewing = null; telling = null;
   statsLasting = { habits: null, today: '', year: null };
   ['milestone-modal', 'level-modal', 'achievements-modal', 'comeback-modal', 'recap-modal', 'review-modal', 'story-modal'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
@@ -1158,7 +1159,7 @@ const signinBtn = document.getElementById('email-signin-btn');
 
 emailForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (authMode === 'signup' && e.submitter !== signinBtn) { signupBtn.click(); return; }   // Enter creates the account; the Sign in button always signs in
+  if (authMode === 'signup') { signupBtn.click(); return; }       // Enter, or the keyboard's Go, does what the mode says
   const email = emailInput.value.trim();
   const pass = passInput.value;
   if (!email || !pass) return;
@@ -1192,7 +1193,7 @@ signupBtn.addEventListener('click', async () => {
     // Optionally set a default display name from the email prefix
     const name = email.split('@')[0];
     await updateProfile(cred.user, { displayName: name });
-    sendEmailVerification(cred.user).then(() => track('verify_email_sent', { when: 'signup' })).catch(err => console.warn('Verification email not sent:', err && err.code));
+    sendEmailVerification(cred.user).then(() => { markVerifySent(cred.user.uid); syncVerifyBar(); track('verify_email_sent', { when: 'signup' }); }).catch(err => console.warn('Verification email not sent:', err && err.code));
     emailForm.reset();
     toast('Account created', 'success');
     track('sign_up', { method: 'email' });
@@ -1215,8 +1216,16 @@ function syncVerifyBar() {
   try { put = sessionStorage.getItem(verifyHiddenKey()) === '1'; } catch (_) { /* ignore */ }
   const show = needsVerifying(currentUser) && !put;
   bar.hidden = !show;
-  if (show) document.getElementById('verify-to').textContent = currentUser.email || 'your address';
+  if (!show) return;
+  const sent = verifySent(), says = document.getElementById('verify-says');
+  says.textContent = '';
+  says.append(sent ? 'We sent a link to ' : 'We can send a link to ', Object.assign(document.createElement('b'), { id: 'verify-to', textContent: currentUser.email || 'your address' }), sent ? '. It keeps your account recoverable.' : ', so a forgotten password can always be reset.');
+  document.getElementById('verify-resend').textContent = sent ? 'Send again' : 'Send the link';
+  document.getElementById('verify-check').hidden = !sent;
 }
+const verifySentKey = () => `habitly_verify_sent_${currentUser ? currentUser.uid : ''}`;
+const verifySent = () => { try { return localStorage.getItem(verifySentKey()) === '1'; } catch (_) { return false; } };
+const markVerifySent = uid => { try { localStorage.setItem(`habitly_verify_sent_${uid}`, '1'); } catch (_) { /* ignore */ } };
 // Ask Firebase again whether the address is confirmed. quiet: no message when it is not (used on returning to the tab).
 let verifyChecking = false;
 async function checkVerified(quiet) {
@@ -1238,7 +1247,9 @@ document.getElementById('verify-resend').addEventListener('click', async e => {
   btn.disabled = true;
   try {
     await sendEmailVerification(currentUser);
-    toast(`Sent again to ${currentUser.email}. Look in spam too.`, 'success', 6000);
+    markVerifySent(currentUser.uid);
+    syncVerifyBar();
+    toast(`Sent to ${currentUser.email}. Look in spam too.`, 'success', 6000);
     track('verify_email_sent', { when: 'again' });
   } catch (err) {
     toast(err && err.code === 'auth/too-many-requests' ? 'Too many emails just now. Please wait a few minutes.' : 'Could not send it. Please try again.', 'error');
@@ -1264,10 +1275,7 @@ function setAuthMode(mode) {
   signinBtn.hidden = authMode !== 'signin';
   document.getElementById('forgot-btn').hidden = authMode !== 'signin';
   passInput.autocomplete = authMode === 'signup' ? 'new-password' : 'current-password';
-  if (authMode === 'signin') {
-    document.getElementById('auth-heading').textContent = 'Sign in';
-    document.getElementById('auth-sub').textContent = 'Pick up where you left off.';
-  } else window.dispatchEvent(new Event('habitly:auth-copy'));     // landing-demo.js writes the sign-up heading
+  window.dispatchEvent(new Event('habitly:auth-copy'));             // landing-demo.js writes the heading for this mode
   clearAuthErrors();
 }
 const hasSignedInHere = () => { try { return !!localStorage.getItem('habitly_returning'); } catch (_) { return false; } };
@@ -1275,8 +1283,14 @@ document.getElementById('auth-mode').addEventListener('click', e => {
   const b = e.target instanceof Element ? e.target.closest('[data-mode]') : null;
   if (b) setAuthMode(b.dataset.mode);
 });
-window.addEventListener('habitly:auth-shown', () => { if (authPanel !== 'confirm') showAuthPanel('main'); setAuthMode(hasSignedInHere() ? 'signin' : 'signup'); });   // a link waiting for its address stays up
+window.addEventListener('habitly:auth-shown', () => {
+  if (authPanel !== 'confirm') showAuthPanel('main');
+  setAuthMode(hasSignedInHere() ? 'signin' : 'signup');
+  if (authPanel === 'confirm') document.getElementById('link-confirm-email').focus({ preventScroll: true });   // the screen has only now appeared
+});   // a link waiting for its address stays up
 setAuthMode(hasSignedInHere() ? 'signin' : 'signup');
+window.addEventListener('habitly:auth-mode', e => setAuthMode(e.detail));
+dropStaleLinkEmail(localStorage);                                   // a remembered address never outstays a day
 
 // ── Sign-in by emailed link ───────────────────────────────
 // No password: we email a one-time link back to this page. The address is remembered on this device until the
@@ -1299,6 +1313,7 @@ async function sendLink(email, button) {
     rememberLinkEmail(localStorage, email);
     document.getElementById('link-sent-to').textContent = email;
     showAuthPanel('sent');
+    document.getElementById('link-sent-title').focus();
     const again = document.getElementById('link-resend');           // a pause before another can be sent
     setBusy(button, null);
     again.disabled = true;
@@ -1338,14 +1353,21 @@ async function finishLinkSignIn(email, href) {
       setFieldError(document.getElementById('link-confirm-email'), linkProblem(code));
       return false;
     }
-    cleanLinkFromAddress();                                          // a dead link is of no further use
-    showAuthPanel('main');
+    if (code === 'auth/network-request-failed' || code === 'auth/too-many-requests') {   // not the link's fault: keep it to try again
+      const box = document.getElementById('link-confirm-email');
+      box.value = email;
+      showAuthPanel('confirm');
+      toast(linkProblem(code), 'error', 7000);
+      return false;
+    }
+    showAuthPanel('main');                                           // a dead link is of no further use
     toast(linkProblem(code), 'error', 7000);
     return false;
   }
 }
 const linkHref = location.href;
 if (isSignInWithEmailLink(auth, linkHref)) {
+  cleanLinkFromAddress();                                            // before anything else can read the address
   (async () => {
     try { if (typeof auth.authStateReady === 'function') await auth.authStateReady(); } catch (_) { /* carry on */ }
     if (auth.currentUser) {                                          // never switch accounts behind someone's back
@@ -1357,6 +1379,7 @@ if (isSignInWithEmailLink(auth, linkHref)) {
     if (email) { finishLinkSignIn(email, linkHref); return; }
     showAuthPanel('confirm');                                        // opened on another device or browser
     document.getElementById('auth-card').scrollIntoView({ block: 'center' });
+    document.getElementById('link-confirm-email').focus({ preventScroll: true });
   })();
 }
 document.getElementById('link-confirm-form').addEventListener('submit', async e => {
@@ -1419,6 +1442,7 @@ onAuthStateChanged(auth, async user => {
     if (currentUser && currentUser.uid !== user.uid) resetUserState();
     currentUser = user;
     try { localStorage.setItem('habitly_returning', '1'); } catch (_) {}
+    forgetLinkEmail(localStorage);
     showApp();
     syncVerifyBar();
     updateAvatars(user);
@@ -2201,10 +2225,12 @@ document.getElementById('goal-list')?.addEventListener('change', e => {
 });
 document.getElementById('goal-add')?.addEventListener('click', () => {
   if (!tpl || !currentUser || allHabits.length) return;
+  if (!mayRaiseCards()) { toast('Still checking your account for habits. Try again in a moment.', 'info'); return; }   // this device's copy may be out of date
   const chosen = [...document.querySelectorAll('#goal-list input:checked')].map(i => tpl.TEMPLATES[+i.dataset.i]).filter(Boolean);
   if (!chosen.length) return;
+  const base = Date.now();
   document.getElementById('goal-add').disabled = true;               // no double-adds
-  chosen.forEach(t => backgroundWrite(addHabit(t.name, t.category, tpl.templateFrequency(t), { timeOfDay: t.timeOfDay || 'any', cue: t.cue || '', schedule: t.schedule || '', target: t.target || '', icon: t.icon || '' }), 'add the habit'));
+  chosen.forEach((t, i) => backgroundWrite(addHabit(t.name, t.category, tpl.templateFrequency(t), { timeOfDay: t.timeOfDay || 'any', cue: t.cue || '', schedule: t.schedule || '', target: t.target || '', icon: t.icon || '', order: base + i }), 'add the habit'));
   nudgeFirstHabit = true;
   track('goals_picked', { goals: goalsPicked.size, habits: chosen.length });
   toast(`${chosen.length} habit${chosen.length === 1 ? '' : 's'} added. Complete your first one to start a streak.`, 'success', 5000);

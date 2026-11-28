@@ -80,9 +80,11 @@ async function precache() {
   const local = new Set(['/', '/manifest.json', '/favicon.png', '/icon-192.png', '/icon-512.png',
     '/fonts/inter-var-latin.woff2', '/fonts/instrument-serif-latin.woff2', '/fonts/instrument-serif-italic-latin.woff2']);
   const remote = new Set(EXTRA_PRECACHE);
+  const LAZY = /^\/shot-[\w-]+\.(webp|png)$/;
   for (const m of html.matchAll(/(?:src|href)="([^"#]+)"/g)) {
     let u;
     try { u = new URL(m[1], self.location.origin); } catch (_) { continue; }
+    if (LAZY.test(u.pathname)) continue;                 // lazy pictures on the landing page: fetched when scrolled to, not in advance
     if (u.origin === self.location.origin) local.add(u.pathname + u.search);
     else if (CDN_HOSTS.includes(u.hostname)) remote.add(u.href);
   }

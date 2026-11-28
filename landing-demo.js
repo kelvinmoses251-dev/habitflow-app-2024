@@ -282,8 +282,9 @@ function init() {
     if (stats) emit('demo_stats_viewed');
   }
 
+  const cardMode = () => (document.querySelector('#auth-mode [aria-pressed="true"]') || { dataset: {} }).dataset.mode || (isReturning() ? 'signin' : 'signup');
   function syncAuthCopy() {
-    if (isReturning()) {
+    if (cardMode() === 'signin') {
       el.heading.textContent = 'Sign in';
       el.sub.textContent = 'Pick up where you left off.';
       el.fine.textContent = '';
@@ -299,7 +300,7 @@ function init() {
       el.fine.textContent = 'Your demo habits are added to your account automatically';
     } else {
       el.heading.textContent = 'Create your account';
-      el.sub.textContent = 'It takes about 10 seconds. Already registered? Sign in below.';
+      el.sub.textContent = 'It takes about 10 seconds. Already registered? Choose Sign in.';
       el.fine.textContent = 'No credit card needed';
     }
   }
@@ -431,6 +432,7 @@ function init() {
   });
   // Top-bar "Sign in": bring the account card into view and put the cursor in the email field
   document.getElementById('landing-signin')?.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('habitly:auth-mode', { detail: 'signin' }));
     el.authCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => document.getElementById('auth-email')?.focus({ preventScroll: true }), 350);
   });

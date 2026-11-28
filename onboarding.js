@@ -72,5 +72,19 @@ export function installPlatform({ ua = '', standalone = false, canPrompt = false
   const agent = String(ua);
   const ios = /iPhone|iPad|iPod/.test(agent) || (/Macintosh/.test(agent) && touchPoints > 1);
   if (!ios) return 'manual';
-  return /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\//.test(agent) ? 'ios-other' : 'ios';
+  return /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\/|FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger/.test(agent) ? 'ios-other' : 'ios';
 }
+
+// Housekeeping, run when the app opens: a remembered address older than a day (or unreadable) is removed, so it
+// cannot sit on the device for ever if the link is never opened. A fresh one is left for the link to use.
+export function dropStaleLinkEmail(store, now = Date.now()) {
+  try {
+    const raw = store.getItem(LINK_EMAIL_KEY);
+    if (raw === null) return;
+    let kept = null;
+    try { kept = JSON.parse(raw); } catch (_) { /* unreadable: drop it */ }
+    const fresh = kept && typeof kept.email === 'string' && Number.isFinite(kept.at) && now - kept.at >= 0 && now - kept.at <= LINK_EMAIL_TTL;
+    if (!fresh) store.removeItem(LINK_EMAIL_KEY);
+  } catch (_) { /* storage blocked: nothing to clean */ }
+}
+export const forgetLinkEmail = store => { try { store.removeItem(LINK_EMAIL_KEY); } catch (_) { /* ignore */ } };

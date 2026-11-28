@@ -324,8 +324,8 @@
       </div>
 
       <!-- After a link has been sent -->
-      <div id="link-sent" class="link-panel" role="status" hidden>
-        <h3>Check your email</h3>
+      <div id="link-sent" class="link-panel" hidden>
+        <h3 id="link-sent-title" tabindex="-1">Check your email</h3>
         <p>We sent a sign-in link to <strong id="link-sent-to"></strong>. Open it on this device and you are in. It can take a minute; look in spam too.</p>
         <div class="auth-buttons">
           <button type="button" id="link-other" class="btn-secondary">Use a different email</button>
@@ -397,7 +397,7 @@
         <p class="lm-eyebrow">How it works</p>
         <h2 id="how-title" class="lm-title">Three steps, and the third is the one that matters</h2>
         <ol class="how-steps">
-          <li><span class="how-n" aria-hidden="true">1</span><h3>Pick a few habits</h3><p>Start with one to three. Tell Habitly what you want more of and it suggests first habits, or write your own.</p></li>
+          <li><span class="how-n" aria-hidden="true">1</span><h3>Pick a few habits</h3><p>Start small: three is plenty. Tell Habitly what you want more of and it suggests first habits, or write your own.</p></li>
           <li><span class="how-n" aria-hidden="true">2</span><h3>Tick them off each day</h3><p>One tap when it is done. Set a reminder for the habits that need one, and leave the rest alone.</p></li>
           <li><span class="how-n" aria-hidden="true">3</span><h3>Look back once a week</h3><p>See what held and what slipped, pause what is not working, and choose one thing to focus on next.</p></li>
         </ol>
@@ -485,7 +485,7 @@
 
   <!-- Email not confirmed yet (password accounts only). It informs; it never blocks anything. -->
   <div id="verify-bar" class="verify-bar" role="status" hidden>
-    <p class="verify-text"><strong>Confirm your email.</strong> <span>We sent a link to <b id="verify-to"></b>. It keeps your account recoverable.</span></p>
+    <p class="verify-text"><strong>Confirm your email.</strong> <span id="verify-says"></span></p>
     <div class="verify-actions">
       <button type="button" id="verify-check" class="btn-secondary">I have confirmed</button>
       <button type="button" id="verify-resend" class="btn-link">Send again</button>
@@ -1386,7 +1386,7 @@
   </div>
 </div>
 
-<script type="module" src="landing-demo.js?v=8"></script>
+<script type="module" src="landing-demo.js?v=9"></script>
 <script type="module" src="landing.js?v=1"></script>
 <script type="module" src="app.js?v=71"></script>
 </body>

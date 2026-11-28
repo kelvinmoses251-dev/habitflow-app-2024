@@ -102,3 +102,25 @@ test('installPlatform: the right help for the device', async () => {
   assert.equal(installPlatform({}), 'manual');
   assert.equal(installPlatform(), 'manual');
 });
+
+// ── From the independent review of batch 7 ─────────────────
+test('review: a stale remembered address is dropped when the app opens; a fresh one is left for the link', async () => {
+  const { rememberLinkEmail, dropStaleLinkEmail, forgetLinkEmail, LINK_EMAIL_KEY, LINK_EMAIL_TTL } = await load();
+  const s = store();
+  rememberLinkEmail(s, 'ada@example.com', 1000);
+  dropStaleLinkEmail(s, 2000);
+  assert.ok(s.has(LINK_EMAIL_KEY), 'fresh: kept');
+  dropStaleLinkEmail(s, 1000 + LINK_EMAIL_TTL + 1);
+  assert.ok(!s.has(LINK_EMAIL_KEY), 'older than a day: removed');
+  const junk = store({ [LINK_EMAIL_KEY]: '{not json' });
+  dropStaleLinkEmail(junk); assert.ok(!junk.has(LINK_EMAIL_KEY));
+  rememberLinkEmail(s, 'ada@example.com'); forgetLinkEmail(s); assert.ok(!s.has(LINK_EMAIL_KEY));
+  dropStaleLinkEmail(broken); forgetLinkEmail(broken);
+});
+
+test('review: in-app browsers on iPhone are sent to Safari too', async () => {
+  const { installPlatform } = await load();
+  const base = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+  assert.equal(installPlatform({ ua: base + ' [FBAN/FBIOS;FBAV/450.0]' }), 'ios-other');
+  assert.equal(installPlatform({ ua: base + ' Instagram 320.0' }), 'ios-other');
+});

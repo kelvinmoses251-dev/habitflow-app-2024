@@ -422,7 +422,7 @@ html.dialog-open { overflow: hidden; }
 .forgot-link { min-height: 44px; }
 .auth-link-btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; margin-top: var(--sp-2); }
 .link-panel { display: flex; flex-direction: column; gap: var(--sp-3); }
-.link-panel h3 { font-size: var(--fs-md); font-weight: 600; }
+.link-panel h3 { font-size: var(--fs-md); font-weight: 600; outline: none; }
 .link-panel p { color: var(--text-2); line-height: 1.55; overflow-wrap: anywhere; }
 .link-panel strong { color: var(--text); }
 .email-auth-form { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -438,8 +438,6 @@ html.dialog-open { overflow: hidden; }
 /* New visitors want to create an account: make Sign up the primary action */
 .auth-screen:not(.is-returning) #email-signup-btn { background: var(--primary); color: var(--on-primary); border-color: transparent; }
 .auth-screen:not(.is-returning) #email-signup-btn:hover { background: var(--primary-hover); }
-.auth-screen:not(.is-returning) #email-signin-btn { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
-.auth-screen:not(.is-returning) #email-signin-btn:hover { background: var(--surface-2); }
 
 .auth-screen.is-returning { align-items: center; padding-bottom: var(--sp-8); }
 .auth-screen.is-returning .auth-layout { max-width: 400px; }
@@ -698,6 +696,7 @@ html.dialog-open { overflow: hidden; }
 .verify-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 var(--sp-2); min-width: 0; }
 .verify-actions button { min-height: 44px; }
 .verify-actions .btn-icon { min-width: 44px; }
+.verify-actions button[hidden] { display: none; }
 
 .page-container { flex: 1; padding-bottom: var(--bottomnav-h); }
 .page { display: none; }

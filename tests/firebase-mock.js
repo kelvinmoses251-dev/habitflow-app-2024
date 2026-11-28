@@ -182,7 +182,7 @@ export async function signInWithPopup() { if (W.__mockPopupError) fail(W.__mockP
 export async function signInWithRedirect() { W.__mockRedirects = (W.__mockRedirects || 0) + 1; return googleSignIn(); }
 export const getRedirectResult = async () => null;
 export async function sendPasswordResetEmail(_a, email) { (W.__mockResets ||= []).push(email); }
-export async function signInWithEmailAndPassword(_a, email) { if (email.startsWith('wrong@')) fail('auth/invalid-credential'); const u = mkUser({ email, displayName: email.split('@')[0] }); setUser(u); return { user: u }; }
+export async function signInWithEmailAndPassword(_a, email) { if (email.startsWith('wrong@')) fail('auth/invalid-credential'); const u = mkUser({ email, displayName: email.split('@')[0], ...(email.startsWith('unverified@') ? { emailVerified: false, providerData: PASSWORD } : {}) }); setUser(u); return { user: u }; }
 export async function createUserWithEmailAndPassword(_a, email) { if (email.startsWith('taken@')) fail('auth/email-already-in-use'); const u = mkUser({ email, displayName: null, emailVerified: false, providerData: PASSWORD }); setUser(u); return { user: u, __new: true }; }
 export async function sendEmailVerification(u) { if (W.__mockVerifyFails) fail(W.__mockVerifyFails); (W.__mockEmails ||= []).push({ type: 'verify', email: u.email }); }
 // Like Firebase, reload refreshes the user in place and does not announce a new sign-in.
@@ -199,6 +199,7 @@ export async function sendSignInLinkToEmail(_a, email, settings) {
 export const isSignInWithEmailLink = (_a, href) => /[?&]mode=signIn(&|$)/.test(String(href)) && /[?&]oobCode=/.test(String(href));
 export async function signInWithEmailLink(_a, email, href) {
   if (/oobCode=expired/.test(String(href))) fail('auth/invalid-action-code');
+  if (W.__mockLinkFails) fail(W.__mockLinkFails);
   if (email !== (W.__mockLinkFor || 'ada@example.com')) fail('auth/invalid-email');
   const u = mkUser({ email, displayName: null, emailVerified: true, providerData: [{ providerId: 'emailLink' }] });
   setUser(u);

@@ -540,6 +540,18 @@ html.dialog-open { overflow: hidden; }
   .how-n { grid-row: auto; margin-bottom: var(--sp-2); }
 }
 
+/* The install guide */
+.install-body { display: flex; flex-direction: column; gap: var(--sp-3); }
+.install-note { color: var(--text-2); line-height: 1.55; }
+.install-note strong, .install-steps strong { color: var(--text); font-weight: 600; }
+.install-steps { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: var(--sp-2); }
+.install-steps li { counter-increment: step; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); background: var(--surface-2); border-radius: var(--r-md); color: var(--text-2); line-height: 1.45; }
+.install-steps li::before { content: counter(step); flex: none; width: 1.5rem; font-family: var(--font-display); font-size: var(--fs-xl); color: var(--muted); text-align: center; }
+.install-ic { flex: none; width: 36px; height: 36px; display: grid; place-items: center; color: var(--primary-ink); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); }
+.install-ic .icon { width: 20px; height: 20px; }
+.sf-install { display: inline-flex; align-items: center; min-height: 44px; padding: 0; font: inherit; font-size: var(--fs-ui); color: var(--text-2); background: none; border: 0; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.sf-install:hover { color: var(--primary-ink); }
+
 /* The site footer (landing page) and the What's new page */
 .site-footer { display: flex; flex-direction: column; gap: var(--sp-3); padding-top: var(--sp-6); border-top: 1px solid var(--border); }
 .sf-brand { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }

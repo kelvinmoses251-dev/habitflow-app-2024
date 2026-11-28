@@ -57,4 +57,46 @@ module.exports = (scenario, c) => {
     check('an account that already has a habit never sees the picker', !(await visible('#goal-picker')) && !(await visible('#empty-state')));
     noExceptions();
   });
+  // ── 69: a designed install experience ────────────────────
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+  const IPHONE_CHROME = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/123.0 Mobile/15E148 Safari/604.1';
+  const noOffer = `window.addEventListener('beforeinstallprompt', e => { if (!e.prompt || !window.__letOffer) e.stopImmediatePropagation(); }, true);`;
+  const profile = async opts => { await boot({ seed: signedIn(), hash: '#profile', initScript: noOffer, ...opts }); await inApp(); await sleep(500); };
+  scenario('install: Profile always offers it, with the right help for the device', async () => {
+    await profile();
+    check('Install app is in Profile whether or not the browser has offered', (await visible('#install-app-row')) && (await visible('#install-app-btn')));
+    await click('#install-app-btn');
+    check('it opens a guide, named, with a handle and a way out', (await visible('#install-modal')) && (await trim('#install-title')) === 'Install Habitly' && await ev(`!!document.querySelector('#install-modal .dialog > .sheet-handle') && !!document.querySelector('#install-modal [data-dismiss]')`));
+    check('it says what installing gives you', /home screen/i.test(await trim('#install-why')) && /offline/i.test(await trim('#install-why')), await trim('#install-why'));
+    check('with no offer from the browser, it says where to look in the menu', (await ev(`document.getElementById('install-body').dataset.platform`)) === 'manual' && /menu/i.test(await trim('#install-body')) && !(await visible('#install-go')), await trim('#install-body'));
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await sleep(350);
+    check('Escape closes it', !(await visible('#install-modal')));
+    await ev(`(() => { window.__asked = 0; window.__letOffer = true; const e = new Event('beforeinstallprompt'); e.prompt = () => { window.__asked++; }; e.userChoice = Promise.resolve({ outcome: 'accepted' }); window.dispatchEvent(e); })()`);
+    await click('#install-app-btn');
+    check('when the browser offers, the guide has one Install button', (await ev(`document.getElementById('install-body').dataset.platform`)) === 'prompt' && (await visible('#install-go')));
+    await click('#install-go'); await sleep(400);
+    check('which asks the browser to install, then closes with a thank-you', (await ev(`window.__asked`)) === 1 && !(await visible('#install-modal')) && await ev(`[...document.querySelectorAll('.toast')].some(t => /installed/i.test(t.textContent))`));
+    noExceptions();
+  });
+
+  scenario('install: iPhone gets drawn steps, and other iPhone browsers are sent to Safari', async () => {
+    await send('Emulation.setUserAgentOverride', { userAgent: IPHONE });
+    await profile();
+    await click('#install-app-btn');
+    const steps = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#install-body ol li')].map(li => ({ t: li.innerText.trim(), icon: !!li.querySelector('svg') })))`));
+    check('three numbered steps for iPhone Safari', (await ev(`document.getElementById('install-body').dataset.platform`)) === 'ios' && steps.length === 3, JSON.stringify(steps));
+    check('Share, then Add to Home Screen, then Add, each with its icon drawn', /Share/.test(steps[0].t) && /Add to Home Screen/.test(steps[1].t) && /Add/.test(steps[2].t) && steps[0].icon && steps[1].icon, JSON.stringify(steps));
+    check('no Install button is promised where the browser has none', !(await visible('#install-go')));
+    await size(320, 640); await sleep(300);
+    check('it fits a 320px phone', (await ev(`document.documentElement.scrollWidth <= innerWidth`)) && await ev(`[...document.querySelectorAll('#install-modal button')].filter(b => b.getClientRects().length).every(b => b.getBoundingClientRect().height >= 44)`));
+    await send('Emulation.setUserAgentOverride', { userAgent: IPHONE_CHROME });
+    await profile();
+    await click('#install-app-btn');
+    check('another browser on iPhone is told to open the page in Safari first', (await ev(`document.getElementById('install-body').dataset.platform`)) === 'ios-other' && /Safari/.test(await trim('#install-body')), await trim('#install-body'));
+    await send('Emulation.setUserAgentOverride', { userAgent: '' });
+    await boot({ initScript: noOffer }); await waitFor(`!document.getElementById('auth-screen').classList.contains('hidden')`); await sleep(300);
+    await click('#site-footer [data-install]');
+    check('the landing page footer opens the same guide', await visible('#install-modal'));
+    noExceptions();
+  });
 };

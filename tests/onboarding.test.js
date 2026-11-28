@@ -81,3 +81,24 @@ test('habitsForGoals: the real library gives three to five for any choice of goa
   assert.equal(habitsForGoals(tpl.TEMPLATES, tpl.TEMPLATE_GOALS.slice(0, 2)).length, 4);
   assert.equal(habitsForGoals(tpl.TEMPLATES, tpl.TEMPLATE_GOALS).length, 5);
 });
+
+// ── Which install help to show ─────────────────────────────
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+const IPHONE_CHROME = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/123.0 Mobile/15E148 Safari/604.1';
+const IPAD = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
+const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Mobile Safari/537.36';
+const FIREFOX = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0';
+
+test('installPlatform: the right help for the device', async () => {
+  const { installPlatform } = await load();
+  assert.equal(installPlatform({ ua: ANDROID, standalone: true, canPrompt: true }), 'installed', 'already running as an app');
+  assert.equal(installPlatform({ ua: ANDROID, canPrompt: true }), 'prompt', 'the browser offers to install');
+  assert.equal(installPlatform({ ua: IPHONE }), 'ios', 'iPhone Safari: Share, then Add to Home Screen');
+  assert.equal(installPlatform({ ua: IPHONE_CHROME }), 'ios-other', 'another browser on iPhone: go to Safari first');
+  assert.equal(installPlatform({ ua: IPAD, touchPoints: 5 }), 'ios', 'an iPad says it is a Mac, but has a touch screen');
+  assert.equal(installPlatform({ ua: IPAD, touchPoints: 0 }), 'manual', 'a real Mac');
+  assert.equal(installPlatform({ ua: FIREFOX }), 'manual');
+  assert.equal(installPlatform({ ua: ANDROID }), 'manual', 'Android before the browser has offered');
+  assert.equal(installPlatform({}), 'manual');
+  assert.equal(installPlatform(), 'manual');
+});

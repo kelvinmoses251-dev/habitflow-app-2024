@@ -25,7 +25,7 @@ import { habitSummary, monthGrid, weeklyRates, weekdayRates, yearCells, searchNo
 import * as habitPage from "./habit-page.js?v=1";
 import { longDay, PERIODS, periodRange, periodSummary, habitRates, barSeries, categoryBalance, trend, heatYear, dayDetail, records } from "./stats.js?v=1";
 import * as statsPage from "./stats-page.js?v=1";
-import { isEmail, rememberLinkEmail, takeLinkEmail, linkProblem, habitsForGoals } from "./onboarding.js?v=1";
+import { isEmail, rememberLinkEmail, takeLinkEmail, linkProblem, habitsForGoals, installPlatform } from "./onboarding.js?v=1";
 import { toCsv, reportModel } from "./stats-export.js?v=1";
 import { weekReview, focusChoices, focusProgress, withReview, story, suggestions } from "./stats-review.js?v=1";
 import { createSounds, SOUND_THEMES, soundTheme } from "./sounds.js?v=1";
@@ -1059,7 +1059,7 @@ function initRouter() {
 
 // ── Escape closes the top-most dialog (keyboard users were trapped in modals) ──
 const ESC_CLOSERS = [   // ordered top of the stack first
-  ['story-modal', 'story-close'], ['review-modal', 'review-close'],
+  ['install-modal', 'install-close'], ['story-modal', 'story-close'], ['review-modal', 'review-close'],
   ['share-card-modal', 'share-card-close'], ['milestone-modal', 'milestone-close'], ['level-up-modal', 'level-up-claim-btn'], ['level-modal', 'level-close'], ['achievements-modal', 'achievements-close'], ['comeback-modal', 'comeback-cancel'], ['recap-modal', 'recap-close'],
   ['confirm-export-modal', 'confirm-export-cancel'], ['confirm-check-modal', 'confirm-check-cancel'],
   ['crop-modal', 'crop-cancel'], ['recovery-modal', 'recovery-close'], ['archive-modal', 'archive-close'], ['library-modal', 'library-close'],
@@ -4426,27 +4426,51 @@ document.getElementById('timer-close')?.addEventListener('click', () => {
   document.getElementById('timer-modal').classList.add('hidden');
 });
 
-// ── PWA Install Flow ──────────────────────────────────────
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Prevent Chrome 67 and earlier from automatically showing the prompt
-  e.preventDefault();
-  // Stash the event so it can be triggered later.
-  deferredPrompt = e;
-  // Update UI to notify the user they can add to home screen
-  const installRow = document.getElementById('install-app-row');
-  if (installRow) installRow.style.display = 'flex';
+// ── Installing the app ────────────────────────────────────
+// One guide for every device. Where the browser offers to install, it is one button; on an iPhone (which has no
+// such offer) it is three drawn steps; another browser on iPhone is sent to Safari; anywhere else it says where
+// the browser keeps "Install". Opened from Profile and from the landing page footer.
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; track('app_installed'); });
+const installIcon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const IOS_STEPS = `<ol class="install-steps">
+  <li><span class="install-ic">${installIcon('ios-share')}</span><span>Tap <strong>Share</strong> in the bar at the bottom of Safari.</span></li>
+  <li><span class="install-ic">${installIcon('plus-square')}</span><span>Scroll down and tap <strong>Add to Home Screen</strong>.</span></li>
+  <li><span class="install-ic">${installIcon('check')}</span><span>Tap <strong>Add</strong>. Habitly appears among your apps.</span></li>
+</ol>`;
+const INSTALL_HELP = {
+  installed: '<p class="install-note">Habitly is already installed on this device. You are using it now.</p>',
+  prompt: '<p class="install-note">Your browser can install it for you. It takes a few seconds and uses almost no space.</p>',
+  ios: IOS_STEPS,
+  'ios-other': `<p class="install-note">On an iPhone or iPad, installing is done from <strong>Safari</strong>. Open this page in Safari, then:</p>${IOS_STEPS}`,
+  manual: '<p class="install-note">Open your browser\u2019s menu (usually three dots or lines at the top) and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>. If neither is there, this browser cannot install web apps; Chrome, Edge and Safari can.</p>',
+};
+function openInstall() {
+  const platform = installPlatform({
+    ua: navigator.userAgent, canPrompt: !!deferredPrompt, touchPoints: navigator.maxTouchPoints || 0,
+    standalone: (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true,
+  });
+  const body = document.getElementById('install-body');
+  body.dataset.platform = platform;
+  body.innerHTML = INSTALL_HELP[platform];
+  document.getElementById('install-go').hidden = platform !== 'prompt';
+  document.getElementById('install-modal').classList.remove('hidden');
+  track('install_guide_opened', { platform });
+}
+const closeInstall = () => document.getElementById('install-modal').classList.add('hidden');
+document.addEventListener('click', e => { if (e.target instanceof Element && e.target.closest('[data-install]')) openInstall(); });
+document.getElementById('install-close')?.addEventListener('click', closeInstall);
+document.getElementById('install-go')?.addEventListener('click', async () => {
+  const offer = deferredPrompt;
+  if (!offer) { closeInstall(); return; }
+  deferredPrompt = null;                                             // an offer can be used once
+  try {
+    offer.prompt();
+    const choice = await offer.userChoice;
+    if (choice && choice.outcome === 'accepted') toast('Installed. Look for Habitly among your apps.', 'success', 5000);
+  } catch (_) { /* the browser withdrew the offer */ }
+  closeInstall();
 });
 
-document.getElementById('install-app-btn')?.addEventListener('click', async () => {
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      const installRow = document.getElementById('install-app-row');
-      if (installRow) installRow.style.display = 'none';
-    }
-    deferredPrompt = null;
-  }
-});
 

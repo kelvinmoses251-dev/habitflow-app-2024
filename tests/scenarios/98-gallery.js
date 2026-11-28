@@ -305,4 +305,22 @@ module.exports = (scenario, c) => {
   for (const [tag, opts] of [['', {}], ['-dark', { colorScheme: 'dark', seed: { theme: 'dark' } }], ['-desktop', { mobile: false }]]) {
     run('b7-features' + tag, opts, async () => { await b7land('#features'); await ev(`document.querySelectorAll('#features .feature').forEach(f => f.classList.add('is-in'))`); await settle(1500); });
   }
+  const b7iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+  const b7noOffer = `window.addEventListener('beforeinstallprompt', e => e.stopImmediatePropagation(), true);`;
+  for (const [tag, opts] of [['', { seed: b6seed, initScript: b7noOffer }], ['-dark', { seed: b6seed, colorScheme: 'dark', initScript: b7noOffer }]]) {
+    run('b7-install' + tag, opts, async () => { await send('Emulation.setUserAgentOverride', { userAgent: b7iphone }); await ev(`location.reload()`); await settle(1500); await ready(); await ev(`location.hash = '#profile'`); await settle(500); await ev(`document.getElementById('install-app-btn').click()`); await settle(600); await send('Emulation.setUserAgentOverride', { userAgent: '' }); });
+  }
+  const b7empty = { ...signedIn(), mock_fb_db: { habits: {}, users: { 'u-test': { xp: 0 } } } };
+  for (const [tag, opts] of [['', { seed: b7empty }], ['-dark', { seed: b7empty, colorScheme: 'dark' }], ['-desktop', { seed: b7empty, mobile: false }]]) {
+    run('b7-goals' + tag, opts, async () => { await ready(); await waitFor(`!!document.querySelector('#goal-chips [data-goal]')`, 5000); await ev(`document.querySelector('#goal-chips [data-goal="Fitness"]').click()`); await settle(300); await ev(`document.querySelector('#goal-chips [data-goal="Calm"]').click()`); await settle(500); await ev(`document.getElementById('goal-picker').scrollIntoView({ block: 'start' }); window.scrollBy(0, -80)`); await settle(300); });
+  }
+  for (const [tag, opts] of [['', {}], ['-dark', { colorScheme: 'dark', seed: { theme: 'dark' } }], ['-desktop', { mobile: false }]]) {
+    run('b7-signin' + tag, opts, async () => { await b7land('#auth-card'); });
+    run('b7-link-sent' + tag, opts, async () => { await b7land(); await ev(`(() => { const e = document.getElementById('auth-email'); e.value = 'ada@example.com'; e.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('email-link-btn').click(); })()`); await settle(600); await ev(`document.getElementById('auth-card').scrollIntoView({ block: 'center' })`); await settle(500); });
+    run('b7-how-price-faq' + tag, opts, async () => { await b7land('#how'); });
+    run('b7-footer' + tag, opts, async () => { await b7land('#faq'); await ev(`document.querySelector('#faq summary').click()`); await settle(400); });
+  }
+  for (const [tag, opts] of [['', {}], ['-dark', { colorScheme: 'dark', seed: { theme: 'dark' } }]]) {
+    run('b7-verify' + tag, opts, async () => { await b7land(); await ev(`(() => { document.getElementById('auth-email').value = 'new@example.com'; document.getElementById('auth-password').value = 'secret1'; document.querySelector('#auth-mode [data-mode="signup"]').click(); document.getElementById('email-auth-form').requestSubmit(); })()`); await ready(); await settle(1200); });
+  }
 };

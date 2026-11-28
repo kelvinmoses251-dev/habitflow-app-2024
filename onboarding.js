@@ -58,3 +58,19 @@ export function habitsForGoals(templates, goals, have = []) {
   }
   return out;
 }
+
+// ── Which install help to show ─────────────────────────────
+//   installed   already running as an installed app
+//   prompt      the browser has offered to install (one button does it)
+//   ios         iPhone or iPad in Safari: Share, then Add to Home Screen
+//   ios-other   another browser on iPhone: it has to be done from Safari
+//   manual      anything else: the browser's own menu
+// An iPad reports itself as a Mac, so a "Mac" with a touch screen is treated as one.
+export function installPlatform({ ua = '', standalone = false, canPrompt = false, touchPoints = 0 } = {}) {
+  if (standalone) return 'installed';
+  if (canPrompt) return 'prompt';
+  const agent = String(ua);
+  const ios = /iPhone|iPad|iPod/.test(agent) || (/Macintosh/.test(agent) && touchPoints > 1);
+  if (!ios) return 'manual';
+  return /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|GSA\//.test(agent) ? 'ios-other' : 'ios';
+}
